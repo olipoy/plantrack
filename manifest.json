@@ -2,20 +2,21 @@
   "name": "Inspection Assistant",
   "short_name": "InspectAI",
   "description": "AI-powered inspection assistant for facility management technicians",
-  "start_url": "/",
+  "start_url": "/plantrack/",
+  "scope": "/plantrack/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2563EB",
-"icons": [
-  {
-    "src": "/icon-192.png",
-    "sizes": "192x192",
-    "type": "image/png"
-  },
-  {
-    "src": "/icon-512.png",
-    "sizes": "512x512",
-    "type": "image/png"
-  }
-]
+  "icons": [
+    {
+      "src": "/plantrack/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/plantrack/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
 }
