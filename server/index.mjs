@@ -11,6 +11,7 @@ import AWS from 'aws-sdk';
 import { v4 as uuidv4 } from 'uuid';
 
 dotenv.config();
+console.log("### ENV VARS ###", process.env);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
