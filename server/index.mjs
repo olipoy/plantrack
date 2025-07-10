@@ -36,9 +36,13 @@ if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
 }
 
 // Middleware
+const ALLOWED_ORIGINS = ['https://plantrack-production.up.railway.app'];
+
 app.use(cors({
   origin: (origin, callback) => {
-    callback(null, true);
+    if (!origin) return callback(null, true);
+    if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    return callback(new Error('Not allowed by CORS'));
   },
   credentials: true
 }));
