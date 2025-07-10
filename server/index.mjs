@@ -1,3 +1,4 @@
+console.log("### Running deployed server/index.mjs VERSION 999 ###");
 import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
