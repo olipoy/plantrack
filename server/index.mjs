@@ -36,8 +36,11 @@ if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
 
 // Middleware
 app.use(cors({
-  origin: NODE_ENV === 'production' 
-    ? [process.env.FRONTEND_URL, process.env.RAILWAY_STATIC_URL].filter(Boolean)
+  origin: NODE_ENV === 'production'
+    ? [process.env.FRONTEND_URL, process.env.RAILWAY_STATIC_URL]
+        .filter(Boolean)
+        .map(url => url.replace(/\/$/, ''))
+        .filter(url => /^https?:\/\/[^\s]+$/.test(url))
     : true,
   credentials: true
 }));
