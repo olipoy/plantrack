@@ -324,3 +324,15 @@ app.listen(PORT, () => {
     console.log('Serving static files from dist folder');
   }
 });
+
+app._router.stack.forEach(r => {
+  if (r.route && r.route.path) {
+    console.log('ROUTE:', r.route.path);
+  } else if (r.name === 'router') {
+    r.handle.stack.forEach(h => {
+      if (h.route && h.route.path) {
+        console.log('ROUTE:', h.route.path);
+      }
+    });
+  }
+});
