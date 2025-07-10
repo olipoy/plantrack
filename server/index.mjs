@@ -35,12 +35,14 @@ if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
 }
 
 // Middleware
+const cleanOrigins = [process.env.FRONTEND_URL, process.env.RAILWAY_STATIC_URL]
+  .filter(Boolean)
+  .map(url => url.trim().replace(/\/$/, ''))
+  .filter(url => url && url.startsWith('http') && !url.includes('git.new'));
+
 app.use(cors({
-  origin: NODE_ENV === 'production'
-    ? [process.env.FRONTEND_URL, process.env.RAILWAY_STATIC_URL]
-        .filter(Boolean)
-        .map(url => url.replace(/\/$/, ''))
-        .filter(url => /^https?:\/\/[^\s]+$/.test(url))
+  origin: NODE_ENV === 'production' && cleanOrigins.length > 0
+    ? cleanOrigins
     : true,
   credentials: true
 }));
