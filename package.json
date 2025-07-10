@@ -8,7 +8,7 @@
     "server": "node server/index.js",
     "build": "vite build && npm run build:server",
     "build:server": "cd server && npm install --production",
-    "start": "NODE_ENV=production node server/index.js",
+    "start": "NODE_ENV=production node server/index.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },
