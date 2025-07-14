@@ -379,18 +379,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
       )}
 
       <div className="flex-1 flex flex-col min-h-0">
-        {project.aiSummary && (
-          <div className="bg-blue-50 border-b border-blue-200 p-4">
-            <div className="flex items-center mb-2">
-              <Sparkles className="w-5 h-5 text-blue-600 mr-2" />
-              <h3 className="font-medium text-blue-900">AI-Sammanfattning</h3>
-            </div>
-            <div className="text-sm text-blue-800 whitespace-pre-line">
-              {project.aiSummary}
-            </div>
-          </div>
-        )}
-
         {summaryError && (
           <div className="bg-red-50 border-b border-red-200 p-4">
             <div className="flex items-center">
@@ -400,7 +388,19 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto p-4 pb-20">
+        <div className="flex-1 overflow-y-auto p-4">
+          {project.aiSummary && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
+              <div className="flex items-center mb-3">
+                <Sparkles className="w-5 h-5 text-blue-600 mr-2" />
+                <h3 className="font-medium text-blue-900">AI-Sammanfattning</h3>
+              </div>
+              <div className="text-sm text-blue-800 whitespace-pre-line max-h-64 overflow-y-auto">
+                {project.aiSummary}
+              </div>
+            </div>
+          )}
+
           {project.notes.length === 0 ? (
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center">
