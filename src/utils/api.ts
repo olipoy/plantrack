@@ -124,6 +124,35 @@ export const summarizeNotes = async (
   return response.json();
 };
 
+export const sendEmailWithPDF = async (
+  to: string,
+  subject: string,
+  pdfBuffer: string,
+  fileName: string,
+  text?: string
+): Promise<{ success: boolean; message: string }> => {
+  const response = await fetch(`${API_BASE_URL}/send-email`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      to,
+      subject,
+      text,
+      pdfBuffer,
+      fileName
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || `Email sending failed: ${response.statusText}`);
+  }
+
+  return response.json();
+};
+
 export const checkServerHealth = async () => {
   try {
     const response = await fetch(`${API_BASE_URL}/health`);

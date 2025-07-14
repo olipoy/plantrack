@@ -9,6 +9,7 @@ import dotenv from 'dotenv';
 import OpenAI from 'openai';
 import AWS from 'aws-sdk';
 import { v4 as uuidv4 } from 'uuid';
+import sgMail from '@sendgrid/mail';
 
 dotenv.config();
 console.log("### ENV VARS ###", process.env);
@@ -25,6 +26,10 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// Initialize SendGrid
+if (process.env.SENDGRID_API_KEY) {
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+}
 // Initialize AWS S3 (optional)
 let s3 = null;
 if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
@@ -316,12 +321,62 @@ app.post('/api/summarize', async (req, res) => {
     res.status(500).json({ error: 'Summarization failed' });
   }
 });
+// Email endpoint
+app.post('/api/send-email', async (req, res) => {
+  try {
+    const { to, subject, text, pdfBuffer, fileName } = req.body;
+
+    if (!process.env.SENDGRID_API_KEY) {
+      return res.status(500).json({ error: 'SendGrid API key not configured' });
+    }
+
+    if (!to || !subject || !pdfBuffer) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const msg = {
+      to,
+      from: process.env.FROM_EMAIL || 'noreply@inspektionsassistent.se',
+      subject,
+      text: text || 'Se bifogad inspektionsrapport.',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #2563EB;">Inspektionsrapport</h2>
+          <p>Hej,</p>
+          <p>Bifogat finner du inspektionsrapporten som begärts.</p>
+          <p>Rapporten har genererats automatiskt av Inspektionsassistenten.</p>
+          <br>
+          <p>Med vänliga hälsningar,<br>Inspektionsassistenten</p>
+        </div>
+      `,
+      attachments: [
+        {
+          content: pdfBuffer,
+          filename: fileName || 'inspektionsrapport.pdf',
+          type: 'application/pdf',
+          disposition: 'attachment'
+        }
+      ]
+    };
+
+    await sgMail.send(msg);
+    res.json({ success: true, message: 'Email sent successfully' });
+
+  } catch (error) {
+    console.error('Email sending error:', error);
+    res.status(500).json({ 
+      error: 'Failed to send email',
+      details: error.message 
+    });
+  }
+});
 
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     openai: !!process.env.OPENAI_API_KEY,
+    sendgrid: !!process.env.SENDGRID_API_KEY,
     s3: !!s3,
     environment: NODE_ENV
   });
