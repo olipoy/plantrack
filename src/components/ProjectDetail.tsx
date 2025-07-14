@@ -228,7 +228,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
   }
 
   return (
-    <div className="flex flex-col h-full pb-16">
+    <div className="flex flex-col h-full">
       <div className="bg-white border-b border-gray-200 px-4 py-3">
         <div className="flex items-center justify-between mb-3">
           <button
@@ -378,7 +378,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
         />
       )}
 
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-h-0">
         {project.aiSummary && (
           <div className="bg-blue-50 border-b border-blue-200 p-4">
             <div className="flex items-center mb-2">
@@ -400,7 +400,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto p-4 pb-20">
           {project.notes.length === 0 ? (
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center">
