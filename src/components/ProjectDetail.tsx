@@ -578,33 +578,34 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
         <div className="flex-1 overflow-y-auto p-4">
           {/* Report Editor Modal */}
           {showReportEditor && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+              <div className="bg-white rounded-none sm:rounded-xl w-full h-full sm:max-w-4xl sm:w-full sm:max-h-[90vh] sm:h-auto flex flex-col">
                 <div className="flex items-center justify-between p-4 border-b border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900">Redigera Rapport</h3>
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900">Redigera Rapport</h3>
                   <div className="flex items-center space-x-2">
                     <div className="flex bg-gray-100 rounded-lg p-1">
                       <button
                         onClick={() => setPreviewMode('edit')}
-                        className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                        className={`px-2 sm:px-3 py-1 rounded text-xs sm:text-sm font-medium transition-colors ${
                           previewMode === 'edit'
                             ? 'bg-white text-gray-900 shadow-sm'
                             : 'text-gray-600 hover:text-gray-900'
                         }`}
                       >
-                        <Edit3 className="w-4 h-4 mr-1 inline" />
+                        <Edit3 className="w-3 h-3 sm:w-4 sm:h-4 mr-1 inline" />
                         Redigera
                       </button>
                       <button
                         onClick={() => setPreviewMode('preview')}
-                        className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                        className={`px-2 sm:px-3 py-1 rounded text-xs sm:text-sm font-medium transition-colors ${
                           previewMode === 'preview'
                             ? 'bg-white text-gray-900 shadow-sm'
                             : 'text-gray-600 hover:text-gray-900'
                         }`}
                       >
-                        <Eye className="w-4 h-4 mr-1 inline" />
-                        Förhandsgranska
+                        <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-1 inline" />
+                        <span className="hidden sm:inline">Förhandsgranska</span>
+                        <span className="sm:hidden">Preview</span>
                       </button>
                     </div>
                     <button
@@ -618,20 +619,20 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
                 
                 <div className="flex-1 overflow-hidden">
                   {previewMode === 'edit' ? (
-                    <div className="h-full p-4">
+                    <div className="h-full p-3 sm:p-4">
                       <textarea
                         value={editableReport}
                         onChange={(e) => setEditableReport(e.target.value)}
-                        className="w-full h-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none font-mono text-sm"
+                        className="w-full h-full p-3 sm:p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none font-mono text-sm sm:text-base"
                         placeholder="Skriv din rapport här..."
                       />
                     </div>
                   ) : (
-                    <div className="h-full overflow-y-auto p-4 bg-gray-50">
-                      <div className="bg-white rounded-lg p-6 max-w-2xl mx-auto shadow-sm">
+                    <div className="h-full overflow-y-auto p-2 sm:p-4 bg-gray-50">
+                      <div className="bg-white rounded-lg p-4 sm:p-6 max-w-2xl mx-auto shadow-sm mb-4">
                         <div className="mb-6">
-                          <h1 className="text-2xl font-bold text-gray-900 mb-2">Inspektionsrapport</h1>
-                          <div className="text-sm text-gray-600 space-y-1">
+                          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">Inspektionsrapport</h1>
+                          <div className="text-xs sm:text-sm text-gray-600 space-y-1">
                             <p><strong>Projekt:</strong> {project.name}</p>
                             <p><strong>Plats:</strong> {project.location}</p>
                             <p><strong>Datum:</strong> {project.createdAt.toLocaleDateString('sv-SE')}</p>
@@ -641,8 +642,8 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
                         
                         {editableReport && (
                           <div className="mb-6">
-                            <h2 className="text-lg font-semibold text-gray-900 mb-3">Sammanfattning</h2>
-                            <div className="text-gray-800 whitespace-pre-line leading-relaxed">
+                            <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3">Sammanfattning</h2>
+                            <div className="text-sm sm:text-base text-gray-800 whitespace-pre-line leading-relaxed">
                               {editableReport}
                             </div>
                           </div>
@@ -650,14 +651,14 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
                         
                         {project.notes.length > 0 && (
                           <div>
-                            <h2 className="text-lg font-semibold text-gray-900 mb-3">Anteckningar</h2>
+                            <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3">Anteckningar</h2>
                             <div className="space-y-3">
                               {project.notes.map((note, index) => (
                                 <div key={note.id} className="border-l-4 border-blue-200 pl-4">
-                                  <div className="text-sm text-gray-600 mb-1">
+                                  <div className="text-xs sm:text-sm text-gray-600 mb-1">
                                     {index + 1}. [{note.type.toUpperCase()}] - {formatDate(note.timestamp)}
                                   </div>
-                                  <div className="text-gray-800">
+                                  <div className="text-sm sm:text-base text-gray-800">
                                     {note.transcription || note.content}
                                   </div>
                                 </div>
@@ -672,7 +673,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
                 
                 <div className="border-t border-gray-200 p-4">
                   <div className="flex justify-between items-center">
-                    <div className="text-sm text-gray-500">
+                    <div className="text-xs sm:text-sm text-gray-500">
                       {editableReport.length} tecken
                     </div>
                     <div className="flex space-x-3">
@@ -688,7 +689,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
                           onProjectUpdate(updatedProject);
                           setShowReportEditor(false);
                         }}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                        className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg text-sm sm:text-base font-medium hover:bg-blue-700 transition-colors"
                       >
                         Spara Rapport
                       </button>
