@@ -77,7 +77,7 @@ function App() {
           <>
             {currentView === 'list' && (
               <>
-                <div className="bg-white border-b border-gray-200 px-4 py-6">
+                <div className="bg-white border-b border-gray-200 px-4 py-6 sticky top-0 z-40">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center">
                       <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center mr-3">
