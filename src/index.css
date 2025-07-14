@@ -23,4 +23,14 @@
   .safe-area-pb {
     padding-bottom: env(safe-area-inset-bottom);
   }
+  
+  /* Ensure proper spacing for fixed footer */
+  .pb-16 {
+    padding-bottom: 4rem;
+  }
+  
+  /* Add safe area support for fixed footer */
+  .fixed-footer {
+    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+  }
 }

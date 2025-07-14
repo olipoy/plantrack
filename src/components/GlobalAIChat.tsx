@@ -166,7 +166,7 @@ export const GlobalAIChat: React.FC<GlobalAIChatProps> = ({ projects }) => {
   }
 
   return (
-    <div className="flex-1 flex flex-col">
+    <div className="flex-1 flex flex-col pb-16">
       <div className="bg-white border-b border-gray-200 px-4 py-6">
         <div className="flex items-center">
           <div className="w-10 h-10 bg-purple-600 rounded-xl flex items-center justify-center mr-3">

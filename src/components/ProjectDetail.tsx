@@ -228,7 +228,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full pb-16">
       <div className="bg-white border-b border-gray-200 px-4 py-3">
         <div className="flex items-center justify-between mb-3">
           <button
