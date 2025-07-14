@@ -527,7 +527,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
             </button>
             <label className="flex flex-col items-center justify-center p-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors cursor-pointer">
               <Upload className="w-5 h-5 mb-1" />
-              <span className="text-xs font-medium">Ladda upp</span>
+              <span className="text-xs font-medium text-center leading-tight">Ladda upp</span>
               <input
                 type="file"
                 accept="image/*,video/*"
