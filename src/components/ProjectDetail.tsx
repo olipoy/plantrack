@@ -401,7 +401,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
         )}
 
         <div className="flex-1 overflow-y-auto p-4 pb-20">
-          {project.notes.length === 0 ? (
+        <div className="flex-1 overflow-y-auto p-4 pb-14">
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center">
                 <Camera className="w-16 h-16 text-gray-400 mx-auto mb-4" />
@@ -495,42 +495,39 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
             <button
               onClick={handleGenerateSummary}
               disabled={isGeneratingSummary}
-              className="w-full bg-teal-600 text-white py-3 px-4 rounded-xl font-medium hover:bg-teal-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-200 flex items-center justify-center mb-4"
+              className="w-full bg-teal-600 text-white py-2.5 px-4 rounded-lg font-medium hover:bg-teal-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-200 flex items-center justify-center mb-3"
             >
               {isGeneratingSummary ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>
-                  <Sparkles className="w-5 h-5 mr-2" />
+                  <Sparkles className="w-4 h-4 mr-2" />
                   Generera AI-sammanfattning
                 </>
               )}
             </button>
           )}
           
-          <div className="grid grid-cols-2 gap-3 mb-3">
+          <div className="grid grid-cols-4 gap-2">
             <button
               onClick={() => openMediaRecorder('photo')}
               disabled={project.notes.length >= 20}
-              className="flex flex-col items-center justify-center p-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+              className="flex flex-col items-center justify-center p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
             >
-              <Camera className="w-6 h-6 mb-1" />
-              <span className="text-sm font-medium">Foto</span>
+              <Camera className="w-5 h-5 mb-1" />
+              <span className="text-xs font-medium">Foto</span>
             </button>
             <button
               onClick={() => openMediaRecorder('video')}
               disabled={project.notes.length >= 20}
-              className="flex flex-col items-center justify-center p-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+              className="flex flex-col items-center justify-center p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
             >
-              <Video className="w-6 h-6 mb-1" />
-              <span className="text-sm font-medium">Video</span>
+              <Video className="w-5 h-5 mb-1" />
+              <span className="text-xs font-medium">Video</span>
             </button>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-3">
-            <label className="flex flex-col items-center justify-center p-4 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors cursor-pointer">
-              <Upload className="w-6 h-6 mb-1" />
-              <span className="text-sm font-medium">Ladda upp</span>
+            <label className="flex flex-col items-center justify-center p-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors cursor-pointer">
+              <Upload className="w-5 h-5 mb-1" />
+              <span className="text-xs font-medium">Ladda upp</span>
               <input
                 type="file"
                 accept="image/*,video/*"
@@ -542,15 +539,15 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
             <button
               onClick={() => setShowAddNoteModal(true)}
               disabled={project.notes.length >= 20}
-              className="flex flex-col items-center justify-center p-4 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+              className="flex flex-col items-center justify-center p-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
             >
-              <FileText className="w-6 h-6 mb-1" />
-              <span className="text-sm font-medium">Text</span>
+              <FileText className="w-5 h-5 mb-1" />
+              <span className="text-xs font-medium">Text</span>
             </button>
           </div>
           
           {project.notes.length >= 20 && (
-            <p className="text-xs text-gray-500 text-center mt-2">
+            <p className="text-xs text-gray-500 text-center mt-1">
               Maximalt antal anteckningar (20) har nåtts
             </p>
           )}
