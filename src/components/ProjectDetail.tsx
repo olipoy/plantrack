@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Project, Note } from '../types';
-import { ArrowLeft, Plus, Camera, Video, Download, Sparkles, AlertCircle, Play, Image, MapPin, Calendar, User, Trash2, MoreVertical, Upload, FileText, X, Mail, Send, CheckCircle, XCircle } from 'lucide-react';
+import { ArrowLeft, Plus, Camera, Video, Download, Sparkles, AlertCircle, Play, Image, MapPin, Calendar, User, Trash2, MoreVertical, Upload, FileText, X, Mail, Send, CheckCircle, XCircle, Edit3, Eye } from 'lucide-react';
 import { MediaRecorder } from './MediaRecorder';
 import { exportProjectToPDF, generateProjectPDF } from '../utils/export';
 import { addNoteToProject, deleteProject, deleteNoteFromProject, generateId } from '../utils/storage';
@@ -16,8 +16,11 @@ interface ProjectDetailProps {
 export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onProjectUpdate, onProjectDelete }) => {
   const [showMediaRecorder, setShowMediaRecorder] = useState(false);
   const [mediaType, setMediaType] = useState<'photo' | 'video'>('photo');
-  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
-  const [summaryError, setSummaryError] = useState('');
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [reportError, setReportError] = useState('');
+  const [showReportEditor, setShowReportEditor] = useState(false);
+  const [editableReport, setEditableReport] = useState('');
+  const [previewMode, setPreviewMode] = useState<'edit' | 'preview'>('edit');
   const [selectedMedia, setSelectedMedia] = useState<Note | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
@@ -29,6 +32,13 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
   const [isEmailSending, setIsEmailSending] = useState(false);
   const [emailStatus, setEmailStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [emailError, setEmailError] = useState('');
+
+  // Initialize editable report when AI summary exists
+  React.useEffect(() => {
+    if (project.aiSummary && !editableReport) {
+      setEditableReport(project.aiSummary);
+    }
+  }, [project.aiSummary, editableReport]);
 
   const handleAddNote = async (note: Omit<Note, 'id'>) => {
     const projects = addNoteToProject(project.id, note);
@@ -94,9 +104,9 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
     onProjectDelete();
   };
 
-  const handleGenerateSummary = async () => {
-    setIsGeneratingSummary(true);
-    setSummaryError('');
+  const handleCreateReport = async () => {
+    setIsGeneratingReport(true);
+    setReportError('');
     
     try {
       const noteTexts = project.notes.map(note => note.transcription || note.content);
@@ -104,11 +114,20 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
       
       const updatedProject = { ...project, aiSummary: response.summary };
       onProjectUpdate(updatedProject);
+      setEditableReport(response.summary);
+      setShowReportEditor(true);
     } catch (error) {
-      console.error('Error generating summary:', error);
-      setSummaryError('Kunde inte generera sammanfattning. Kontrollera internetanslutningen och försök igen.');
+      console.error('Error generating report:', error);
+      setReportError('Kunde inte generera rapport. Kontrollera internetanslutningen och försök igen.');
     } finally {
-      setIsGeneratingSummary(false);
+      setIsGeneratingReport(false);
+    }
+  };
+
+  const handleShowReportEditor = () => {
+    if (project.aiSummary) {
+      setEditableReport(project.aiSummary);
+      setShowReportEditor(true);
     }
   };
 
@@ -129,7 +148,11 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
     
     try {
       // Generate PDF
-      const { pdfBuffer, fileName } = await generateProjectPDF(project);
+      const reportText = editableReport || project.aiSummary || '';
+      const { pdfBuffer, fileName } = await generateProjectPDF({
+        ...project,
+        aiSummary: reportText
+      });
       
       // Send email
       await sendEmailWithPDF(
@@ -157,7 +180,11 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
 
   const handleExport = async () => {
     try {
-      await exportProjectToPDF(project);
+      const reportText = editableReport || project.aiSummary || '';
+      await exportProjectToPDF({
+        ...project,
+        aiSummary: reportText
+      });
     } catch (error) {
       console.error('Error exporting PDF:', error);
     }
@@ -539,24 +566,157 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
       )}
 
       <div className="flex-1 flex flex-col min-h-0">
-        {summaryError && (
+        {reportError && (
           <div className="bg-red-50 border-b border-red-200 p-4">
             <div className="flex items-center">
               <AlertCircle className="w-5 h-5 text-red-600 mr-2" />
-              <p className="text-sm text-red-800">{summaryError}</p>
+              <p className="text-sm text-red-800">{reportError}</p>
             </div>
           </div>
         )}
 
         <div className="flex-1 overflow-y-auto p-4">
-          {project.aiSummary && (
+          {/* Report Editor Modal */}
+          {showReportEditor && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+                <div className="flex items-center justify-between p-4 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900">Redigera Rapport</h3>
+                  <div className="flex items-center space-x-2">
+                    <div className="flex bg-gray-100 rounded-lg p-1">
+                      <button
+                        onClick={() => setPreviewMode('edit')}
+                        className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                          previewMode === 'edit'
+                            ? 'bg-white text-gray-900 shadow-sm'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        <Edit3 className="w-4 h-4 mr-1 inline" />
+                        Redigera
+                      </button>
+                      <button
+                        onClick={() => setPreviewMode('preview')}
+                        className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                          previewMode === 'preview'
+                            ? 'bg-white text-gray-900 shadow-sm'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        <Eye className="w-4 h-4 mr-1 inline" />
+                        Förhandsgranska
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => setShowReportEditor(false)}
+                      className="p-1 text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="flex-1 overflow-hidden">
+                  {previewMode === 'edit' ? (
+                    <div className="h-full p-4">
+                      <textarea
+                        value={editableReport}
+                        onChange={(e) => setEditableReport(e.target.value)}
+                        className="w-full h-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none font-mono text-sm"
+                        placeholder="Skriv din rapport här..."
+                      />
+                    </div>
+                  ) : (
+                    <div className="h-full overflow-y-auto p-4 bg-gray-50">
+                      <div className="bg-white rounded-lg p-6 max-w-2xl mx-auto shadow-sm">
+                        <div className="mb-6">
+                          <h1 className="text-2xl font-bold text-gray-900 mb-2">Inspektionsrapport</h1>
+                          <div className="text-sm text-gray-600 space-y-1">
+                            <p><strong>Projekt:</strong> {project.name}</p>
+                            <p><strong>Plats:</strong> {project.location}</p>
+                            <p><strong>Datum:</strong> {project.createdAt.toLocaleDateString('sv-SE')}</p>
+                            <p><strong>Inspektör:</strong> {project.inspector}</p>
+                          </div>
+                        </div>
+                        
+                        {editableReport && (
+                          <div className="mb-6">
+                            <h2 className="text-lg font-semibold text-gray-900 mb-3">Sammanfattning</h2>
+                            <div className="text-gray-800 whitespace-pre-line leading-relaxed">
+                              {editableReport}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {project.notes.length > 0 && (
+                          <div>
+                            <h2 className="text-lg font-semibold text-gray-900 mb-3">Anteckningar</h2>
+                            <div className="space-y-3">
+                              {project.notes.map((note, index) => (
+                                <div key={note.id} className="border-l-4 border-blue-200 pl-4">
+                                  <div className="text-sm text-gray-600 mb-1">
+                                    {index + 1}. [{note.type.toUpperCase()}] - {formatDate(note.timestamp)}
+                                  </div>
+                                  <div className="text-gray-800">
+                                    {note.transcription || note.content}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="border-t border-gray-200 p-4">
+                  <div className="flex justify-between items-center">
+                    <div className="text-sm text-gray-500">
+                      {editableReport.length} tecken
+                    </div>
+                    <div className="flex space-x-3">
+                      <button
+                        onClick={() => setShowReportEditor(false)}
+                        className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                      >
+                        Stäng
+                      </button>
+                      <button
+                        onClick={() => {
+                          const updatedProject = { ...project, aiSummary: editableReport };
+                          onProjectUpdate(updatedProject);
+                          setShowReportEditor(false);
+                        }}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                      >
+                        Spara Rapport
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {project.aiSummary && !showReportEditor && (
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
               <div className="flex items-center mb-3">
                 <Sparkles className="w-5 h-5 text-blue-600 mr-2" />
-                <h3 className="font-medium text-blue-900">AI-Sammanfattning</h3>
+                <div className="flex items-center">
+                  <Sparkles className="w-5 h-5 text-blue-600 mr-2" />
+                  <h3 className="font-medium text-blue-900">Rapport</h3>
+                </div>
+                <button
+                  onClick={handleShowReportEditor}
+                  className="text-blue-600 hover:text-blue-800 p-1"
+                  title="Redigera rapport"
+                >
+                  <Edit3 className="w-4 h-4" />
+                </button>
               </div>
               <div className="text-sm text-blue-800 whitespace-pre-line max-h-64 overflow-y-auto">
-                {project.aiSummary}
+                {editableReport || project.aiSummary}
               </div>
             </div>
           )}
@@ -653,18 +813,28 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
         <div className="bg-white border-t border-gray-200 p-4">
           {project.notes.length > 0 && !project.aiSummary && (
             <button
-              onClick={handleGenerateSummary}
-              disabled={isGeneratingSummary}
+              onClick={handleCreateReport}
+              disabled={isGeneratingReport}
               className="w-full bg-teal-600 text-white py-2.5 px-4 rounded-lg font-medium hover:bg-teal-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-200 flex items-center justify-center mb-3"
             >
-              {isGeneratingSummary ? (
+              {isGeneratingReport ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>
                   <Sparkles className="w-4 h-4 mr-2" />
-                  Generera AI-sammanfattning
+                  Skapa Rapport
                 </>
               )}
+            </button>
+          )}
+          
+          {project.aiSummary && (
+            <button
+              onClick={handleShowReportEditor}
+              className="w-full bg-blue-600 text-white py-2.5 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center mb-3"
+            >
+              <Edit3 className="w-4 h-4 mr-2" />
+              Redigera Rapport
             </button>
           )}
           
