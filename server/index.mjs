@@ -45,10 +45,9 @@ function cleanEnvUrl(url) {
     .replace(/^http(s?):\/\//, 'https://'); // enforce https
 }
 
-const FRONTEND_URL = cleanEnvUrl(process.env.FRONTEND_URL);
-const RAILWAY_STATIC_URL = cleanEnvUrl(process.env.RAILWAY_STATIC_URL);
-
-const ALLOWED_ORIGINS = [FRONTEND_URL, RAILWAY_STATIC_URL].filter(Boolean);
+const ALLOWED_ORIGINS = [
+  'https://plantrack-production.up.railway.app'
+];
 
 app.use(cors({
   origin: (origin, callback) => {
