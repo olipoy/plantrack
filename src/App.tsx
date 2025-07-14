@@ -72,7 +72,7 @@ function App() {
   return (
     <div className="h-screen bg-gray-50 flex flex-col relative">
       {/* Main Content Area */}
-      <div className="flex-1 overflow-hidden pb-16">
+      <div className="flex-1 overflow-hidden">
         {activeTab === 'projects' && (
           <>
             {currentView === 'list' && (
@@ -96,7 +96,9 @@ function App() {
                     </button>
                   </div>
                 </div>
-                <ProjectList projects={projects} onSelectProject={handleSelectProject} />
+                <div className="h-full overflow-hidden">
+                  <ProjectList projects={projects} onSelectProject={handleSelectProject} />
+                </div>
               </>
             )}
 
@@ -116,12 +118,14 @@ function App() {
         )}
 
         {activeTab === 'ai' && (
-          <GlobalAIChat projects={projects} />
+          <div className="h-full">
+            <GlobalAIChat projects={projects} />
+          </div>
         )}
       </div>
 
       {/* Footer Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 safe-area-pb z-50">
+      <div className="bg-white border-t border-gray-200 px-4 py-2 safe-area-pb z-50 flex-shrink-0">
         <div className="flex">
           <button
             onClick={() => handleTabChange('projects')}
