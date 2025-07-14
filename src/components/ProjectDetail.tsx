@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Project, Note } from '../types';
-import { ArrowLeft, Plus, Camera, Video, Download, Sparkles, AlertCircle, Play, Image, MapPin, Calendar, User, Trash2, MoreVertical } from 'lucide-react';
+import { ArrowLeft, Plus, Camera, Video, Download, Sparkles, AlertCircle, Play, Image, MapPin, Calendar, User, Trash2, MoreVertical, Upload, FileText, X } from 'lucide-react';
 import { MediaRecorder } from './MediaRecorder';
 import { exportProjectToPDF } from '../utils/export';
-import { addNoteToProject, deleteProject } from '../utils/storage';
+import { addNoteToProject, deleteProject, deleteNoteFromProject, generateId } from '../utils/storage';
 import { summarizeNotes } from '../utils/api';
 
 interface ProjectDetailProps {
@@ -21,6 +21,8 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
   const [selectedMedia, setSelectedMedia] = useState<Note | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const [showAddNoteModal, setShowAddNoteModal] = useState(false);
+  const [newNoteText, setNewNoteText] = useState('');
 
   const handleAddNote = async (note: Omit<Note, 'id'>) => {
     const projects = addNoteToProject(project.id, note);
@@ -29,6 +31,56 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
       onProjectUpdate(updatedProject);
     }
     setShowMediaRecorder(false);
+  };
+
+  const handleDeleteNote = (noteId: string) => {
+    const projects = deleteNoteFromProject(project.id, noteId);
+    const updatedProject = projects.find(p => p.id === project.id);
+    if (updatedProject) {
+      onProjectUpdate(updatedProject);
+    }
+  };
+
+  const handleAddTextNote = () => {
+    if (!newNoteText.trim()) return;
+    
+    const note: Omit<Note, 'id'> = {
+      type: 'text',
+      content: newNoteText.trim(),
+      timestamp: new Date()
+    };
+    
+    handleAddNote(note);
+    setNewNoteText('');
+    setShowAddNoteModal(false);
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (project.notes.length >= 20) {
+      alert('Du kan ha maximalt 20 anteckningar per projekt.');
+      return;
+    }
+
+    // Create a note with the uploaded file
+    const fileUrl = URL.createObjectURL(file);
+    const fileType = file.type.startsWith('image/') ? 'photo' : 'video';
+    
+    const note: Omit<Note, 'id'> = {
+      type: fileType,
+      content: fileType === 'photo' ? 'Uppladdad bild' : 'Uppladdad video',
+      timestamp: new Date(),
+      fileUrl,
+      fileName: file.name,
+      fileSize: file.size
+    };
+    
+    handleAddNote(note);
+    
+    // Reset the input
+    event.target.value = '';
   };
 
   const handleDeleteProject = () => {
@@ -93,6 +145,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
     switch (type) {
       case 'photo': return <Camera className="w-4 h-4" />;
       case 'video': return <Video className="w-4 h-4" />;
+      case 'text': return <FileText className="w-4 h-4" />;
       default: return <Camera className="w-4 h-4" />;
     }
   };
@@ -133,7 +186,17 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
           <h1 className="text-lg font-semibold">
             {selectedMedia.type === 'photo' ? 'Foto' : 'Video'}
           </h1>
-          <div className="w-9" />
+          <button
+            onClick={() => {
+              if (confirm('Är du säker på att du vill ta bort denna anteckning?')) {
+                handleDeleteNote(selectedMedia.id);
+                setSelectedMedia(null);
+              }
+            }}
+            className="p-2 text-white hover:bg-red-600 rounded-lg transition-colors"
+          >
+            <Trash2 className="w-5 h-5" />
+          </button>
         </div>
 
         <div className="flex-1 flex items-center justify-center">
@@ -167,26 +230,13 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
   return (
     <div className="flex flex-col h-full">
       <div className="bg-white border-b border-gray-200 px-4 py-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center flex-1 min-w-0">
-            <button
-              onClick={onBack}
-              className="mr-3 p-2 -ml-2 text-gray-600 hover:text-gray-900 active:bg-gray-100 rounded-lg transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <div className="min-w-0 flex-1">
-              <h1 className="text-lg font-semibold text-gray-900 truncate">{project.name}</h1>
-              <div className="flex items-center text-sm text-gray-500 mt-1">
-                <MapPin className="w-4 h-4 mr-1" />
-                <span className="truncate mr-4">{project.location}</span>
-                <Calendar className="w-4 h-4 mr-1" />
-                <span className="mr-4">{formatProjectDate(project.date)}</span>
-                <User className="w-4 h-4 mr-1" />
-                <span className="truncate">{project.inspector}</span>
-              </div>
-            </div>
-          </div>
+        <div className="flex items-center justify-between mb-3">
+          <button
+            onClick={onBack}
+            className="p-2 -ml-2 text-gray-600 hover:text-gray-900 active:bg-gray-100 rounded-lg transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
           <div className="flex items-center space-x-2">
             <button
               onClick={handleExport}
@@ -219,7 +269,74 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
             </div>
           </div>
         </div>
+        
+        {/* Project Info - Mobile Optimized */}
+        <div className="space-y-2">
+          <h1 className="text-lg font-semibold text-gray-900">{project.name}</h1>
+          <div className="grid grid-cols-1 gap-2 text-sm text-gray-600">
+            <div className="flex items-center">
+              <MapPin className="w-4 h-4 mr-2 text-gray-400 flex-shrink-0" />
+              <span className="truncate">{project.location}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <Calendar className="w-4 h-4 mr-2 text-gray-400" />
+                <span>{formatProjectDate(project.date)}</span>
+              </div>
+              <div className="flex items-center">
+                <User className="w-4 h-4 mr-2 text-gray-400" />
+                <span className="truncate">{project.inspector}</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
+
+      {/* Add Note Modal */}
+      {showAddNoteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Lägg till textanteckning</h3>
+              <button
+                onClick={() => {
+                  setShowAddNoteModal(false);
+                  setNewNoteText('');
+                }}
+                className="p-1 text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <textarea
+              value={newNoteText}
+              onChange={(e) => setNewNoteText(e.target.value)}
+              placeholder="Skriv din anteckning här..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              rows={4}
+              autoFocus
+            />
+            <div className="flex space-x-3 mt-4">
+              <button
+                onClick={() => {
+                  setShowAddNoteModal(false);
+                  setNewNoteText('');
+                }}
+                className="flex-1 bg-gray-100 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+              >
+                Avbryt
+              </button>
+              <button
+                onClick={handleAddTextNote}
+                disabled={!newNoteText.trim()}
+                className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+              >
+                Spara
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
@@ -306,7 +423,9 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center">
-                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${
+                        note.type === 'text' ? 'bg-green-100' : 'bg-blue-100'
+                      }`}>
                         {getTypeIcon(note.type)}
                       </div>
                       <div>
@@ -318,12 +437,25 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
                         )}
                       </div>
                     </div>
-                    <span className="text-xs text-gray-400">{formatDate(note.timestamp)}</span>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs text-gray-400">{formatDate(note.timestamp)}</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm('Är du säker på att du vill ta bort denna anteckning?')) {
+                            handleDeleteNote(note.id);
+                          }
+                        }}
+                        className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                   
-                  {note.transcription && (
+                  {(note.transcription || note.content) && (
                     <p className="text-gray-900 whitespace-pre-wrap mb-3">
-                      {note.transcription}
+                      {note.transcription || note.content}
                     </p>
                   )}
                   
@@ -376,7 +508,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
             </button>
           )}
           
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 mb-3">
             <button
               onClick={() => openMediaRecorder('photo')}
               disabled={project.notes.length >= 20}
@@ -392,6 +524,28 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
             >
               <Video className="w-6 h-6 mb-1" />
               <span className="text-sm font-medium">Video</span>
+            </button>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-3">
+            <label className="flex flex-col items-center justify-center p-4 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors cursor-pointer">
+              <Upload className="w-6 h-6 mb-1" />
+              <span className="text-sm font-medium">Ladda upp</span>
+              <input
+                type="file"
+                accept="image/*,video/*"
+                onChange={handleFileUpload}
+                className="hidden"
+                disabled={project.notes.length >= 20}
+              />
+            </label>
+            <button
+              onClick={() => setShowAddNoteModal(true)}
+              disabled={project.notes.length >= 20}
+              className="flex flex-col items-center justify-center p-4 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+            >
+              <FileText className="w-6 h-6 mb-1" />
+              <span className="text-sm font-medium">Text</span>
             </button>
           </div>
           

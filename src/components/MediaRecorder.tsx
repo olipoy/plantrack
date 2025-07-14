@@ -175,7 +175,7 @@ export const MediaRecorder: React.FC<MediaRecorderProps> = ({ type, projectId, o
         // Wait a moment to show success state
         setTimeout(() => {
           onSave(note);
-        }, 1500);
+        }, 1000);
       } else {
         throw new Error('Upload failed');
       }

@@ -1,9 +1,25 @@
 import { Project, Note } from '../types';
 
 const STORAGE_KEY = 'inspection-projects';
+const CHAT_HISTORY_KEY = 'ai-chat-history';
 
 export const saveProjects = (projects: Project[]) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+};
+
+export const saveChatHistory = (messages: any[]) => {
+  localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(messages));
+};
+
+export const loadChatHistory = () => {
+  const stored = localStorage.getItem(CHAT_HISTORY_KEY);
+  if (!stored) return [];
+  
+  const messages = JSON.parse(stored);
+  return messages.map((m: any) => ({
+    ...m,
+    timestamp: new Date(m.timestamp)
+  }));
 };
 
 export const loadProjects = (): Project[] => {
@@ -52,6 +68,19 @@ export const addNoteToProject = (projectId: string, note: Omit<Note, 'id'>): Pro
   };
   
   projects[projectIndex].notes.push(newNote);
+  projects[projectIndex].updatedAt = new Date();
+  
+  saveProjects(projects);
+  return projects;
+};
+
+export const deleteNoteFromProject = (projectId: string, noteId: string): Project[] => {
+  const projects = loadProjects();
+  const projectIndex = projects.findIndex(p => p.id === projectId);
+  
+  if (projectIndex === -1) return projects;
+  
+  projects[projectIndex].notes = projects[projectIndex].notes.filter(n => n.id !== noteId);
   projects[projectIndex].updatedAt = new Date();
   
   saveProjects(projects);
