@@ -401,7 +401,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
         )}
 
         <div className="flex-1 overflow-y-auto p-4 pb-20">
-        <div className="flex-1 overflow-y-auto p-4 pb-14">
+          {project.notes.length === 0 ? (
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center">
                 <Camera className="w-16 h-16 text-gray-400 mx-auto mb-4" />
