@@ -337,14 +337,16 @@ app.listen(PORT, () => {
   }
 });
 
-app._router.stack.forEach(r => {
-  if (r.route && r.route.path) {
-    console.log('ROUTE:', r.route.path);
-  } else if (r.name === 'router') {
-    r.handle.stack.forEach(h => {
-      if (h.route && h.route.path) {
-        console.log('ROUTE:', h.route.path);
-      }
-    });
-  }
-});
+if (app._router && app._router.stack) {
+  app._router.stack.forEach(r => {
+    if (r.route && r.route.path) {
+      console.log('ROUTE:', r.route.path);
+    } else if (r.name === 'router' && r.handle && r.handle.stack) {
+      r.handle.stack.forEach(h => {
+        if (h.route && h.route.path) {
+          console.log('ROUTE:', h.route.path);
+        }
+      });
+    }
+  });
+}
