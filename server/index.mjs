@@ -70,7 +70,7 @@ if (NODE_ENV === 'production') {
   app.use('/uploads', express.static(join(__dirname, 'uploads')));
   
   // Handle client-side routing - serve index.html for all non-API routes
-  app.get('*', (req, res, next) => {
+  app.use((req, res, next) => {
     // Skip API routes
     if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) {
       return next();
