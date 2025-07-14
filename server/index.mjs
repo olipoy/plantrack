@@ -37,7 +37,18 @@ if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
 }
 
 // Middleware
-const ALLOWED_ORIGINS = ['https://plantrack-production.up.railway.app'];
+function cleanEnvUrl(url) {
+  if (!url) return null;
+  return url.trim()
+    .replace(/[;,\s]+$/g, '')    // remove trailing garbage
+    .replace(/\/+$/, '')         // remove trailing slashes
+    .replace(/^http(s?):\/\//, 'https://'); // enforce https
+}
+
+const FRONTEND_URL = cleanEnvUrl(process.env.FRONTEND_URL);
+const RAILWAY_STATIC_URL = cleanEnvUrl(process.env.RAILWAY_STATIC_URL);
+
+const ALLOWED_ORIGINS = [FRONTEND_URL, RAILWAY_STATIC_URL].filter(Boolean);
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -47,6 +58,7 @@ app.use(cors({
   },
   credentials: true
 }));
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
