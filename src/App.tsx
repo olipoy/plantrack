@@ -73,52 +73,52 @@ function App() {
     <div className="h-screen bg-gray-50 flex flex-col relative">
       {/* Main Content Area */}
       <div className="flex-1 overflow-hidden pb-16">
-      {activeTab === 'projects' && (
-        <>
-          {currentView === 'list' && (
-            <>
-              <div className="bg-white border-b border-gray-200 px-4 py-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center mr-3">
-                      <ClipboardList className="w-6 h-6 text-white" />
+        {activeTab === 'projects' && (
+          <>
+            {currentView === 'list' && (
+              <>
+                <div className="bg-white border-b border-gray-200 px-4 py-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center mr-3">
+                        <ClipboardList className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <h1 className="text-xl font-bold text-gray-900">Inspektionsassistent</h1>
+                        <p className="text-sm text-gray-500">AI-driven facilitetsinspektioner</p>
+                      </div>
                     </div>
-                    <div>
-                      <h1 className="text-xl font-bold text-gray-900">Inspektionsassistent</h1>
-                      <p className="text-sm text-gray-500">AI-driven facilitetsinspektioner</p>
-                    </div>
+                    <button
+                      onClick={() => setCurrentView('new')}
+                      className="w-12 h-12 bg-blue-600 text-white rounded-xl flex items-center justify-center hover:bg-blue-700 transition-colors shadow-lg"
+                    >
+                      <Plus className="w-6 h-6" />
+                    </button>
                   </div>
-                  <button
-                    onClick={() => setCurrentView('new')}
-                    className="w-12 h-12 bg-blue-600 text-white rounded-xl flex items-center justify-center hover:bg-blue-700 transition-colors shadow-lg"
-                  >
-                    <Plus className="w-6 h-6" />
-                  </button>
                 </div>
-              </div>
-              <ProjectList projects={projects} onSelectProject={handleSelectProject} />
-            </>
-          )}
+                <ProjectList projects={projects} onSelectProject={handleSelectProject} />
+              </>
+            )}
 
-          {currentView === 'new' && (
-            <NewProject onBack={handleBackToList} onProjectCreated={handleProjectCreated} />
-          )}
+            {currentView === 'new' && (
+              <NewProject onBack={handleBackToList} onProjectCreated={handleProjectCreated} />
+            )}
 
-          {currentView === 'detail' && selectedProject && (
-            <ProjectDetail
-              project={selectedProject}
-              onBack={handleBackToList}
-              onProjectUpdate={handleProjectUpdate}
-              onProjectDelete={handleProjectDelete}
-            />
-          )}
-        </>
-      )}
+            {currentView === 'detail' && selectedProject && (
+              <ProjectDetail
+                project={selectedProject}
+                onBack={handleBackToList}
+                onProjectUpdate={handleProjectUpdate}
+                onProjectDelete={handleProjectDelete}
+              />
+            )}
+          </>
+        )}
 
-      {activeTab === 'ai' && (
-        <GlobalAIChat projects={projects} />
+        {activeTab === 'ai' && (
+          <GlobalAIChat projects={projects} />
+        )}
       </div>
-      )}
 
       {/* Footer Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 safe-area-pb z-50">
