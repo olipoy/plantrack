@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { Project, Note } from '../types';
-import { ArrowLeft, Plus, Camera, Video, Download, Sparkles, AlertCircle, Play, Image, MapPin, Calendar, User, Trash2, MoreVertical, Upload, FileText, X } from 'lucide-react';
+import { ArrowLeft, Plus, Camera, Video, Download, Sparkles, AlertCircle, Play, Image, MapPin, Calendar, User, Trash2, MoreVertical, Upload, FileText, X, Mail, Send, CheckCircle, XCircle } from 'lucide-react';
 import { MediaRecorder } from './MediaRecorder';
-import { exportProjectToPDF } from '../utils/export';
+import { exportProjectToPDF, generateProjectPDF } from '../utils/export';
 import { addNoteToProject, deleteProject, deleteNoteFromProject, generateId } from '../utils/storage';
-import { summarizeNotes } from '../utils/api';
+import { summarizeNotes, sendEmailWithPDF } from '../utils/api';
 
 interface ProjectDetailProps {
   project: Project;
@@ -23,6 +23,12 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [showAddNoteModal, setShowAddNoteModal] = useState(false);
   const [newNoteText, setNewNoteText] = useState('');
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailAddress, setEmailAddress] = useState('');
+  const [emailSubject, setEmailSubject] = useState('');
+  const [isEmailSending, setIsEmailSending] = useState(false);
+  const [emailStatus, setEmailStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [emailError, setEmailError] = useState('');
 
   const handleAddNote = async (note: Omit<Note, 'id'>) => {
     const projects = addNoteToProject(project.id, note);
@@ -103,6 +109,49 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
       setSummaryError('Kunde inte generera sammanfattning. Kontrollera internetanslutningen och försök igen.');
     } finally {
       setIsGeneratingSummary(false);
+    }
+  };
+
+  const handleOpenEmailModal = () => {
+    setEmailAddress('');
+    setEmailSubject(`Inspektionsrapport - ${project.name}`);
+    setEmailStatus('idle');
+    setEmailError('');
+    setShowEmailModal(true);
+  };
+
+  const handleSendEmail = async () => {
+    if (!emailAddress.trim() || !emailSubject.trim()) return;
+    
+    setIsEmailSending(true);
+    setEmailStatus('idle');
+    setEmailError('');
+    
+    try {
+      // Generate PDF
+      const { pdfBuffer, fileName } = await generateProjectPDF(project);
+      
+      // Send email
+      await sendEmailWithPDF(
+        emailAddress.trim(),
+        emailSubject.trim(),
+        pdfBuffer,
+        fileName
+      );
+      
+      setEmailStatus('success');
+      
+      // Close modal after success
+      setTimeout(() => {
+        setShowEmailModal(false);
+      }, 2000);
+      
+    } catch (error) {
+      console.error('Error sending email:', error);
+      setEmailStatus('error');
+      setEmailError(error instanceof Error ? error.message : 'Kunde inte skicka e-post');
+    } finally {
+      setIsEmailSending(false);
     }
   };
 
@@ -241,8 +290,16 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
             <button
               onClick={handleExport}
               className="p-2 text-gray-600 hover:text-gray-900 active:bg-gray-100 rounded-lg transition-colors"
+              title="Ladda ner PDF"
             >
               <Download className="w-5 h-5" />
+            </button>
+            <button
+              onClick={handleOpenEmailModal}
+              className="p-2 text-gray-600 hover:text-gray-900 active:bg-gray-100 rounded-lg transition-colors"
+              title="Skicka via e-post"
+            >
+              <Mail className="w-5 h-5" />
             </button>
             <div className="relative">
               <button
@@ -366,6 +423,109 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Email Modal */}
+      {showEmailModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full">
+            {emailStatus === 'idle' || emailStatus === 'error' ? (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Skicka rapport via e-post</h3>
+                  <button
+                    onClick={() => setShowEmailModal(false)}
+                    className="p-1 text-gray-400 hover:text-gray-600"
+                    disabled={isEmailSending}
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                      Mottagare
+                    </label>
+                    <input
+                      type="email"
+                      id="email"
+                      value={emailAddress}
+                      onChange={(e) => setEmailAddress(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="exempel@företag.se"
+                      required
+                      disabled={isEmailSending}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-2">
+                      Ämne
+                    </label>
+                    <input
+                      type="text"
+                      id="subject"
+                      value={emailSubject}
+                      onChange={(e) => setEmailSubject(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                      disabled={isEmailSending}
+                    />
+                  </div>
+                  
+                  {emailStatus === 'error' && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                      <div className="flex items-center">
+                        <XCircle className="w-5 h-5 text-red-600 mr-2" />
+                        <p className="text-sm text-red-800">{emailError}</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <p className="text-sm text-gray-600">
+                      Rapporten kommer att skickas som en PDF-bilaga med alla projektdetaljer, 
+                      AI-sammanfattning och anteckningar.
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex space-x-3 mt-6">
+                  <button
+                    onClick={() => setShowEmailModal(false)}
+                    className="flex-1 bg-gray-100 text-gray-700 py-3 px-4 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                    disabled={isEmailSending}
+                  >
+                    Avbryt
+                  </button>
+                  <button
+                    onClick={handleSendEmail}
+                    disabled={!emailAddress.trim() || !emailSubject.trim() || isEmailSending}
+                    className="flex-1 bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                  >
+                    {isEmailSending ? (
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4 mr-2" />
+                        Skicka
+                      </>
+                    )}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-4">
+                <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">E-post skickad!</h3>
+                <p className="text-gray-600">
+                  Rapporten har skickats till {emailAddress}
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}
