@@ -121,7 +121,7 @@ const loginUser = async (email, password) => {
   }
 };
 
-module.exports = {
+export {
   hashPassword,
   comparePassword,
   generateToken,
@@ -131,4 +131,12 @@ module.exports = {
   loginUser
 };
 
-export { authenticateToken, registerUser, loginUser }
+export default {
+  hashPassword,
+  comparePassword,
+  generateToken,
+  verifyToken,
+  authenticateToken,
+  registerUser,
+  loginUser
+};

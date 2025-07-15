@@ -12,10 +12,8 @@ import { v4 as uuidv4 } from 'uuid';
 import sgMail from '@sendgrid/mail';
 
 // Import authentication and database modules
-import auth from './auth.js';
-const { authenticateToken, registerUser, loginUser } = auth;
-import db from './db.js';
-const { projectDb, noteDb, summaryDb } = db;
+import { authenticateToken, registerUser, loginUser } from './auth.js';
+import { projectDb, noteDb, summaryDb } from './db.js';
 
 dotenv.config();
 console.log("### ENV VARS ###", process.env);

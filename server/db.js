@@ -197,7 +197,7 @@ const summaryDb = {
   }
 };
 
-module.exports = {
+export {
   query,
   pool,
   userDb,
@@ -206,4 +206,11 @@ module.exports = {
   summaryDb
 };
 
-export { projectDb, noteDb, summaryDb }
+export default {
+  query,
+  pool,
+  userDb,
+  projectDb,
+  noteDb,
+  summaryDb
+};
