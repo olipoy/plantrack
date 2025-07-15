@@ -604,8 +604,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
                         }`}
                       >
                         <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-1 inline" />
-                        <span className="hidden sm:inline">Förhandsgranska</span>
-                        <span className="sm:hidden">Preview</span>
+                        Granska
                       </button>
                     </div>
                     <button
@@ -630,42 +629,65 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
                   ) : (
                     <div className="h-full overflow-y-auto p-2 sm:p-4 bg-gray-50">
                       <div className="bg-white rounded-lg p-4 sm:p-6 max-w-2xl mx-auto shadow-sm mb-4">
+                        {/* PDF Header */}
                         <div className="mb-6">
-                          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">Inspektionsrapport</h1>
-                          <div className="text-xs sm:text-sm text-gray-600 space-y-1">
+                          <h1 className="text-2xl font-bold text-gray-900 mb-4">Inspektionsrapport</h1>
+                          <div className="text-sm text-gray-700 space-y-1 mb-4">
                             <p><strong>Projekt:</strong> {project.name}</p>
                             <p><strong>Plats:</strong> {project.location}</p>
-                            <p><strong>Datum:</strong> {project.createdAt.toLocaleDateString('sv-SE')}</p>
+                            <p><strong>Datum:</strong> {project.date.toLocaleDateString('sv-SE')}</p>
                             <p><strong>Inspektör:</strong> {project.inspector}</p>
                           </div>
+                          <hr className="border-gray-300 my-4" />
                         </div>
                         
+                        {/* AI Summary Section */}
                         {editableReport && (
                           <div className="mb-6">
-                            <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3">Sammanfattning</h2>
-                            <div className="text-sm sm:text-base text-gray-800 whitespace-pre-line leading-relaxed">
+                            <h2 className="text-lg font-semibold text-gray-900 mb-3">AI-Sammanfattning</h2>
+                            <div className="text-sm text-gray-800 whitespace-pre-line leading-relaxed bg-gray-50 p-4 rounded-lg border">
                               {editableReport}
                             </div>
+                            <hr className="border-gray-300 my-6" />
                           </div>
                         )}
                         
+                        {/* Notes Section */}
                         {project.notes.length > 0 && (
                           <div>
-                            <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3">Anteckningar</h2>
-                            <div className="space-y-3">
+                            <h2 className="text-lg font-semibold text-gray-900 mb-4">Anteckningar</h2>
+                            <div className="space-y-4">
                               {project.notes.map((note, index) => (
-                                <div key={note.id} className="border-l-4 border-blue-200 pl-4">
-                                  <div className="text-xs sm:text-sm text-gray-600 mb-1">
-                                    {index + 1}. [{note.type.toUpperCase()}] - {formatDate(note.timestamp)}
+                                <div key={note.id} className="bg-gray-50 p-4 rounded-lg border">
+                                  <div className="text-sm text-gray-600 mb-2 font-medium">
+                                    {index + 1}. [{note.type.toUpperCase()}] - {note.timestamp.toLocaleString('sv-SE', {
+                                      year: 'numeric',
+                                      month: 'short',
+                                      day: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    })}
                                   </div>
-                                  <div className="text-sm sm:text-base text-gray-800">
+                                  <div className="text-sm text-gray-800 leading-relaxed">
                                     {note.transcription || note.content}
                                   </div>
+                                  {note.fileName && (
+                                    <div className="text-xs text-gray-500 mt-2">
+                                      Fil: {note.fileName}
+                                    </div>
+                                  )}
                                 </div>
                               ))}
                             </div>
                           </div>
                         )}
+                        
+                        {/* Footer */}
+                        <div className="mt-8 pt-4 border-t border-gray-300">
+                          <div className="text-xs text-gray-500 text-center">
+                            Genererad av Inspektionsassistenten - {new Date().toLocaleDateString('sv-SE')}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}
