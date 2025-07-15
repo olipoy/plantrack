@@ -130,3 +130,5 @@ module.exports = {
   registerUser,
   loginUser
 };
+
+export { authenticateToken, registerUser, loginUser }
