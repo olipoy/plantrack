@@ -11,6 +11,10 @@ import AWS from 'aws-sdk';
 import { v4 as uuidv4 } from 'uuid';
 import sgMail from '@sendgrid/mail';
 
+// Import authentication and database modules
+import { authenticateToken, registerUser, loginUser } from './auth.js';
+import { projectDb, noteDb, summaryDb } from './db.js';
+
 dotenv.config();
 console.log("### ENV VARS ###", process.env);
 
@@ -65,6 +69,126 @@ app.use(cors({
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Authentication Routes
+
+// Register new user
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { email, password, name } = req.body;
+
+    // Basic validation
+    if (!email || !password || !name) {
+      return res.status(400).json({ error: 'Email, password, and name are required' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+    }
+
+    const result = await registerUser(email, password, name);
+    res.status(201).json(result);
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Login user
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    const result = await loginUser(email, password);
+    res.json(result);
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(401).json({ error: error.message });
+  }
+});
+
+// Get current user info
+app.get('/api/auth/me', authenticateToken, (req, res) => {
+  res.json({ user: req.user });
+});
+
+// Project Routes (Protected)
+
+// Create new project
+app.post('/api/projects', authenticateToken, async (req, res) => {
+  try {
+    const { name, description, location, inspector, projectDate } = req.body;
+    
+    if (!name) {
+      return res.status(400).json({ error: 'Project name is required' });
+    }
+
+    const project = await projectDb.createProject(
+      req.user.id,
+      name,
+      description || '',
+      location || '',
+      inspector || '',
+      projectDate ? new Date(projectDate) : new Date()
+    );
+
+    res.status(201).json(project);
+  } catch (error) {
+    console.error('Create project error:', error);
+    res.status(500).json({ error: 'Failed to create project' });
+  }
+});
+
+// Get all projects for current user
+app.get('/api/projects', authenticateToken, async (req, res) => {
+  try {
+    const projects = await projectDb.getUserProjects(req.user.id);
+    res.json(projects);
+  } catch (error) {
+    console.error('Get projects error:', error);
+    res.status(500).json({ error: 'Failed to get projects' });
+  }
+});
+
+// Get specific project with notes
+app.get('/api/projects/:id', authenticateToken, async (req, res) => {
+  try {
+    const project = await projectDb.getProjectById(req.params.id, req.user.id);
+    
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Get notes for this project
+    const notes = await noteDb.getProjectNotes(req.params.id);
+    project.notes = notes;
+
+    res.json(project);
+  } catch (error) {
+    console.error('Get project error:', error);
+    res.status(500).json({ error: 'Failed to get project' });
+  }
+});
+
+// Delete project
+app.delete('/api/projects/:id', authenticateToken, async (req, res) => {
+  try {
+    const deletedProject = await projectDb.deleteProject(req.params.id, req.user.id);
+    
+    if (!deletedProject) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    res.json({ message: 'Project deleted successfully' });
+  } catch (error) {
+    console.error('Delete project error:', error);
+    res.status(500).json({ error: 'Failed to delete project' });
+  }
+});
 
 // Serve static files from the built frontend in production
 if (NODE_ENV === 'production') {
@@ -122,15 +246,21 @@ const upload = multer({
 const chatHistory = new Map();
 
 // Upload and transcribe endpoint
-app.post('/api/upload', upload.single('file'), async (req, res) => {
+app.post('/api/upload', authenticateToken, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const { projectId, noteType } = req.body;
+    const { projectId, noteType, content } = req.body;
     if (!projectId) {
       return res.status(400).json({ error: 'Project ID is required' });
+    }
+
+    // Verify project belongs to user
+    const project = await projectDb.getProjectById(projectId, req.user.id);
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
     }
 
     let fileUrl = null;
@@ -195,8 +325,28 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
       }
     }
 
+    // Save note to database
+    const note = await noteDb.createNote(
+      projectId,
+      noteType,
+      content || (noteType === 'photo' ? 'Foto taget' : 'Videoinspelning'),
+      transcription
+    );
+
+    // Add file info to note if there's a file
+    if (fileUrl) {
+      await noteDb.addFileToNote(
+        note.id,
+        fileUrl,
+        req.file.mimetype,
+        req.file.originalname,
+        req.file.size
+      );
+    }
+
     res.json({
       success: true,
+      noteId: note.id,
       fileUrl,
       transcription,
       filename: req.file.filename,
@@ -212,32 +362,44 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
 });
 
 // Chat endpoint
-app.post('/api/chat', async (req, res) => {
+app.post('/api/chat', authenticateToken, async (req, res) => {
   try {
-    const { message, projects, userId = 'default' } = req.body;
+    const { message } = req.body;
 
     if (!message) {
       return res.status(400).json({ error: 'Message is required' });
     }
 
+    // Get user's projects from database
+    const projects = await projectDb.getUserProjects(req.user.id);
+    
+    // Get detailed project data with notes
+    const projectsWithNotes = await Promise.all(
+      projects.map(async (project) => {
+        const notes = await noteDb.getProjectNotes(project.id);
+        return { ...project, notes };
+      })
+    );
+
     // Get or create chat history for user
+    const userId = req.user.id;
     if (!chatHistory.has(userId)) {
       chatHistory.set(userId, []);
     }
     const userChatHistory = chatHistory.get(userId);
 
     // Prepare context from all projects
-    const projectContext = projects.map(project => {
+    const projectContext = projectsWithNotes.map(project => {
       const notesText = project.notes.map(note => 
         `[${note.type}] ${note.transcription || note.content}`
       ).join('\n');
       
       return `Projekt: ${project.name}
-Plats: ${project.location}
-Datum: ${new Date(project.createdAt).toLocaleDateString('sv-SE')}
+Plats: ${project.location || 'Ej angiven'}
+Datum: ${new Date(project.created_at).toLocaleDateString('sv-SE')}
 Anteckningar:
 ${notesText}
-${project.aiSummary ? `\nAI-Sammanfattning: ${project.aiSummary}` : ''}`;
+${project.ai_summary ? `\nAI-Sammanfattning: ${project.ai_summary}` : ''}`;
     }).join('\n\n---\n\n');
 
     // Build messages for OpenAI
@@ -286,15 +448,28 @@ Svara på svenska och var specifik när du refererar till projekt och anteckning
 });
 
 // Summarize notes endpoint
-app.post('/api/summarize', async (req, res) => {
+app.post('/api/summarize', authenticateToken, async (req, res) => {
   try {
-    const { notes, projectName, projectLocation } = req.body;
+    const { projectId } = req.body;
 
-    if (!notes || notes.length === 0) {
-      return res.status(400).json({ error: 'Notes are required' });
+    if (!projectId) {
+      return res.status(400).json({ error: 'Project ID is required' });
     }
 
-    const notesText = notes.join('\n');
+    // Verify project belongs to user
+    const project = await projectDb.getProjectById(projectId, req.user.id);
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Get notes for this project
+    const notes = await noteDb.getProjectNotes(projectId);
+    
+    if (notes.length === 0) {
+      return res.status(400).json({ error: 'No notes found for this project' });
+    }
+
+    const notesText = notes.map(note => note.transcription || note.content).join('\n');
     
     const completion = await openai.chat.completions.create({
       model: 'gpt-4',
@@ -305,7 +480,7 @@ app.post('/api/summarize', async (req, res) => {
         },
         {
           role: 'user',
-          content: `Sammanfatta följande inspektionsanteckningar för projekt "${projectName}" på plats "${projectLocation}":\n\n${notesText}`
+          content: `Sammanfatta följande inspektionsanteckningar för projekt "${project.name}" på plats "${project.location || 'okänd plats'}":\n\n${notesText}`
         }
       ],
       max_tokens: 800,
@@ -313,6 +488,9 @@ app.post('/api/summarize', async (req, res) => {
     });
 
     const summary = completion.choices[0].message.content;
+
+    // Save summary to database
+    await summaryDb.upsertSummary(projectId, summary);
 
     res.json({ summary });
 
@@ -322,16 +500,22 @@ app.post('/api/summarize', async (req, res) => {
   }
 });
 // Email endpoint
-app.post('/api/send-email', async (req, res) => {
+app.post('/api/send-email', authenticateToken, async (req, res) => {
   try {
-    const { to, subject, text, pdfBuffer, fileName } = req.body;
+    const { to, subject, text, pdfBuffer, fileName, projectId } = req.body;
 
     if (!process.env.SENDGRID_API_KEY) {
       return res.status(500).json({ error: 'SendGrid API key not configured' });
     }
 
-    if (!to || !subject || !pdfBuffer) {
+    if (!to || !subject || !pdfBuffer || !projectId) {
       return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Verify project belongs to user
+    const project = await projectDb.getProjectById(projectId, req.user.id);
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
     }
 
     const msg = {
@@ -377,6 +561,7 @@ app.get('/api/health', (req, res) => {
     status: 'ok', 
     openai: !!process.env.OPENAI_API_KEY,
     sendgrid: !!process.env.SENDGRID_API_KEY,
+    database: !!process.env.DATABASE_URL,
     s3: !!s3,
     environment: NODE_ENV
   });
@@ -387,6 +572,7 @@ app.listen(PORT, () => {
   console.log(`Environment: ${NODE_ENV}`);
   console.log(`OpenAI API configured: ${!!process.env.OPENAI_API_KEY}`);
   console.log(`S3 configured: ${!!s3}`);
+  console.log(`Database configured: ${!!process.env.DATABASE_URL}`);
   if (NODE_ENV === 'production') {
     console.log('Serving static files from dist folder');
   }

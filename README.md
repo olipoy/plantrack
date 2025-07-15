@@ -35,6 +35,12 @@ A modern web application for facility management technicians to conduct inspecti
 Create a `.env` file in the root directory:
 
 ```env
+# Required: Database Configuration
+DATABASE_URL=postgresql://username:password@host:port/database
+
+# Required: JWT Secret (use a strong random string in production)
+JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+
 # Required: OpenAI Configuration
 OPENAI_API_KEY=your_openai_api_key_here
 

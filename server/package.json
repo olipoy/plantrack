@@ -3,20 +3,26 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-  "start": "node index.js"
-},
+    "start": "node index.js"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "aws-sdk": "^2.1692.0",
     "@sendgrid/mail": "^8.1.3",
+    "bcryptjs": "^2.4.3",
+    "aws-sdk": "^2.1692.0",
+    "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
     "dotenv": "^17.0.1",
     "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.1",
     "openai": "^5.8.2",
+    "pg": "^8.11.3",
+    "pg": "^8.16.3",
     "uuid": "^11.1.0"
   }
 }
