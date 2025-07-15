@@ -70,14 +70,14 @@ function App() {
   };
 
   return (
-    <div className="h-screen bg-gray-50 flex flex-col relative">
+    <div className="h-screen bg-gray-50 flex flex-col">
       {/* Main Content Area */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 flex flex-col min-h-0">
         {activeTab === 'projects' && (
           <>
             {currentView === 'list' && (
               <>
-                <div className="bg-white border-b border-gray-200 px-4 py-6 flex-shrink-0">
+                <div className="bg-white border-b border-gray-200 px-4 py-6">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center">
                       <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center mr-3">
@@ -118,14 +118,14 @@ function App() {
         )}
 
         {activeTab === 'ai' && (
-          <div className="h-full">
+          <div className="flex-1 flex flex-col min-h-0">
             <GlobalAIChat projects={projects} />
           </div>
         )}
       </div>
 
       {/* Footer Navigation */}
-      <div className="bg-white border-t border-gray-200 px-4 py-2 safe-area-pb z-50 flex-shrink-0">
+      <div className="bg-white border-t border-gray-200 px-4 py-2 safe-area-pb flex-shrink-0">
         <div className="flex">
           <button
             onClick={() => handleTabChange('projects')}
