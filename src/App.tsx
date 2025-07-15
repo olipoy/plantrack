@@ -77,7 +77,7 @@ function App() {
           <>
             {currentView === 'list' && (
               <>
-                <div className="bg-white border-b border-gray-200 px-4 py-6 sticky top-0 z-40">
+                <div className="bg-white border-b border-gray-200 px-4 py-6 flex-shrink-0">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center">
                       <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center mr-3">
@@ -96,7 +96,7 @@ function App() {
                     </button>
                   </div>
                 </div>
-                <div className="h-full overflow-hidden">
+                <div className="flex-1 overflow-y-auto">
                   <ProjectList projects={projects} onSelectProject={handleSelectProject} />
                 </div>
               </>

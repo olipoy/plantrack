@@ -18,7 +18,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({ projects, onSelectProj
 
   if (projects.length === 0) {
     return (
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 pb-32">
+      <div className="flex items-center justify-center h-full p-4">
         <div className="text-center">
           <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">Inga projekt än</h3>
@@ -29,7 +29,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({ projects, onSelectProj
   }
 
   return (
-    <div className="h-full overflow-y-auto p-4 space-y-3">
+    <div className="p-4 space-y-3">
       {projects.map((project) => (
         <div
           key={project.id}
