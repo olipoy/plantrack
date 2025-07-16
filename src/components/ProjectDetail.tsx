@@ -335,7 +335,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
             </div>
           </div>
         </div>
-      ) : project.notes.length > 0 && (
+      ) : project.notes.length > 0 ? (
         <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-b border-gray-200">
           <div className="p-4">
             <button
@@ -352,7 +352,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
             </button>
           </div>
         </div>
-      )}
+      ) : null}
       )}
 
       {/* Content */}
