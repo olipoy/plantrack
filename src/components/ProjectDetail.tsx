@@ -515,15 +515,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                         />
                         <button
                           onClick={() => handleSaveLabel(note.id)}
-                  <div>
-                    <h3 className="font-semibold text-gray-900">AI-Rapport</h3>
-                    <button
-                      onClick={() => setIsReportExpanded(!isReportExpanded)}
-                      className="text-sm text-blue-600 hover:text-blue-800 transition-colors"
-                    >
-                      {isReportExpanded ? 'Dölj rapport' : 'Visa rapport'}
-                    </button>
-                  </div>
+                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                         >
                           <Check className="w-4 h-4" />
                         </button>
