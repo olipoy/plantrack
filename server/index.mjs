@@ -521,11 +521,40 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
         const transcriptionEndTime = Date.now();
         const transcriptionDuration = transcriptionEndTime - transcriptionStartTime;
 
-        transcription = transcriptionResponse.text;
+        // Filter out placeholder text and empty/meaningless transcriptions
+        const rawTranscription = transcriptionResponse.text?.trim() || '';
+        
+        // Common placeholder texts to filter out
+        const placeholderTexts = [
+          'svensktextning.nu',
+          'svenska textning',
+          'svensk textning',
+          'textning.nu',
+          'undertextning',
+          'svensk undertextning'
+        ];
+        
+        // Check if transcription is just placeholder text or too short to be meaningful
+        const isPlaceholder = placeholderTexts.some(placeholder => 
+          rawTranscription.toLowerCase().includes(placeholder.toLowerCase())
+        );
+        
+        const isTooShort = rawTranscription.length < 3;
+        const isOnlyPunctuation = /^[.,!?;:\s]*$/.test(rawTranscription);
+        
+        // Set transcription to empty if it's placeholder text or meaningless
+        if (isPlaceholder || isTooShort || isOnlyPunctuation) {
+          transcription = null; // No transcription text
+          console.log('Filtered out placeholder/empty transcription:', rawTranscription);
+        } else {
+          transcription = rawTranscription;
+        }
+        
         console.log('Transcription successful:', {
           duration: `${transcriptionDuration}ms`,
-          textLength: transcription.length,
-          textPreview: transcription.substring(0, 100) + (transcription.length > 100 ? '...' : '')
+          textLength: transcription ? transcription.length : 0,
+          textPreview: transcription ? transcription.substring(0, 100) + (transcription.length > 100 ? '...' : '') : 'No transcription (filtered out)',
+          wasFiltered: !transcription && rawTranscription.length > 0
         });
 
         // Clean up temp file
