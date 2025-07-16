@@ -298,7 +298,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                   {isGeneratingSummary ? (
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   ) : (
-                    <Edit3 className="w-4 h-4" />
+                    <RotateCcw className="w-4 h-4" />
                   )}
                 </button>
                 <button
@@ -307,13 +307,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                   title="Ladda ner PDF"
                 >
                   <Download className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setShowEmailModal(true)}
-                  className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center"
-                  title="Skicka via e-post"
-                >
-                  <Mail className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -519,17 +512,17 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
       )}
 
       {/* Action Buttons */}
-      <div className="bg-white border-t border-gray-200 px-4 pt-3 pb-4 safe-area-pb">
+      <div className="bg-white border-t border-gray-200 p-4 safe-area-pb">
         <div className="grid grid-cols-4 gap-3">
           <button
             onClick={() => {
               setCameraMode('photo');
               setCurrentView('camera');
             }}
-            className="flex flex-col items-center justify-center p-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors active:scale-98 aspect-square"
+            className="flex flex-col items-center justify-center p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors active:scale-98 aspect-square"
           >
-            <Camera className="w-6 h-6 mb-1" />
-            <span className="text-sm font-medium">Foto</span>
+            <Camera className="w-5 h-5 mb-1" />
+            <span className="text-xs font-medium">Foto</span>
           </button>
           
           <button
@@ -537,26 +530,26 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
               setCameraMode('video');
               setCurrentView('camera');
             }}
-            className="flex flex-col items-center justify-center p-4 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors active:scale-98 aspect-square"
+            className="flex flex-col items-center justify-center p-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors active:scale-98 aspect-square"
           >
-            <Video className="w-6 h-6 mb-1" />
-            <span className="text-sm font-medium">Video</span>
+            <Video className="w-5 h-5 mb-1" />
+            <span className="text-xs font-medium">Video</span>
           </button>
           
           <button
             onClick={() => exportProjectToPDF(project)}
-            className="flex flex-col items-center justify-center p-4 bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition-colors active:scale-98 aspect-square"
+            className="flex flex-col items-center justify-center p-3 bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition-colors active:scale-98 aspect-square"
           >
-            <Download className="w-6 h-6 mb-1" />
-            <span className="text-sm font-medium">Ladda ner</span>
+            <Download className="w-5 h-5 mb-1" />
+            <span className="text-xs font-medium">Ladda ner</span>
           </button>
           
           <button
             onClick={() => setIsAddingTextNote(true)}
-            className="flex flex-col items-center justify-center p-4 bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition-colors active:scale-98 aspect-square"
+            className="flex flex-col items-center justify-center p-3 bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition-colors active:scale-98 aspect-square"
           >
-            <FileText className="w-6 h-6 mb-1" />
-            <span className="text-sm font-medium">Text</span>
+            <FileText className="w-5 h-5 mb-1" />
+            <span className="text-xs font-medium">Text</span>
           </button>
         </div>
       </div>
