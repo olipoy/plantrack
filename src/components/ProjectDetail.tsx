@@ -392,20 +392,29 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                         {formatDate(note.timestamp)}
                       </span>
                     </div>
-                <div className="flex items-center space-x-1">
-                  <button
-                    className="p-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-                    title="Uppdatera rapport"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <button
+                      onClick={() => handleDeleteNote(note.id)}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Ta bort anteckning"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
 
-                    className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 {note.type === 'photo' && note.imageLabel ? (
                   <div className="mb-3">
                     {editingLabelId === note.id ? (
                       <div className="flex items-center space-x-2">
+                        <input
+                          type="text"
+                          value={editingLabelValue}
+                          onChange={(e) => setEditingLabelValue(e.target.value)}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
                               handleSaveLabel(note.id);
                             } else if (e.key === 'Escape') {
                               handleCancelEdit();
@@ -435,7 +444,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                         >
                           <Edit3 className="w-4 h-4" />
                         </button>
-                      <RotateCcw className="w-4 h-4" />
+                      </div>
                     )}
                   </div>
                 ) : note.type !== 'photo' && (
