@@ -1,17 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Check, X, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Check, X } from 'lucide-react';
 import { Note } from '../types';
 import { uploadFile } from '../utils/api';
 
 interface CameraViewProps {
   projectId: string;
+  mode: 'photo' | 'video';
   onBack: () => void;
   onSave: (note: Omit<Note, 'id'>) => void;
 }
 
-export const CameraView: React.FC<CameraViewProps> = ({ projectId, onBack, onSave }) => {
-  const [mode, setMode] = useState<'camera' | 'preview'>('camera');
-  const [mediaType, setMediaType] = useState<'photo' | 'video'>('photo');
+export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack, onSave }) => {
+  const [currentMode, setCurrentMode] = useState<'camera' | 'preview'>('camera');
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [capturedMedia, setCapturedMedia] = useState<Blob | null>(null);
@@ -26,8 +26,6 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, onBack, onSav
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const pressTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const isLongPressRef = useRef(false);
 
   // Initialize camera on mount
   useEffect(() => {
@@ -41,16 +39,16 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, onBack, onSav
     try {
       setError('');
       
-      // Request camera and microphone permissions upfront
-      const stream = await navigator.mediaDevices.getUserMedia({ 
+      const constraints = {
         video: { 
-          facingMode: 'environment', // Use back camera
+          facingMode: 'environment',
           width: { ideal: 1920 },
           height: { ideal: 1080 }
-        }, 
-        audio: true 
-      });
+        },
+        audio: mode === 'video' // Only request audio for video mode
+      };
       
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = stream;
       
       if (videoRef.current) {
@@ -58,7 +56,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, onBack, onSav
       }
     } catch (error) {
       console.error('Camera initialization failed:', error);
-      setError('Kunde inte komma åt kameran. Kontrollera att du har gett tillåtelse till kamera och mikrofon.');
+      setError('Kunde inte komma åt kameran. Kontrollera att du har gett tillåtelse till kamera' + (mode === 'video' ? ' och mikrofon' : '') + '.');
     }
   };
 
@@ -68,9 +66,6 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, onBack, onSav
     }
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
-    }
-    if (pressTimerRef.current) {
-      clearTimeout(pressTimerRef.current);
     }
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
@@ -106,17 +101,16 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, onBack, onSav
       canvas.toBlob((blob) => {
         if (blob) {
           setCapturedMedia(blob);
-          setMediaType('photo');
           const url = URL.createObjectURL(blob);
           setPreviewUrl(url);
-          setMode('preview');
+          setCurrentMode('preview');
         }
       }, 'image/jpeg', 0.9);
     }
   };
 
   const startVideoRecording = () => {
-    if (!streamRef.current) return;
+    if (!streamRef.current || isRecording) return;
 
     try {
       const recorder = new MediaRecorder(streamRef.current, {
@@ -135,10 +129,9 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, onBack, onSav
       recorder.onstop = () => {
         const blob = new Blob(chunks, { type: 'video/webm' });
         setCapturedMedia(blob);
-        setMediaType('video');
         const url = URL.createObjectURL(blob);
         setPreviewUrl(url);
-        setMode('preview');
+        setCurrentMode('preview');
       };
       
       recorder.start();
@@ -158,30 +151,15 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, onBack, onSav
     }
   };
 
-  // Handle button press (tap vs hold)
-  const handleButtonPress = () => {
-    if (isRecording) {
-      stopVideoRecording();
-      return;
-    }
-
-    isLongPressRef.current = false;
-    
-    // Start timer for long press detection
-    pressTimerRef.current = setTimeout(() => {
-      isLongPressRef.current = true;
-      startVideoRecording();
-    }, 500); // 500ms for long press
-  };
-
-  const handleButtonRelease = () => {
-    if (pressTimerRef.current) {
-      clearTimeout(pressTimerRef.current);
-    }
-
-    // If it wasn't a long press and we're not recording, take a photo
-    if (!isLongPressRef.current && !isRecording) {
+  const handleCameraAction = () => {
+    if (mode === 'photo') {
       takePhoto();
+    } else {
+      if (isRecording) {
+        stopVideoRecording();
+      } else {
+        startVideoRecording();
+      }
     }
   };
 
@@ -192,23 +170,24 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, onBack, onSav
     setError('');
     
     try {
-      const fileExtension = mediaType === 'photo' ? 'jpg' : 'webm';
-      const fileName = `${mediaType}_${Date.now()}.${fileExtension}`;
+      const fileExtension = mode === 'photo' ? 'jpg' : 'webm';
+      const fileName = `${mode}_${Date.now()}.${fileExtension}`;
       const file = new File([capturedMedia], fileName, { 
-        type: mediaType === 'photo' ? 'image/jpeg' : 'video/webm'
+        type: mode === 'photo' ? 'image/jpeg' : 'video/webm'
       });
 
       console.log('Uploading file:', {
         name: fileName,
         type: file.type,
         size: file.size,
-        projectId
+        projectId,
+        mode
       });
 
       const uploadResponse = await uploadFile(
         file,
         projectId,
-        mediaType,
+        mode,
         (progress) => setUploadProgress(progress)
       );
 
@@ -218,8 +197,8 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, onBack, onSav
         setTranscription(uploadResponse.transcription || '');
         
         const note: Omit<Note, 'id'> = {
-          type: mediaType,
-          content: mediaType === 'photo' ? 'Foto taget' : 'Videoinspelning',
+          type: mode,
+          content: mode === 'photo' ? 'Foto taget' : 'Videoinspelning',
           transcription: uploadResponse.transcription,
           timestamp: new Date(),
           fileUrl: uploadResponse.fileUrl,
@@ -245,8 +224,9 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, onBack, onSav
     }
     setCapturedMedia(null);
     setPreviewUrl(null);
-    setMode('camera');
+    setCurrentMode('camera');
     setError('');
+    setRecordingTime(0);
   };
 
   const formatTime = (seconds: number) => {
@@ -269,7 +249,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, onBack, onSav
               />
             </div>
             <p className="text-sm text-gray-600">{Math.round(uploadProgress)}% slutfört</p>
-            {mediaType === 'video' && (
+            {mode === 'video' && (
               <p className="text-xs text-gray-500 mt-2">Transkriberar ljud...</p>
             )}
           </div>
@@ -290,10 +270,11 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, onBack, onSav
             <ArrowLeft className="w-6 h-6" />
           </button>
           
-          {mode === 'camera' && (
+          {currentMode === 'camera' && (
             <div className="text-white text-center">
               <p className="text-sm opacity-80">
-                {isRecording ? 'Spelar in video' : 'Tryck för foto, håll för video'}
+                {mode === 'photo' ? 'Tryck för att ta foto' : 
+                 isRecording ? 'Tryck för att stoppa inspelning' : 'Tryck för att börja spela in'}
               </p>
             </div>
           )}
@@ -303,7 +284,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, onBack, onSav
       </div>
 
       {/* Camera View */}
-      {mode === 'camera' && (
+      {currentMode === 'camera' && (
         <>
           <video
             ref={videoRef}
@@ -325,10 +306,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, onBack, onSav
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-8">
             <div className="flex items-center justify-center">
               <button
-                onMouseDown={handleButtonPress}
-                onMouseUp={handleButtonRelease}
-                onTouchStart={handleButtonPress}
-                onTouchEnd={handleButtonRelease}
+                onClick={handleCameraAction}
                 className={`w-20 h-20 rounded-full border-4 border-white flex items-center justify-center transition-all duration-200 ${
                   isRecording 
                     ? 'bg-red-600 scale-110' 
@@ -338,23 +316,26 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, onBack, onSav
                 <div className={`rounded-full transition-all duration-200 ${
                   isRecording 
                     ? 'w-6 h-6 bg-white' 
-                    : 'w-16 h-16 bg-white'
+                    : mode === 'photo'
+                    ? 'w-16 h-16 bg-white'
+                    : 'w-6 h-6 bg-red-600'
                 }`} />
               </button>
             </div>
             
             <p className="text-white text-center text-sm mt-4 opacity-80">
-              {isRecording ? 'Släpp för att stoppa' : 'Tryck för foto • Håll för video'}
+              {mode === 'photo' ? 'Tryck för att ta foto' :
+               isRecording ? 'Tryck för att stoppa' : 'Tryck för att börja spela in'}
             </p>
           </div>
         </>
       )}
 
       {/* Preview Mode */}
-      {mode === 'preview' && previewUrl && (
+      {currentMode === 'preview' && previewUrl && (
         <>
           <div className="flex-1 flex items-center justify-center">
-            {mediaType === 'photo' ? (
+            {mode === 'photo' ? (
               <img 
                 src={previewUrl} 
                 alt="Preview" 

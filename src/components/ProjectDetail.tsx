@@ -32,6 +32,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
   const [isEmailSending, setIsEmailSending] = useState(false);
   const [emailStatus, setEmailStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [emailError, setEmailError] = useState('');
+  const [cameraMode, setCameraMode] = useState<'photo' | 'video'>('photo');
 
   // Initialize editable report when AI summary exists
   React.useEffect(() => {
@@ -234,11 +235,12 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
     }
   };
 
-  const openCamera = () => {
+  const openCamera = (mode: 'photo' | 'video') => {
     if (project.notes.length >= 20) {
       alert('Du kan ha maximalt 20 anteckningar per projekt.');
       return;
     }
+    setCameraMode(mode);
     setShowCameraView(true);
   };
 
@@ -285,6 +287,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
     return (
       <CameraView
         projectId={project.id}
+        mode={cameraMode}
         onBack={() => setShowCameraView(false)}
         onSave={handleAddNote}
       />
@@ -905,12 +908,20 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
           
           <div className="grid grid-cols-4 gap-2">
             <button
-              onClick={openCamera}
+              onClick={() => openCamera('photo')}
               disabled={project.notes.length >= 20}
               className="flex flex-col items-center justify-center p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
             >
               <Camera className="w-5 h-5 mb-1" />
-              <span className="text-xs font-medium">Kamera</span>
+              <span className="text-xs font-medium">Foto</span>
+            </button>
+            <button
+              onClick={() => openCamera('video')}
+              disabled={project.notes.length >= 20}
+              className="flex flex-col items-center justify-center p-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+            >
+              <Video className="w-5 h-5 mb-1" />
+              <span className="text-xs font-medium">Video</span>
             </button>
             <label className="flex flex-col items-center justify-center p-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors cursor-pointer">
               <Upload className="w-5 h-5 mb-1" />
