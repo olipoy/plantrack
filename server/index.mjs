@@ -121,6 +121,8 @@ app.post('/api/projects', authenticateToken, async (req, res) => {
   try {
     const { name, description, location, inspector, projectDate } = req.body;
     
+    console.log('Creating project:', { name, description, location, inspector, projectDate, userId: req.user.id });
+    
     if (!name) {
       return res.status(400).json({ error: 'Project name is required' });
     }
@@ -128,16 +130,20 @@ app.post('/api/projects', authenticateToken, async (req, res) => {
     const project = await projectDb.createProject(
       req.user.id,
       name,
-      description || '',
+      description || null,
       location || '',
       inspector || '',
       projectDate ? new Date(projectDate) : new Date()
     );
 
+    console.log('Project created successfully:', project);
     res.status(201).json(project);
   } catch (error) {
     console.error('Create project error:', error);
-    res.status(500).json({ error: 'Failed to create project' });
+    res.status(500).json({ 
+      error: 'Failed to create project',
+      details: error.message 
+    });
   }
 });
 

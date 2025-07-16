@@ -220,3 +220,93 @@ export const checkServerHealth = async () => {
     };
   }
 };
+
+// Project API functions
+export const createProject = async (
+  name: string,
+  location: string,
+  date: Date,
+  inspector: string
+): Promise<any> => {
+  const token = getToken();
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/projects`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      name,
+      location,
+      projectDate: date.toISOString(),
+      inspector
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || `Failed to create project: ${response.statusText}`);
+  }
+
+  return response.json();
+};
+
+export const getUserProjects = async (): Promise<any[]> => {
+  const token = getToken();
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/projects`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to get projects: ${response.statusText}`);
+  }
+
+  return response.json();
+};
+
+export const getProjectById = async (projectId: string): Promise<any> => {
+  const token = getToken();
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/projects/${projectId}`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to get project: ${response.statusText}`);
+  }
+
+  return response.json();
+};
+
+export const deleteProject = async (projectId: string): Promise<void> => {
+  const token = getToken();
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/projects/${projectId}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to delete project: ${response.statusText}`);
+  }
+};

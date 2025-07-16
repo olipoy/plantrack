@@ -3,7 +3,8 @@ import { Project, Note } from '../types';
 import { ArrowLeft, Plus, Camera, Video, Download, Sparkles, AlertCircle, Play, Image, MapPin, Calendar, User, Trash2, MoreVertical, Upload, FileText, X, Mail, Send, CheckCircle, XCircle, Edit3, Eye } from 'lucide-react';
 import { CameraView } from './CameraView';
 import { exportProjectToPDF, generateProjectPDF } from '../utils/export';
-import { addNoteToProject, deleteProject, deleteNoteFromProject, generateId } from '../utils/storage';
+import { generateId } from '../utils/storage';
+import { deleteProject as deleteProjectAPI } from '../utils/api';
 import { summarizeNotes, sendEmailWithPDF } from '../utils/api';
 
 interface ProjectDetailProps {
@@ -99,8 +100,14 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
   };
 
   const handleDeleteProject = () => {
-    deleteProject(project.id);
-    onProjectDelete();
+    deleteProjectAPI(project.id)
+      .then(() => {
+        onProjectDelete();
+      })
+      .catch(error => {
+        console.error('Error deleting project:', error);
+        alert('Kunde inte ta bort projekt: ' + (error instanceof Error ? error.message : 'Okänt fel'));
+      });
   };
 
   const handleCreateReport = async () => {

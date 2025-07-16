@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Plus, MapPin, Calendar, User, Building } from 'lucide-react';
-import { createProject, shortenAddress } from '../utils/storage';
+import { shortenAddress } from '../utils/storage';
+import { createProject as createProjectAPI } from '../utils/api';
 import { Project } from '../types';
 
 interface NewProjectProps {
@@ -95,10 +96,30 @@ export const NewProject: React.FC<NewProjectProps> = ({ onBack, onProjectCreated
     setIsSubmitting(true);
     
     try {
-      const project = createProject(name.trim(), address.trim(), new Date(date), inspector.trim());
+      const projectData = await createProjectAPI(
+        name.trim(), 
+        address.trim(), 
+        new Date(date), 
+        inspector.trim()
+      );
+      
+      // Convert backend response to frontend Project format
+      const project: Project = {
+        id: projectData.id,
+        name: projectData.name,
+        location: projectData.location || '',
+        date: new Date(projectData.project_date || projectData.created_at),
+        inspector: projectData.inspector || '',
+        createdAt: new Date(projectData.created_at),
+        updatedAt: new Date(projectData.updated_at || projectData.created_at),
+        notes: [],
+        aiSummary: projectData.ai_summary
+      };
+      
       onProjectCreated(project);
     } catch (error) {
       console.error('Error creating project:', error);
+      alert(error instanceof Error ? error.message : 'Kunde inte skapa projekt');
     } finally {
       setIsSubmitting(false);
     }

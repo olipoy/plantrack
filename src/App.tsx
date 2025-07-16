@@ -5,7 +5,8 @@ import { NewProject } from './components/NewProject';
 import { ProjectDetail } from './components/ProjectDetail';
 import { GlobalAIChat } from './components/GlobalAIChat';
 import { AuthForm } from './components/AuthForm';
-import { loadProjects, saveProjects, populateWithMockData } from './utils/storage';
+import { populateWithMockData } from './utils/storage';
+import { getUserProjects } from './utils/api';
 import { ClipboardList, Plus, FolderOpen, Bot, LogOut, User, ChevronDown, X } from 'lucide-react';
 import { isAuthenticated, getUser, logout } from './utils/auth';
 
@@ -34,15 +35,80 @@ function App() {
   useEffect(() => {
     if (!isLoggedIn) return;
     
-    let savedProjects = loadProjects();
+    const loadUserProjects = async () => {
+      try {
+        const backendProjects = await getUserProjects();
+        
+        // Convert backend projects to frontend format
+        const formattedProjects: Project[] = backendProjects.map(p => ({
+          id: p.id,
+          name: p.name,
+          location: p.location || '',
+          date: new Date(p.project_date || p.created_at),
+          inspector: p.inspector || '',
+          createdAt: new Date(p.created_at),
+          updatedAt: new Date(p.updated_at || p.created_at),
+          notes: p.notes || [],
+          aiSummary: p.ai_summary
+        }));
+        
+        // If no projects exist, add sample projects for demo
+        if (formattedProjects.length === 0) {
+          const sampleProjects = populateWithMockData();
+          setProjects(sampleProjects);
+        } else {
+          setProjects(formattedProjects);
+        }
+      } catch (error) {
+        console.error('Error loading projects:', error);
+        // Fallback to sample projects if API fails
+        const sampleProjects = populateWithMockData();
+        setProjects(sampleProjects);
+      }
+    };
     
-    // If no projects exist, populate with mock data
-    if (savedProjects.length === 0) {
-      savedProjects = populateWithMockData();
+    loadUserProjects();
+  }, [isLoggedIn]);
+
+  const handleProjectCreated = (project: Project) => {
+    // Add the new project to the current list
+    setProjects(prev => [project, ...prev]);
+    setSelectedProject(project);
+    setCurrentView('detail');
+  };
+
+  const handleProjectUpdate = (updatedProject: Project) => {
+    setProjects(prev => prev.map(p => 
+      p.id === updatedProject.id ? updatedProject : p
+    ));
+    setSelectedProject(updatedProject);
+  };
+
+  const handleProjectDelete = async () => {
+    try {
+      // Reload projects from backend after deletion
+      const backendProjects = await getUserProjects();
+      const formattedProjects: Project[] = backendProjects.map(p => ({
+        id: p.id,
+        name: p.name,
+        location: p.location || '',
+        date: new Date(p.project_date || p.created_at),
+        inspector: p.inspector || '',
+        createdAt: new Date(p.created_at),
+        updatedAt: new Date(p.updated_at || p.created_at),
+        notes: p.notes || [],
+        aiSummary: p.ai_summary
+      }));
+      setProjects(formattedProjects);
+    } catch (error) {
+      console.error('Error reloading projects after delete:', error);
+      // Remove from local state as fallback
+      setProjects(prev => prev.filter(p => p.id !== selectedProject?.id));
     }
     
-    setProjects(savedProjects);
-  }, [isLoggedIn]);
+    setCurrentView('list');
+    setSelectedProject(null);
+  };
 
   const handleAuthSuccess = () => {
     setIsLoggedIn(true);
