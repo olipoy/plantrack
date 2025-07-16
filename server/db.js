@@ -1,5 +1,6 @@
 // Database connection and query utilities
-const { Pool } = require('pg');
+import pkg from 'pg';
+const { Pool } = pkg;
 
 // Create PostgreSQL connection pool
 const pool = new Pool({
@@ -197,6 +198,7 @@ const summaryDb = {
   }
 };
 
+// Named exports
 export {
   query,
   pool,
@@ -206,6 +208,7 @@ export {
   summaryDb
 };
 
+// Default export
 export default {
   query,
   pool,

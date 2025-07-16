@@ -1,7 +1,7 @@
 // Authentication utilities and middleware
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const { userDb } = require('./db');
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import { userDb } from './db.js';
 
 // JWT secret - in production, use a strong random secret
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this-in-production';
@@ -121,6 +121,7 @@ const loginUser = async (email, password) => {
   }
 };
 
+// Named exports
 export {
   hashPassword,
   comparePassword,
@@ -131,6 +132,7 @@ export {
   loginUser
 };
 
+// Default export
 export default {
   hashPassword,
   comparePassword,
