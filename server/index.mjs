@@ -418,36 +418,131 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
     if (req.file.mimetype.startsWith('audio/') || req.file.mimetype.startsWith('video/')) {
       try {
         console.log('Starting transcription...');
+        console.log('=== WHISPER TRANSCRIPTION DEBUG ===');
+        console.log('Original file details:', {
+          originalname: req.file.originalname,
+          mimetype: req.file.mimetype,
+          size: req.file.size,
+          filename: req.file.filename,
+          path: req.file.path
+        });
+        
+        // Check if file exists and get stats
+        try {
+          const fileStats = await fs.stat(req.file.path);
+          console.log('File stats:', {
+            size: fileStats.size,
+            isFile: fileStats.isFile(),
+            created: fileStats.birthtime,
+            modified: fileStats.mtime
+          });
+        } catch (statError) {
+          console.error('Error getting file stats:', statError);
+        }
+        
         const filePath = s3 ? null : req.file.path;
         let audioBuffer;
 
         if (s3 && fileUrl.startsWith('http')) {
+          console.log('Using S3 file for transcription:', fileUrl);
           // Download from S3 for transcription
           const response = await fetch(fileUrl);
           audioBuffer = await response.arrayBuffer();
+          console.log('Downloaded from S3, buffer size:', audioBuffer.byteLength);
         } else {
+          console.log('Using local file for transcription:', filePath);
           audioBuffer = await fs.readFile(filePath);
+          console.log('Read local file, buffer size:', audioBuffer.byteLength);
         }
 
         // Create a temporary file for OpenAI API
-        const tempFile = join(__dirname, 'temp', `${uuidv4()}.${req.file.mimetype.split('/')[1]}`);
+        const fileExtension = req.file.mimetype.split('/')[1];
+        const tempFileName = `${uuidv4()}.${fileExtension}`;
+        const tempFile = join(__dirname, 'temp', tempFileName);
+        
+        console.log('Creating temp file:', {
+          originalMimetype: req.file.mimetype,
+          extractedExtension: fileExtension,
+          tempFileName: tempFileName,
+          tempFilePath: tempFile
+        });
+        
         await fs.mkdir(join(__dirname, 'temp'), { recursive: true });
         await fs.writeFile(tempFile, Buffer.from(audioBuffer));
+        
+        // Verify temp file was created correctly
+        try {
+          const tempStats = await fs.stat(tempFile);
+          console.log('Temp file created successfully:', {
+            size: tempStats.size,
+            exists: tempStats.isFile(),
+            sizeMatches: tempStats.size === audioBuffer.byteLength
+          });
+        } catch (tempStatError) {
+          console.error('Error verifying temp file:', tempStatError);
+          throw new Error('Failed to create temp file for transcription');
+        }
 
         console.log('Calling OpenAI transcription...');
+        console.log('Whisper API call parameters:', {
+          model: 'whisper-1',
+          language: 'sv',
+          fileSize: audioBuffer.byteLength,
+          filePath: tempFile
+        });
+        
+        const transcriptionStartTime = Date.now();
         const transcriptionResponse = await openai.audio.transcriptions.create({
           file: fs.createReadStream(tempFile),
           model: 'whisper-1',
           language: 'sv'
         });
+        
+        const transcriptionEndTime = Date.now();
+        const transcriptionDuration = transcriptionEndTime - transcriptionStartTime;
 
         transcription = transcriptionResponse.text;
-        console.log('Transcription successful');
+        console.log('Transcription successful:', {
+          duration: `${transcriptionDuration}ms`,
+          textLength: transcription.length,
+          textPreview: transcription.substring(0, 100) + (transcription.length > 100 ? '...' : '')
+        });
 
         // Clean up temp file
-        await fs.unlink(tempFile);
+        try {
+          await fs.unlink(tempFile);
+          console.log('Temp file cleaned up successfully');
+        } catch (cleanupError) {
+          console.error('Error cleaning up temp file:', cleanupError);
+        }
+        
+        console.log('=== END WHISPER TRANSCRIPTION DEBUG ===');
       } catch (transcriptionError) {
-        console.error('Transcription failed:', transcriptionError);
+        console.error('=== WHISPER TRANSCRIPTION ERROR ===');
+        console.error('Error type:', transcriptionError.constructor.name);
+        console.error('Error message:', transcriptionError.message);
+        console.error('Error code:', transcriptionError.code);
+        console.error('Full error:', transcriptionError);
+        
+        // Check if it's an OpenAI API specific error
+        if (transcriptionError.response) {
+          console.error('OpenAI API response error:', {
+            status: transcriptionError.response.status,
+            statusText: transcriptionError.response.statusText,
+            data: transcriptionError.response.data
+          });
+        }
+        
+        // Check if temp file still exists for debugging
+        const tempFile = join(__dirname, 'temp', `${uuidv4()}.${req.file.mimetype.split('/')[1]}`);
+        try {
+          await fs.access(tempFile);
+          console.log('Temp file still exists after error');
+        } catch {
+          console.log('Temp file does not exist after error');
+        }
+        
+        console.error('=== END WHISPER TRANSCRIPTION ERROR ===');
         transcription = 'Transkribering misslyckades';
       }
     }
