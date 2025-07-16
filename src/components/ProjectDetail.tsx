@@ -643,7 +643,10 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
             />
             <div className="flex space-x-3">
               <button
-                onClick={() => setShowEmailModal(false)}
+                onClick={() => {
+                  setShowEmailModal(false);
+                  setEmailAddress('');
+                }}
                 className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
               >
                 Avbryt
@@ -651,39 +654,13 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
               <button
                 onClick={handleSendEmail}
                 disabled={isSendingEmail || !emailAddress.trim()}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
               >
-                {isSendingEmail ? 'Skickar...' : 'Skicka'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Report Modal */}
-      {showEditModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Redigera AI-Rapport</h3>
-            <textarea
-              value={editedReportText}
-              onChange={(e) => setEditedReportText(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-              rows={15}
-              placeholder="Redigera rapporten..."
-            />
-            <div className="flex justify-end space-x-3 mt-4">
-              <button
-                onClick={handleCancelEditReport}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-              >
-                Avbryt
-              </button>
-              <button
-                onClick={handleSaveReport}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Spara ändringar
+                {isSendingEmail ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  'Skicka'
+                )}
               </button>
             </div>
           </div>
@@ -710,6 +687,35 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                 className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
               >
                 Ta bort
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Report Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Redigera rapport</h3>
+            <textarea
+              value={editedReportText}
+              onChange={(e) => setEditedReportText(e.target.value)}
+              className="w-full h-64 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              placeholder="Redigera rapporten här..."
+            />
+            <div className="flex justify-end space-x-3 mt-4">
+              <button
+                onClick={handleCancelEditReport}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                Avbryt
+              </button>
+              <button
+                onClick={handleSaveReport}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Spara
               </button>
             </div>
           </div>
