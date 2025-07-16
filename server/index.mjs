@@ -199,6 +199,46 @@ app.get('/api/projects/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// Create text note endpoint
+app.post('/api/notes', authenticateToken, async (req, res) => {
+  try {
+    const { projectId, type, content } = req.body;
+    
+    console.log('Creating text note:', { projectId, type, content, userId: req.user.id });
+    
+    if (!projectId || !type || !content) {
+      return res.status(400).json({ error: 'Project ID, type, and content are required' });
+    }
+
+    // Verify project belongs to user
+    const project = await projectDb.getProjectById(projectId, req.user.id);
+    if (!project) {
+      console.log('Project not found for user');
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    console.log('Project verified, creating note...');
+    
+    // Create note in database
+    const note = await noteDb.createNote(
+      projectId,
+      type,
+      content,
+      null // no transcription for text notes
+    );
+
+    console.log('Text note created successfully:', note);
+    res.status(201).json(note);
+
+  } catch (error) {
+    console.error('Create note error:', error);
+    res.status(500).json({ 
+      error: 'Failed to create note',
+      details: error.message 
+    });
+  }
+});
+
 // Delete project
 app.delete('/api/projects/:id', authenticateToken, async (req, res) => {
   try {

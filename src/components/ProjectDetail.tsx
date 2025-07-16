@@ -4,8 +4,9 @@ import { ArrowLeft, Plus, Camera, Video, Download, Sparkles, AlertCircle, Play, 
 import { CameraView } from './CameraView';
 import { exportProjectToPDF, generateProjectPDF } from '../utils/export';
 import { generateId } from '../utils/storage';
-import { deleteProject as deleteProjectAPI } from '../utils/api';
+import { deleteProject as deleteProjectAPI, getProjectById, uploadFile } from '../utils/api';
 import { summarizeNotes, sendEmailWithPDF } from '../utils/api';
+import { getToken } from '../utils/auth';
 
 interface ProjectDetailProps {
   project: Project;
@@ -110,18 +111,46 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
   const handleAddTextNote = () => {
     if (!newNoteText.trim()) return;
     
-    const note: Omit<Note, 'id'> = {
-      type: 'text',
-      content: newNoteText.trim(),
-      timestamp: new Date()
-    };
+    console.log('Adding text note:', newNoteText.trim());
     
-    handleAddNote(note);
+    // Create text note via API
+    const createTextNote = async () => {
+      try {
+        const response = await fetch(`${import.meta.env.DEV ? 'http://localhost:3001/api' : '/api'}/notes`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${getToken()}`,
+          },
+          body: JSON.stringify({
+            projectId: project.id,
+            type: 'text',
+            content: newNoteText.trim()
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to create text note: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        console.log('Text note created successfully:', result);
+
+        // Reload project to get updated notes
+        await reloadProjectFromBackend();
+        
+      } catch (error) {
+        console.error('Error creating text note:', error);
+        alert('Kunde inte spara textanteckning: ' + (error instanceof Error ? error.message : 'Okänt fel'));
+      }
+    };
+
+    createTextNote();
     setNewNoteText('');
     setShowAddNoteModal(false);
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -130,23 +159,50 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
       return;
     }
 
-    // Create a note with the uploaded file
-    const fileUrl = URL.createObjectURL(file);
-    const fileType = file.type.startsWith('image/') ? 'photo' : 'video';
-    
-    const note: Omit<Note, 'id'> = {
-      type: fileType,
-      content: fileType === 'photo' ? 'Uppladdad bild' : 'Uppladdad video',
-      timestamp: new Date(),
-      fileUrl,
-      fileName: file.name,
-      fileSize: file.size
-    };
-    
-    handleAddNote(note);
+    console.log('Uploading file:', file.name, file.type, file.size);
+
+    try {
+      const fileType = file.type.startsWith('image/') ? 'photo' : 'video';
+      
+      const uploadResponse = await uploadFile(
+        file,
+        project.id,
+        fileType,
+        (progress) => console.log('Upload progress:', progress)
+      );
+
+      console.log('File upload successful:', uploadResponse);
+
+      // Reload project to show new file
+      await reloadProjectFromBackend();
+      
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      alert('Kunde inte ladda upp fil: ' + (error instanceof Error ? error.message : 'Okänt fel'));
+    }
     
     // Reset the input
     event.target.value = '';
+  };
+
+  const handleDeleteProject = () => {
+    deleteProjectAPI(project.id)
+
+  // Helper function to reload project from backend
+  const reloadProjectFromBackend = async () => {
+    try {
+      console.log('Reloading project from backend...');
+      const fullProject = await getProjectById(project.id);
+      console.log('Reloaded project data:', fullProject);
+      
+      const formattedProject = formatBackendProject(fullProject);
+      console.log('Formatted reloaded project:', formattedProject);
+      
+      onProjectUpdate(formattedProject);
+    } catch (error) {
+      console.error('Error reloading project:', error);
+      throw error;
+    }
   };
 
   const handleDeleteProject = () => {
@@ -159,6 +215,32 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
         alert('Kunde inte ta bort projekt: ' + (error instanceof Error ? error.message : 'Okänt fel'));
       });
   };
+
+  // Helper function to format backend project data
+  const formatBackendProject = (backendProject: any): Project => {
+    return {
+      id: backendProject.id,
+      name: backendProject.name,
+      location: backendProject.location || '',
+      date: new Date(backendProject.project_date || backendProject.created_at),
+      inspector: backendProject.inspector || '',
+      createdAt: new Date(backendProject.created_at),
+      updatedAt: new Date(backendProject.updated_at || backendProject.created_at),
+      notes: (backendProject.notes || []).map((note: any) => ({
+        id: note.id,
+        type: note.type,
+        content: note.content,
+        transcription: note.transcription,
+        timestamp: new Date(note.created_at),
+        fileUrl: note.files && note.files.length > 0 ? note.files[0].file_url : undefined,
+        fileName: note.files && note.files.length > 0 ? note.files[0].file_name : undefined,
+        fileSize: note.files && note.files.length > 0 ? note.files[0].file_size : undefined
+      })),
+      aiSummary: backendProject.ai_summary,
+      noteCount: (backendProject.notes || []).length
+    };
+  };
+
 
   const handleCreateReport = async () => {
     setIsGeneratingReport(true);
