@@ -112,15 +112,16 @@ export const shortenAddress = (fullAddress: string): string => {
 
 // Mock data population function
 export const populateWithMockData = () => {
-  // Don't populate mock data in production or if user already has projects
+  // Only create sample projects for new users
   const existingProjects = loadProjects();
   if (existingProjects.length > 0) {
     return existingProjects;
   }
 
-  const mockProjects: Project[] = [
+  // Create just 2 sample projects for new users
+  const sampleProjects: Project[] = [
     {
-      id: 'mock-project-1',
+      id: 'sample-project-1',
       name: 'Kontorsbyggnad A - Ventilationsinspektion',
       location: 'Falköpingsvägen 8, Hammarbyhöjden',
       date: new Date('2024-12-15'),
@@ -150,7 +151,7 @@ export const populateWithMockData = () => {
 **Nästa inspektion:** Rekommenderas inom 6 månader`,
       notes: [
         {
-          id: 'note-1',
+          id: 'sample-note-1',
           type: 'photo',
           content: 'Foto av ventilationsfläkt',
           transcription: '',
@@ -160,7 +161,7 @@ export const populateWithMockData = () => {
           fileSize: 2456789
         },
         {
-          id: 'note-2',
+          id: 'sample-note-2',
           type: 'video',
           content: 'Videoinspelning av fläktljud',
           transcription: 'Här hör vi fläkten som låter ovanligt högt. Det verkar vara vibrationer från lagret. Jag rekommenderar att vi byter ut lagret inom de närmaste veckorna. Ljudnivån är betydligt högre än normalt och det kan tyda på att lagret håller på att gå sönder.',
@@ -170,7 +171,7 @@ export const populateWithMockData = () => {
           fileSize: 8934567
         },
         {
-          id: 'note-3',
+          id: 'sample-note-3',
           type: 'photo',
           content: 'Filter som behöver bytas',
           transcription: '',
@@ -180,7 +181,7 @@ export const populateWithMockData = () => {
           fileSize: 1876543
         },
         {
-          id: 'note-4',
+          id: 'sample-note-4',
           type: 'video',
           content: 'Branddetektortest',
           transcription: 'Nu testar vi branddetektorn i korridoren på våning två. Som ni hör så fungerar larmet perfekt. Detektorn reagerar snabbt på teströk och ljudnivån är tillräcklig. Alla branddetektorer i byggnaden har testats och godkänts enligt gällande säkerhetsföreskrifter.',
@@ -190,7 +191,7 @@ export const populateWithMockData = () => {
           fileSize: 12456789
         },
         {
-          id: 'note-5',
+          id: 'sample-note-5',
           type: 'photo',
           content: 'Läckage vid rörgenomföring',
           transcription: '',
@@ -200,7 +201,7 @@ export const populateWithMockData = () => {
           fileSize: 2234567
         },
         {
-          id: 'note-6',
+          id: 'sample-note-6',
           type: 'video',
           content: 'Genomgång av elcentral',
           transcription: 'Här går vi igenom elcentralen på bottenvåningen. Alla säkringar är märkta korrekt och det finns inga tecken på överhettning eller korrosion. Jordfelsbryterna fungerar som de ska och har testats. Installationen följer gällande elstandard och är i gott skick.',
@@ -210,7 +211,7 @@ export const populateWithMockData = () => {
           fileSize: 7654321
         },
         {
-          id: 'note-7',
+          id: 'sample-note-7',
           type: 'photo',
           content: 'Slutkontroll ventilationsschema',
           transcription: '',
@@ -222,7 +223,7 @@ export const populateWithMockData = () => {
       ]
     },
     {
-      id: 'mock-project-2',
+      id: 'sample-project-2',
       name: 'Restaurang Kök - Säkerhetsinspektion',
       location: 'Drottninggatan 42, Stockholm',
       date: new Date('2024-12-10'),
@@ -231,7 +232,7 @@ export const populateWithMockData = () => {
       updatedAt: new Date('2024-12-10T16:30:00'),
       notes: [
         {
-          id: 'note-8',
+          id: 'sample-note-8',
           type: 'photo',
           content: 'Köksutrustning översikt',
           transcription: '',
@@ -241,7 +242,7 @@ export const populateWithMockData = () => {
           fileSize: 3234567
         },
         {
-          id: 'note-9',
+          id: 'sample-note-9',
           type: 'video',
           content: 'Brandskyddssystem test',
           transcription: 'Vi testar nu sprinklersystemet i köket. Systemet aktiveras korrekt vid 68 grader och vattentrycket är optimalt. Alla munstycken är rena och fria från blockering. Brandskyddssystemet uppfyller alla säkerhetskrav för kommersiella kök.',
@@ -254,6 +255,6 @@ export const populateWithMockData = () => {
     }
   ];
 
-  saveProjects(mockProjects);
-  return mockProjects;
+  saveProjects(sampleProjects);
+  return sampleProjects;
 };

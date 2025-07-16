@@ -6,7 +6,7 @@ import { ProjectDetail } from './components/ProjectDetail';
 import { GlobalAIChat } from './components/GlobalAIChat';
 import { AuthForm } from './components/AuthForm';
 import { loadProjects, saveProjects, populateWithMockData } from './utils/storage';
-import { ClipboardList, Plus, FolderOpen, Bot, LogOut, User } from 'lucide-react';
+import { ClipboardList, Plus, FolderOpen, Bot, LogOut, User, ChevronDown } from 'lucide-react';
 import { isAuthenticated, getUser, logout } from './utils/auth';
 
 type View = 'list' | 'new' | 'detail';
@@ -19,6 +19,7 @@ function App() {
   const [activeTab, setActiveTab] = useState<Tab>('projects');
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   useEffect(() => {
     // Check authentication status
@@ -53,6 +54,14 @@ function App() {
     setCurrentView('list');
     setSelectedProject(null);
     setProjects([]);
+  };
+
+  const getUserInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(part => part.charAt(0).toUpperCase())
+      .slice(0, 2)
+      .join('');
   };
 
   // Show loading while checking authentication
@@ -130,28 +139,55 @@ function App() {
                       </div>
                       <div>
                         <h1 className="text-xl font-bold text-gray-900">Inspektionsassistent</h1>
-                        <p className="text-sm text-gray-500">AI-driven facilitetsinspektioner</p>
                       </div>
                     </div>
-                   <div className="flex items-center space-x-2">
-                     <div className="flex items-center text-sm text-gray-600 mr-3">
-                       <User className="w-4 h-4 mr-1" />
-                       <span>{getUser()?.name}</span>
-                     </div>
-                     <button
-                       onClick={handleLogout}
-                       className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-                       title="Logga ut"
-                     >
-                       <LogOut className="w-5 h-5" />
-                     </button>
-                     <button
-                       onClick={() => setCurrentView('new')}
-                       className="w-12 h-12 bg-blue-600 text-white rounded-xl flex items-center justify-center hover:bg-blue-700 transition-colors shadow-lg"
-                     >
-                       <Plus className="w-6 h-6" />
-                     </button>
-                   </div>
+                    <div className="flex items-center space-x-3">
+                      {/* User Profile Menu */}
+                      <div className="relative">
+                        <button
+                          onClick={() => setShowUserMenu(!showUserMenu)}
+                          className="flex items-center space-x-2 p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                        >
+                          <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                            {getUserInitials(getUser()?.name || '')}
+                          </div>
+                          <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
+                        </button>
+                        
+                        {showUserMenu && (
+                          <>
+                            <div 
+                              className="fixed inset-0 z-10" 
+                              onClick={() => setShowUserMenu(false)}
+                            />
+                            <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 min-w-[200px]">
+                              <div className="p-3 border-b border-gray-100">
+                                <p className="text-sm font-medium text-gray-900">{getUser()?.name}</p>
+                                <p className="text-xs text-gray-500">{getUser()?.email}</p>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  setShowUserMenu(false);
+                                  handleLogout();
+                                }}
+                                className="w-full flex items-center px-3 py-2 text-left text-red-600 hover:bg-red-50 transition-colors"
+                              >
+                                <LogOut className="w-4 h-4 mr-2" />
+                                Logga ut
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                      
+                      {/* New Project Button */}
+                      <button
+                        onClick={() => setCurrentView('new')}
+                        className="w-10 h-10 bg-blue-600 text-white rounded-xl flex items-center justify-center hover:bg-blue-700 transition-colors shadow-lg"
+                      >
+                        <Plus className="w-5 h-5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <div className="flex-1 overflow-y-auto">
