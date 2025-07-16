@@ -333,33 +333,35 @@ function App() {
         )}
       </div>
 
-      {/* Footer Navigation */}
-      <div className="bg-white border-t border-gray-200 px-4 py-2 safe-area-pb flex-shrink-0">
-        <div className="flex">
-          <button
-            onClick={() => handleTabChange('projects')}
-            className={`flex-1 flex flex-col items-center py-2 px-3 rounded-lg transition-colors ${
-              activeTab === 'projects'
-                ? 'bg-blue-50 text-blue-600'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <FolderOpen className="w-6 h-6 mb-1" />
-            <span className="text-xs font-medium">Projekt</span>
-          </button>
-          <button
-            onClick={() => handleTabChange('ai')}
-            className={`flex-1 flex flex-col items-center py-2 px-3 rounded-lg transition-colors ${
-              activeTab === 'ai'
-                ? 'bg-blue-50 text-blue-600'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <Bot className="w-6 h-6 mb-1" />
-            <span className="text-xs font-medium">AI Assistent</span>
-          </button>
+      {/* Footer Navigation - Only show when not in project detail */}
+      {!(activeTab === 'projects' && currentView === 'detail') && (
+        <div className="bg-white border-t border-gray-200 px-4 py-2 safe-area-pb flex-shrink-0">
+          <div className="flex">
+            <button
+              onClick={() => handleTabChange('projects')}
+              className={`flex-1 flex flex-col items-center py-2 px-3 rounded-lg transition-colors ${
+                activeTab === 'projects'
+                  ? 'bg-blue-50 text-blue-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <FolderOpen className="w-6 h-6 mb-1" />
+              <span className="text-xs font-medium">Projekt</span>
+            </button>
+            <button
+              onClick={() => handleTabChange('ai')}
+              className={`flex-1 flex flex-col items-center py-2 px-3 rounded-lg transition-colors ${
+                activeTab === 'ai'
+                  ? 'bg-blue-50 text-blue-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Bot className="w-6 h-6 mb-1" />
+              <span className="text-xs font-medium">AI Assistent</span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -23,6 +23,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const [currentView, setCurrentView] = useState<'detail' | 'camera'>('detail');
   const [cameraMode, setCameraMode] = useState<'photo' | 'video'>('photo');
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editedReportText, setEditedReportText] = useState('');
   const [showEmailModal, setShowEmailModal] = useState(false);
@@ -77,12 +78,17 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const handleEditReport = () => {
     setEditedReportText(project.aiSummary || '');
     setShowEditModal(true);
+    setShowReportModal(false);
   };
 
   const handleSaveReport = () => {
     const updatedProject = { ...project, aiSummary: editedReportText };
     onProjectUpdate(updatedProject);
     setShowEditModal(false);
+  };
+
+  const handlePreviewReport = () => {
+    setShowReportModal(true);
   };
 
   const handleCancelEditReport = () => {
@@ -264,7 +270,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   }
 
   return (
-    <div className="flex flex-col h-full pb-16">
+    <div className="flex flex-col h-full">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-4 py-3">
         <div className="flex items-center justify-between">
@@ -280,7 +286,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
         </div>
       </div>
 
-      {/* AI Summary Section - Moved to top */}
+      {/* AI Summary Section - Only action buttons, no content */}
       {project.aiSummary && (
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200">
           <div className="p-4 pb-3">
@@ -312,7 +318,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                   )}
                 </button>
                 <button
-                  onClick={() => exportProjectToPDF(project)}
+                  onClick={handlePreviewReport}
                   className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
                   title="Förhandsgranska PDF"
                 >
@@ -327,19 +333,12 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                 </button>
               </div>
             </div>
-            
-            {/* Report Content - Always Visible */}
-            <div className="bg-white rounded-lg p-4 shadow-sm">
-              <div className="prose prose-sm max-w-none">
-                <div className="whitespace-pre-wrap text-gray-700">{project.aiSummary}</div>
-              </div>
-            </div>
           </div>
         </div>
       )}
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto pb-24">
         {/* Notes Section */}
         <div className="p-4">
           {/* Add Text Note */}
@@ -525,7 +524,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
       )}
 
       {/* Action Buttons */}
-      <div className="bg-white border-t border-gray-200 p-4 pb-2">
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4">
         <div className="grid grid-cols-4 gap-3">
           <button
             onClick={() => {
@@ -566,6 +565,35 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Report Preview Modal */}
+      {showReportModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">AI-Rapport</h3>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => exportProjectToPDF(project)}
+                  className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  title="Ladda ner PDF"
+                >
+                  <Search className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setShowReportModal(false)}
+                  className="p-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <div className="prose prose-sm max-w-none">
+              <div className="whitespace-pre-wrap text-gray-700">{project.aiSummary}</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Email Modal */}
       {showEmailModal && (
