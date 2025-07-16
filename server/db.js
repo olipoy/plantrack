@@ -185,15 +185,27 @@ const noteDb = {
 const summaryDb = {
   // Create or update summary
   async upsertSummary(projectId, content) {
-    const result = await query(
-      `INSERT INTO summaries (project_id, content) 
-       VALUES ($1, $2)
-       ON CONFLICT (project_id) 
-       DO UPDATE SET content = $2, updated_at = NOW()
-       RETURNING *`,
-      [projectId, content]
+    // First, try to find existing summary
+    const existingResult = await query(
+      'SELECT id FROM summaries WHERE project_id = $1 ORDER BY created_at DESC LIMIT 1',
+      [projectId]
     );
-    return result.rows[0];
+    
+    if (existingResult.rows.length > 0) {
+      // Update existing summary
+      const result = await query(
+        'UPDATE summaries SET content = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+        [content, existingResult.rows[0].id]
+      );
+      return result.rows[0];
+    } else {
+      // Create new summary
+      const result = await query(
+        'INSERT INTO summaries (project_id, content) VALUES ($1, $2) RETURNING *',
+        [projectId, content]
+      );
+      return result.rows[0];
+    }
   },
 
   // Get summary for project
