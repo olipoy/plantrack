@@ -145,7 +145,7 @@ const noteDb = {
        LEFT JOIN note_files nf ON n.id = nf.note_id
        WHERE n.project_id = $1
        GROUP BY n.id
-       ORDER BY n.created_at ASC`,
+       ORDER BY n.created_at DESC`,
       [projectId]
     );
     console.log('Database notes query result:', result.rows.length, 'notes found');

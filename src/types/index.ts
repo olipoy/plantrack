@@ -8,6 +8,7 @@ export interface Project {
   updatedAt: Date;
   notes: Note[];
   aiSummary?: string;
+  noteCount?: number;
 }
 
 export interface Note {

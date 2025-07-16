@@ -51,7 +51,8 @@ function App() {
           createdAt: new Date(p.created_at),
           updatedAt: new Date(p.updated_at || p.created_at),
           notes: [], // Notes will be loaded when project is selected
-          aiSummary: p.ai_summary
+          aiSummary: p.ai_summary,
+          noteCount: p.note_count || 0
         }));
         
         console.log('Formatted projects:', formattedProjects);
@@ -181,7 +182,8 @@ function App() {
             fileName: note.files && note.files.length > 0 ? note.files[0].file_name : undefined,
             fileSize: note.files && note.files.length > 0 ? note.files[0].file_size : undefined
           })),
-          aiSummary: fullProject.ai_summary
+          aiSummary: fullProject.ai_summary,
+          noteCount: (fullProject.notes || []).length
         };
         
         console.log('Formatted project with notes:', formattedProject);

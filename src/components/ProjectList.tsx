@@ -58,11 +58,11 @@ export const ProjectList: React.FC<ProjectListProps> = ({ projects, onSelectProj
               <div className="flex items-center justify-between mt-2">
                 <div className="flex items-center text-sm">
                   <span className="text-gray-500 mr-2">
-                    {project.notes.length} anteckningar
+                    {project.noteCount || project.notes.length} anteckningar
                   </span>
                   <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
                     <span className="text-blue-600 text-xs font-medium">
-                      {project.notes.length}
+                      {project.noteCount || project.notes.length}
                     </span>
                   </div>
                 </div>

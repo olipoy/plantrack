@@ -74,6 +74,9 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
       console.log('Formatted project after reload:', formattedProject);
       console.log('Number of notes after reload:', formattedProject.notes.length);
       
+      // Update note count
+      formattedProject.noteCount = formattedProject.notes.length;
+      
       onProjectUpdate(formattedProject);
     } catch (error) {
       console.error('Error reloading project after note addition:', error);
