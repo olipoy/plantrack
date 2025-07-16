@@ -331,7 +331,17 @@ if (NODE_ENV === 'production') {
   // Serve uploaded files in development with proper error handling
   app.use('/uploads', express.static(join(__dirname, 'uploads'), {
     fallthrough: false,
-    maxAge: '1d'
+    maxAge: '1d',
+    setHeaders: (res, path) => {
+      // Set proper MIME types for video files
+      if (path.endsWith('.webm')) {
+        res.setHeader('Content-Type', 'video/webm');
+      } else if (path.endsWith('.mp4')) {
+        res.setHeader('Content-Type', 'video/mp4');
+      }
+      // Enable range requests for video streaming
+      res.setHeader('Accept-Ranges', 'bytes');
+    }
   }));
 }
 
@@ -342,6 +352,14 @@ app.get('/uploads/:filename', (req, res) => {
   
   console.log('File request:', filename);
   console.log('File path:', filePath);
+  
+  // Set proper headers for video files
+  if (filename.endsWith('.webm')) {
+    res.setHeader('Content-Type', 'video/webm');
+  } else if (filename.endsWith('.mp4')) {
+    res.setHeader('Content-Type', 'video/mp4');
+  }
+  res.setHeader('Accept-Ranges', 'bytes');
   
   // Check if file exists
   fs.access(filePath)
@@ -659,7 +677,7 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
               content: [
                 {
                   type: 'text',
-                  text: 'Beskriv vad som syns i denna bild med 1-3 ord på svenska. Fokusera på det huvudsakliga objektet eller systemet som visas. Exempel: "värmepump", "elcentral", "ventilationskanal", "rörledning", "brandvarnare". Svara endast med beskrivningen, inga extra ord.'
+                  text: 'Beskriv vad som syns i denna bild med 1-4 ord på svenska. Fokusera på det huvudsakliga objektet eller systemet som visas i en facilitetsinspektionskontext. Exempel: "värmepump", "elcentral", "ventilationskanal", "rörledning", "brandvarnare", "köksutrustning", "dryckesautomat". Svara endast med beskrivningen, inga extra ord eller meningar.'
                 },
                 {
                   type: 'image_url',
@@ -671,7 +689,7 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
               ]
             }
           ],
-          max_tokens: 50,
+          max_tokens: 20,
           temperature: 0.3
         });
 
@@ -684,11 +702,12 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
         imageLabel = rawLabel
           .replace(/^["']|["']$/g, '') // Remove surrounding quotes
           .replace(/\.$/, '') // Remove trailing period
+          .replace(/^(det är |detta är |jag ser )/i, '') // Remove common prefixes
           .toLowerCase()
           .trim();
 
         // Validate label length and content
-        if (imageLabel.length > 50 || imageLabel.length < 2) {
+        if (imageLabel.length > 30 || imageLabel.length < 2) {
           console.log('Label too long or too short, discarding:', imageLabel);
           imageLabel = null;
         }
@@ -723,7 +742,7 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
     const note = await noteDb.createNote(
       projectId,
       noteType,
-      content || (noteType === 'photo' ? 'Foto taget' : 'Videoinspelning'),
+      content || (noteType === 'photo' ? (imageLabel || 'Foto taget') : 'Videoinspelning'),
       transcription,
       imageLabel
     );

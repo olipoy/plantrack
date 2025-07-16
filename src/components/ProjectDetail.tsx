@@ -950,10 +950,71 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
                     </div>
                   </div>
                   
-                  {(note.transcription || note.content) && (
+                  {/* Show content for text notes, transcription for audio/video, or image label for photos */}
+                  {(note.type === 'text' && note.content) && (
                     <p className="text-gray-900 whitespace-pre-wrap mb-3">
-                      {note.transcription || note.content}
+                      {note.content}
                     </p>
+                  )}
+                  
+                  {(note.type === 'video' && note.transcription) && (
+                    <p className="text-gray-900 whitespace-pre-wrap mb-3">
+                      {note.transcription}
+                    </p>
+                  )}
+                  
+                  {(note.type === 'photo' && (note.imageLabel || editingLabelId === note.id)) && (
+                    <div className="mb-3">
+                      {editingLabelId === note.id ? (
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="text"
+                            value={editingLabelText}
+                            onChange={(e) => setEditingLabelText(e.target.value)}
+                            className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="Beskriv vad som syns..."
+                            autoFocus
+                            onKeyPress={(e) => {
+                              if (e.key === 'Enter') {
+                                handleSaveLabel(note.id);
+                              } else if (e.key === 'Escape') {
+                                handleCancelEditLabel();
+                              }
+                            }}
+                          />
+                          <button
+                            onClick={() => handleSaveLabel(note.id)}
+                            className="p-1 text-green-600 hover:text-green-800"
+                            title="Spara"
+                          >
+                            <Check className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={handleCancelEditLabel}
+                            className="p-1 text-gray-600 hover:text-gray-800"
+                            title="Avbryt"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-900 font-medium">
+                            {note.imageLabel}
+                          </span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditLabel(note.id, note.imageLabel || '');
+                            }}
+                            className="p-1 text-blue-600 hover:text-blue-800"
+                            title="Redigera etikett"
+                          >
+                            <Edit3 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   )}
                   
                   {note.fileUrl && note.type === 'photo' && (
@@ -985,76 +1046,21 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
                       <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black bg-opacity-20 rounded-lg">
                         <Image className="w-8 h-8 text-white" />
                       </div>
-                      
-                      {/* Image Label */}
-                      {(note.imageLabel || editingLabelId === note.id) && (
-                        <div className="mt-2">
-                          {editingLabelId === note.id ? (
-                            <div className="flex items-center space-x-2">
-                              <input
-                                type="text"
-                                value={editingLabelText}
-                                onChange={(e) => setEditingLabelText(e.target.value)}
-                                className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                placeholder="Beskriv vad som syns..."
-                                autoFocus
-                                onKeyPress={(e) => {
-                                  if (e.key === 'Enter') {
-                                    handleSaveLabel(note.id);
-                                  } else if (e.key === 'Escape') {
-                                    handleCancelEditLabel();
-                                  }
-                                }}
-                              />
-                              <button
-                                onClick={() => handleSaveLabel(note.id)}
-                                className="p-1 text-green-600 hover:text-green-800"
-                                title="Spara"
-                              >
-                                <Check className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={handleCancelEditLabel}
-                                className="p-1 text-gray-600 hover:text-gray-800"
-                                title="Avbryt"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="flex items-center justify-between bg-blue-50 px-3 py-2 rounded-lg">
-                              <span className="text-sm text-blue-800 font-medium">
-                                {note.imageLabel}
-                              </span>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleEditLabel(note.id, note.imageLabel || '');
-                                }}
-                                className="p-1 text-blue-600 hover:text-blue-800"
-                                title="Redigera etikett"
-                              >
-                                <Edit3 className="w-3 h-3" />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      
-                      {/* Add label button for images without labels */}
-                      {!note.imageLabel && editingLabelId !== note.id && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEditLabel(note.id, '');
-                          }}
-                          className="mt-2 text-xs text-gray-500 hover:text-blue-600 flex items-center"
-                        >
-                          <Plus className="w-3 h-3 mr-1" />
-                          Lägg till etikett
-                        </button>
-                      )}
                     </div>
+                  )}
+                  
+                  {/* Add label button for images without labels */}
+                  {note.type === 'photo' && !note.imageLabel && editingLabelId !== note.id && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditLabel(note.id, '');
+                      }}
+                      className="text-xs text-gray-500 hover:text-blue-600 flex items-center mb-3"
+                    >
+                      <Plus className="w-3 h-3 mr-1" />
+                      Lägg till etikett
+                    </button>
                   )}
                   
                   {note.fileUrl && note.type === 'video' && (
@@ -1062,9 +1068,16 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
                       <video 
                         src={note.fileUrl} 
                         className="rounded-lg max-w-full h-auto max-h-64 object-cover"
-                        poster=""
+                        preload="metadata"
+                        controls={false}
                         onError={(e) => {
                           console.error('Video failed to load:', note.fileUrl);
+                          console.error('Video error details:', {
+                            error: e.currentTarget.error,
+                            networkState: e.currentTarget.networkState,
+                            readyState: e.currentTarget.readyState,
+                            src: e.currentTarget.src
+                          });
                           const target = e.target as HTMLVideoElement;
                           target.style.display = 'none';
                           // Show placeholder
@@ -1076,11 +1089,15 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
                         onLoadedData={() => {
                           console.log('Video loaded successfully:', note.fileUrl);
                         }}
+                        onLoadStart={() => {
+                          console.log('Video loading started:', note.fileUrl);
+                        }}
                       />
                       <div className="video-placeholder hidden bg-gray-100 rounded-lg h-64 flex items-center justify-center">
                         <div className="text-center text-gray-500">
                           <Video className="w-12 h-12 mx-auto mb-2" />
                           <p className="text-sm">Video kunde inte laddas</p>
+                          <p className="text-xs text-gray-400 mt-1">Kontrollera filformatet</p>
                         </div>
                       </div>
                       <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-20 rounded-lg">
@@ -1095,18 +1112,23 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
         </div>
 
         <div className="bg-white border-t border-gray-200 p-4">
-          {project.notes.length > 0 && !project.aiSummary && (
+          {/* Always show report generation button if there are notes */}
+          {project.notes.length > 0 && (
             <button
               onClick={handleCreateReport}
               disabled={isGeneratingReport}
-              className="w-full bg-teal-600 text-white py-2.5 px-4 rounded-lg font-medium hover:bg-teal-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-200 flex items-center justify-center mb-3"
+              className={`w-full py-2.5 px-4 rounded-lg font-medium disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-200 flex items-center justify-center mb-3 ${
+                project.aiSummary 
+                  ? 'bg-orange-600 text-white hover:bg-orange-700' 
+                  : 'bg-teal-600 text-white hover:bg-teal-700'
+              }`}
             >
               {isGeneratingReport ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>
                   <Sparkles className="w-4 h-4 mr-2" />
-                  Skapa Rapport
+                  {project.aiSummary ? 'Uppdatera Rapport' : 'Skapa Rapport'}
                 </>
               )}
             </button>
