@@ -22,6 +22,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
 }) => {
   const [currentView, setCurrentView] = useState<'detail' | 'camera'>('detail');
   const [cameraMode, setCameraMode] = useState<'photo' | 'video'>('photo');
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -36,12 +37,22 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
 
   const handleCameraCapture = (note: Omit<Note, 'id'>) => {
     console.log('Camera capture completed, adding note:', note);
-    const updatedProjects = addNoteToProject(project.id, note);
-    const updatedProject = updatedProjects.find(p => p.id === project.id);
-    if (updatedProject) {
-      console.log('Project updated with new note:', updatedProject);
-      onProjectUpdate(updatedProject);
-    }
+    
+    // Create a temporary note with a generated ID for immediate display
+    const tempNote: Note = {
+      id: `temp-${Date.now()}`,
+      ...note
+    };
+    
+    // Immediately update the project state to show the new note
+    const updatedProject = {
+      ...project,
+      notes: [tempNote, ...project.notes],
+      updatedAt: new Date()
+    };
+    
+    console.log('Project updated with new note:', updatedProject);
+    onProjectUpdate(updatedProject);
     setCurrentView('detail');
   };
 
@@ -358,6 +369,16 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto pb-24">
+        {/* Upload Loading Indicator */}
+        {isUploadingMedia && (
+          <div className="bg-blue-50 border-b border-blue-200 p-4">
+            <div className="flex items-center justify-center">
+              <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mr-3" />
+              <span className="text-blue-800 font-medium">Laddar upp media...</span>
+            </div>
+          </div>
+        )}
+        
         {/* Notes Section */}
         <div className="p-4">
           {/* Add Text Note */}
@@ -481,25 +502,51 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                 {note.fileUrl && (
                   <div className="mb-3">
                     {note.type === 'photo' ? (
-                      <img 
-                        src={note.fileUrl} 
-                        alt={note.imageLabel || "Uploaded photo"}
-                        className="w-full rounded-lg shadow-sm"
-                        loading="lazy"
-                      />
+                      <div className="relative">
+                        <img 
+                          src={note.fileUrl} 
+                          alt={note.imageLabel || "Uploaded photo"}
+                          className="w-full rounded-lg shadow-sm"
+                          loading="lazy"
+                          onError={(e) => {
+                            console.error('Image loading error:', e);
+                            console.error('Image URL:', note.fileUrl);
+                          }}
+                        />
+                        {/* Show loading overlay for temporary notes */}
+                        {note.id.startsWith('temp-') && (
+                          <div className="absolute inset-0 bg-black bg-opacity-30 rounded-lg flex items-center justify-center">
+                            <div className="bg-white rounded-lg p-3 flex items-center">
+                              <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mr-2" />
+                              <span className="text-sm font-medium text-gray-700">Laddar upp...</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     ) : note.type === 'video' ? (
-                      <video 
-                        src={note.fileUrl} 
-                        controls 
-                        className="w-full rounded-lg shadow-sm"
-                        preload="metadata"
-                        onError={(e) => {
-                          console.error('Video loading error:', e);
-                          console.error('Video URL:', note.fileUrl);
-                        }}
-                      >
-                        Din webbläsare stöder inte videouppspelning.
-                      </video>
+                      <div className="relative">
+                        <video 
+                          src={note.fileUrl} 
+                          controls 
+                          className="w-full rounded-lg shadow-sm"
+                          preload="metadata"
+                          onError={(e) => {
+                            console.error('Video loading error:', e);
+                            console.error('Video URL:', note.fileUrl);
+                          }}
+                        >
+                          Din webbläsare stöder inte videouppspelning.
+                        </video>
+                        {/* Show loading overlay for temporary notes */}
+                        {note.id.startsWith('temp-') && (
+                          <div className="absolute inset-0 bg-black bg-opacity-30 rounded-lg flex items-center justify-center">
+                            <div className="bg-white rounded-lg p-3 flex items-center">
+                              <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mr-2" />
+                              <span className="text-sm font-medium text-gray-700">Laddar upp...</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     ) : null}
                   </div>
                 )}

@@ -238,6 +238,9 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
         mode
       });
 
+      // Create a temporary blob URL for immediate display
+      const tempFileUrl = URL.createObjectURL(capturedMedia);
+
       const uploadResponse = await uploadFile(
         file,
         projectId,
@@ -256,7 +259,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
           content: mode === 'photo' ? 'Foto taget' : 'Videoinspelning',
           transcription: uploadResponse.transcription,
           timestamp: new Date(),
-          fileUrl: uploadResponse.fileUrl,
+          fileUrl: tempFileUrl, // Use temp URL for immediate display
           fileName: uploadResponse.originalName,
           fileSize: uploadResponse.size
         };
