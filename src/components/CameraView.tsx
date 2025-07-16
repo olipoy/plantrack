@@ -39,11 +39,13 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
     try {
       setError('');
       
+      // Optimized constraints for smaller file sizes
       const constraints = {
         video: { 
           facingMode: 'environment',
-          width: { ideal: 1920 },
-          height: { ideal: 1080 }
+          width: { ideal: 640, max: 854 },
+          height: { ideal: 480, max: 480 },
+          frameRate: { ideal: 15, max: 24 }
         },
         audio: mode === 'video' // Only request audio for video mode
       };
@@ -113,8 +115,21 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
     if (!streamRef.current || isRecording) return;
 
     try {
+      // Use more efficient codec settings for smaller files
+      let mimeType = 'video/webm;codecs=vp8,opus'; // VP8 is more efficient than VP9
+      
+      // Fallback options if VP8 is not supported
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'video/webm;codecs=vp9,opus';
+      }
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'video/webm';
+      }
+      
       const recorder = new MediaRecorder(streamRef.current, {
-        mimeType: 'video/webm;codecs=vp9'
+        mimeType,
+        videoBitsPerSecond: 500000, // 500 kbps - much lower than default
+        audioBitsPerSecond: 64000   // 64 kbps audio
       });
       
       mediaRecorderRef.current = recorder;
