@@ -144,14 +144,14 @@ export const sendChatMessage = async (
 };
 
 export const summarizeNotes = async (
-  notes: string[],
-  projectName: string,
-  projectLocation: string
+  projectId: string
 ): Promise<{ summary: string }> => {
   const token = getToken();
   if (!token) {
     throw new Error('Authentication required');
   }
+
+  console.log('Sending summarization request for project:', projectId);
 
   const response = await fetch(`${API_BASE_URL}/summarize`, {
     method: 'POST',
@@ -160,17 +160,21 @@ export const summarizeNotes = async (
       'Authorization': `Bearer ${token}`,
     },
     body: JSON.stringify({
-      notes,
-      projectName,
-      projectLocation
+      projectId
     }),
   });
 
+  console.log('Summarization response status:', response.status);
+  
   if (!response.ok) {
-    throw new Error(`Summarization failed: ${response.statusText}`);
+    const errorText = await response.text();
+    console.error('Summarization error response:', errorText);
+    throw new Error(`Summarization failed (${response.status}): ${response.statusText}`);
   }
 
-  return response.json();
+  const result = await response.json();
+  console.log('Summarization result:', result);
+  return result;
 };
 
 export const sendEmailWithPDF = async (

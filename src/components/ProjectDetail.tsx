@@ -206,8 +206,22 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
     setReportError('');
     
     try {
-      const noteTexts = project.notes.map(note => note.transcription || note.content);
-      const response = await summarizeNotes(noteTexts, project.name, project.location);
+      console.log('Starting report generation for project:', project.id);
+      console.log('Project notes count:', project.notes.length);
+      
+      if (project.notes.length === 0) {
+        throw new Error('Inga anteckningar att sammanfatta');
+      }
+      
+      const noteTexts = project.notes.map(note => note.transcription || note.content).filter(text => text && text.trim());
+      console.log('Note texts for summarization:', noteTexts.length, 'valid notes');
+      
+      if (noteTexts.length === 0) {
+        throw new Error('Inga giltiga anteckningar att sammanfatta');
+      }
+      
+      const response = await summarizeNotes(project.id);
+      console.log('Summarization response:', response);
       
       const updatedProject = { ...project, aiSummary: response.summary };
       onProjectUpdate(updatedProject);
@@ -215,7 +229,8 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
       setShowReportEditor(true);
     } catch (error) {
       console.error('Error generating report:', error);
-      setReportError('Kunde inte generera rapport. Kontrollera internetanslutningen och försök igen.');
+      const errorMessage = error instanceof Error ? error.message : 'Okänt fel uppstod';
+      setReportError(`Kunde inte generera rapport: ${errorMessage}`);
     } finally {
       setIsGeneratingReport(false);
     }

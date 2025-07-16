@@ -698,26 +698,46 @@ Svara på svenska och var specifik när du refererar till projekt och anteckning
 // Summarize notes endpoint
 app.post('/api/summarize', authenticateToken, async (req, res) => {
   try {
+    console.log('=== SUMMARIZATION REQUEST ===');
+    console.log('User ID:', req.user.id);
+    console.log('Request body:', req.body);
+    
     const { projectId } = req.body;
 
     if (!projectId) {
+      console.log('Missing project ID in request');
       return res.status(400).json({ error: 'Project ID is required' });
     }
 
+    console.log('Verifying project ownership for project:', projectId);
     // Verify project belongs to user
     const project = await projectDb.getProjectById(projectId, req.user.id);
     if (!project) {
+      console.log('Project not found for user');
       return res.status(404).json({ error: 'Project not found' });
     }
 
+    console.log('Project found:', project.name);
+    console.log('Getting notes for project...');
     // Get notes for this project
     const notes = await noteDb.getProjectNotes(projectId);
+    console.log('Notes retrieved:', notes.length, 'notes');
     
     if (notes.length === 0) {
+      console.log('No notes found for project');
       return res.status(400).json({ error: 'No notes found for this project' });
     }
 
     const notesText = notes.map(note => note.transcription || note.content).join('\n');
+    console.log('Combined notes text length:', notesText.length);
+    console.log('Notes text preview:', notesText.substring(0, 200) + '...');
+    
+    if (!process.env.OPENAI_API_KEY) {
+      console.log('OpenAI API key not configured');
+      return res.status(500).json({ error: 'OpenAI API key not configured' });
+    }
+    
+    console.log('Calling OpenAI for summarization...');
     
     const completion = await openai.chat.completions.create({
       model: 'gpt-4',
@@ -736,15 +756,36 @@ app.post('/api/summarize', authenticateToken, async (req, res) => {
     });
 
     const summary = completion.choices[0].message.content;
+    console.log('OpenAI response received, summary length:', summary.length);
 
+    console.log('Saving summary to database...');
     // Save summary to database
     await summaryDb.upsertSummary(projectId, summary);
+    console.log('Summary saved successfully');
 
+    console.log('=== SUMMARIZATION SUCCESS ===');
     res.json({ summary });
 
   } catch (error) {
-    console.error('Summarization error:', error);
-    res.status(500).json({ error: 'Summarization failed' });
+    console.error('=== SUMMARIZATION ERROR ===');
+    console.error('Error type:', error.constructor.name);
+    console.error('Error message:', error.message);
+    console.error('Full error:', error);
+    
+    // Check if it's an OpenAI API specific error
+    if (error.response) {
+      console.error('OpenAI API response error:', {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        data: error.response.data
+      });
+    }
+    
+    console.error('=== END SUMMARIZATION ERROR ===');
+    res.status(500).json({ 
+      error: 'Summarization failed',
+      details: error.message 
+    });
   }
 });
 // Email endpoint
