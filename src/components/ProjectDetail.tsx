@@ -1,12 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Project, Note } from '../types';
-import { ArrowLeft, Plus, Camera, Video, Download, Sparkles, AlertCircle, Play, Image, MapPin, Calendar, User, Trash2, MoreVertical, Upload, FileText, X, Mail, Send, CheckCircle, XCircle, Edit3, Eye } from 'lucide-react';
+import { ArrowLeft, Camera, Video, FileText, Download, Mail, Trash2, Edit3, Check, X, Sparkles } from 'lucide-react';
 import { CameraView } from './CameraView';
-import { exportProjectToPDF, generateProjectPDF } from '../utils/export';
-import { generateId } from '../utils/storage';
-import { deleteProject as deleteProjectAPI, getProjectById, uploadFile } from '../utils/api';
+import { addNoteToProject, deleteNoteFromProject, deleteProject } from '../utils/storage';
 import { summarizeNotes, sendEmailWithPDF } from '../utils/api';
-import { getToken } from '../utils/auth';
+import { exportProjectToPDF, generateProjectPDF } from '../utils/export';
+import { updateNoteLabel } from '../utils/api';
 
 interface ProjectDetailProps {
   project: Project;
@@ -15,561 +14,572 @@ interface ProjectDetailProps {
   onProjectDelete: () => void;
 }
 
-export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onProjectUpdate, onProjectDelete }) => {
-  const [showCameraView, setShowCameraView] = useState(false);
-  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
-  const [reportError, setReportError] = useState('');
-  const [showReportEditor, setShowReportEditor] = useState(false);
-  const [editableReport, setEditableReport] = useState('');
-  const [previewMode, setPreviewMode] = useState<'edit' | 'preview'>('edit');
-  const [selectedMedia, setSelectedMedia] = useState<Note | null>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
-  const [showAddNoteModal, setShowAddNoteModal] = useState(false);
-  const [newNoteText, setNewNoteText] = useState('');
+export const ProjectDetail: React.FC<ProjectDetailProps> = ({
+  project,
+  onBack,
+  onProjectUpdate,
+  onProjectDelete
+}) => {
+  const [currentView, setCurrentView] = useState<'detail' | 'camera'>('detail');
+  const [cameraMode, setCameraMode] = useState<'photo' | 'video'>('photo');
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [emailAddress, setEmailAddress] = useState('');
-  const [emailSubject, setEmailSubject] = useState('');
-  const [isEmailSending, setIsEmailSending] = useState(false);
-  const [emailStatus, setEmailStatus] = useState<'idle' | 'success' | 'error'>('idle');
-  const [emailError, setEmailError] = useState('');
-  const [cameraMode, setCameraMode] = useState<'photo' | 'video'>('photo');
-
-  // State for editing image labels
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [newTextNote, setNewTextNote] = useState('');
+  const [isAddingTextNote, setIsAddingTextNote] = useState(false);
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
-  const [editingLabelText, setEditingLabelText] = useState('');
-  // Initialize editable report when AI summary exists
-  React.useEffect(() => {
-    if (project.aiSummary && !editableReport) {
-      setEditableReport(project.aiSummary);
-    }
-  }, [project.aiSummary, editableReport]);
+  const [editingLabelValue, setEditingLabelValue] = useState('');
 
-  // Helper function to reload project from backend
-  const reloadProjectFromBackend = async () => {
-    try {
-      console.log('Reloading project from backend...');
-      const fullProject = await getProjectById(project.id);
-      console.log('Reloaded project data:', fullProject);
-      
-      const formattedProject = formatBackendProject(fullProject);
-      console.log('Formatted reloaded project:', formattedProject);
-      
-      onProjectUpdate(formattedProject);
-    } catch (error) {
-      console.error('Error reloading project:', error);
-      throw error;
-    }
-  };
-
-  // Helper function to format backend project data
-  const formatBackendProject = (backendProject: any): Project => {
-    return {
-      id: backendProject.id,
-      name: backendProject.name,
-      location: backendProject.location || '',
-      date: new Date(backendProject.project_date || backendProject.created_at),
-      inspector: backendProject.inspector || '',
-      createdAt: new Date(backendProject.created_at),
-      updatedAt: new Date(backendProject.updated_at || backendProject.created_at),
-      notes: (backendProject.notes || []).map((note: any) => ({
-        id: note.id,
-        type: note.type,
-        content: note.content,
-          imageLabel: note.image_label,
-        transcription: note.transcription,
-        timestamp: new Date(note.created_at),
-        fileUrl: note.files && note.files.length > 0 ? note.files[0].file_url : undefined,
-        fileName: note.files && note.files.length > 0 ? note.files[0].file_name : undefined,
-        fileSize: note.files && note.files.length > 0 ? note.files[0].file_size : undefined
-      })),
-      aiSummary: backendProject.ai_summary,
-      noteCount: (backendProject.notes || []).length
-    };
-  };
-
-  const handleAddNote = async (note: Omit<Note, 'id'>) => {
-    console.log('handleAddNote called with:', note);
-    try {
-      // Reload project from backend to get updated notes
-      console.log('Reloading project from backend after note addition...');
-      await reloadProjectFromBackend();
-    } catch (error) {
-      console.error('Error reloading project after note addition:', error);
-      // Fallback: add note to current project state
-      console.log('Using fallback: adding note to current state');
-      const newNote: Note = {
-        ...note,
-        id: generateId()
-      };
-      
-      const updatedProject = {
-        ...project,
-        notes: [...project.notes, newNote],
-        updatedAt: new Date()
-      };
-      
-      console.log('Fallback updated project:', updatedProject);
+  const handleCameraCapture = (note: Omit<Note, 'id'>) => {
+    console.log('Camera capture completed, adding note:', note);
+    const updatedProjects = addNoteToProject(project.id, note);
+    const updatedProject = updatedProjects.find(p => p.id === project.id);
+    if (updatedProject) {
+      console.log('Project updated with new note:', updatedProject);
       onProjectUpdate(updatedProject);
     }
-    setShowCameraView(false);
+    setCurrentView('detail');
   };
 
   const handleDeleteNote = (noteId: string) => {
-    // This function would need to be implemented to delete from database
-    // For now, just reload the project
-    reloadProjectFromBackend();
+    const updatedProjects = deleteNoteFromProject(project.id, noteId);
+    const updatedProject = updatedProjects.find(p => p.id === project.id);
+    if (updatedProject) {
+      onProjectUpdate(updatedProject);
+    }
+  };
+
+  const handleDeleteProject = async () => {
+    try {
+      await deleteProject(project.id);
+      onProjectDelete();
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      alert('Kunde inte ta bort projektet. Försök igen.');
+    }
+  };
+
+  const handleGenerateSummary = async () => {
+    if (project.notes.length === 0) {
+      alert('Lägg till anteckningar innan du skapar en rapport.');
+      return;
+    }
+
+    setIsGeneratingSummary(true);
+    try {
+      console.log('Generating summary for project:', project.id);
+      const response = await summarizeNotes(project.id);
+      console.log('Summary response:', response);
+      
+      const updatedProject = { ...project, aiSummary: response.summary };
+      onProjectUpdate(updatedProject);
+    } catch (error) {
+      console.error('Error generating summary:', error);
+      alert('Kunde inte skapa rapport. Kontrollera internetanslutningen och försök igen.');
+    } finally {
+      setIsGeneratingSummary(false);
+    }
+  };
+
+  const handleSendEmail = async () => {
+    if (!emailAddress.trim()) {
+      alert('Ange en e-postadress');
+      return;
+    }
+
+    setIsSendingEmail(true);
+    try {
+      const { pdfBuffer, fileName } = await generateProjectPDF(project);
+      await sendEmailWithPDF(
+        emailAddress,
+        `Inspektionsrapport - ${project.name}`,
+        pdfBuffer,
+        fileName,
+        `Inspektionsrapport för ${project.name} på ${project.location}`
+      );
+      
+      alert('Rapporten har skickats!');
+      setShowEmailModal(false);
+      setEmailAddress('');
+    } catch (error) {
+      console.error('Error sending email:', error);
+      alert('Kunde inte skicka e-post. Försök igen.');
+    } finally {
+      setIsSendingEmail(false);
+    }
   };
 
   const handleAddTextNote = async () => {
-    if (!newNoteText.trim()) return;
-    
-    console.log('Adding text note:', newNoteText.trim());
-    
+    if (!newTextNote.trim()) return;
+
     try {
-      const response = await fetch(`${import.meta.env.DEV ? 'http://localhost:3001/api' : '/api'}/notes`, {
+      const response = await fetch('/api/notes', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${getToken()}`,
+          'Authorization': `Bearer ${localStorage.getItem('inspection_auth_token')}`,
         },
         body: JSON.stringify({
           projectId: project.id,
           type: 'text',
-          content: newNoteText.trim()
+          content: newTextNote.trim()
         }),
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to create text note: ${response.statusText}`);
+        throw new Error('Failed to create note');
       }
 
-      const result = await response.json();
-      console.log('Text note created successfully:', result);
-
-      // Reload project to get updated notes
-      await reloadProjectFromBackend();
+      const note = await response.json();
       
-    } catch (error) {
-      console.error('Error creating text note:', error);
-      alert('Kunde inte spara textanteckning: ' + (error instanceof Error ? error.message : 'Okänt fel'));
-    }
+      // Add note to project and update
+      const newNote: Note = {
+        id: note.id,
+        type: 'text',
+        content: newTextNote.trim(),
+        timestamp: new Date(),
+      };
 
-    setNewNoteText('');
-    setShowAddNoteModal(false);
-  };
+      const updatedProject = {
+        ...project,
+        notes: [newNote, ...project.notes],
+        updatedAt: new Date()
+      };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    if (project.notes.length >= 20) {
-      alert('Du kan ha maximalt 20 anteckningar per projekt.');
-      return;
-    }
-
-    console.log('Uploading file:', file.name, file.type, file.size);
-
-    try {
-      const fileType = file.type.startsWith('image/') ? 'photo' : 'video';
-      
-      const uploadResponse = await uploadFile(
-        file,
-        project.id,
-        fileType,
-        (progress) => console.log('Upload progress:', progress)
-      );
-
-      console.log('File upload successful:', uploadResponse);
-
-      // Reload project to show new file
-      await reloadProjectFromBackend();
-      
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      alert('Kunde inte ladda upp fil: ' + (error instanceof Error ? error.message : 'Okänt fel'));
-    }
-    
-    // Reset the input
-    event.target.value = '';
-  };
-
-  const handleDeleteProject = () => {
-    deleteProjectAPI(project.id)
-      .then(() => {
-        onProjectDelete();
-      })
-      .catch(error => {
-        console.error('Error deleting project:', error);
-        alert('Kunde inte ta bort projekt: ' + (error instanceof Error ? error.message : 'Okänt fel'));
-      });
-  };
-
-  const handleCreateReport = async () => {
-    setIsGeneratingReport(true);
-    setReportError('');
-    
-    try {
-      console.log('Starting report generation for project:', project.id);
-      console.log('Project notes count:', project.notes.length);
-      
-      if (project.notes.length === 0) {
-        throw new Error('Inga anteckningar att sammanfatta');
-      }
-      
-      const noteTexts = project.notes.map(note => note.transcription || note.content).filter(text => text && text.trim());
-      console.log('Note texts for summarization:', noteTexts.length, 'valid notes');
-      
-      if (noteTexts.length === 0) {
-        throw new Error('Inga giltiga anteckningar att sammanfatta');
-      }
-      
-      const response = await summarizeNotes(project.id);
-      console.log('Summarization response:', response);
-      
-      const updatedProject = { ...project, aiSummary: response.summary };
       onProjectUpdate(updatedProject);
-      setEditableReport(response.summary);
-      setShowReportEditor(true);
+      setNewTextNote('');
+      setIsAddingTextNote(false);
     } catch (error) {
-      console.error('Error generating report:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Okänt fel uppstod';
-      setReportError(`Kunde inte generera rapport: ${errorMessage}`);
-    } finally {
-      setIsGeneratingReport(false);
+      console.error('Error adding text note:', error);
+      alert('Kunde inte lägga till anteckning. Försök igen.');
     }
   };
 
-  const handleShowReportEditor = () => {
-    if (project.aiSummary) {
-      setEditableReport(project.aiSummary);
-      setShowReportEditor(true);
-    }
-  };
-
-  const handleOpenEmailModal = () => {
-    setEmailAddress('');
-    setEmailSubject(`Inspektionsrapport - ${project.name}`);
-    setEmailStatus('idle');
-    setEmailError('');
-    setShowEmailModal(true);
-  };
   const handleEditLabel = (noteId: string, currentLabel: string) => {
     setEditingLabelId(noteId);
-    setEditingLabelText(currentLabel || '');
+    setEditingLabelValue(currentLabel);
   };
 
   const handleSaveLabel = async (noteId: string) => {
     try {
-      const response = await fetch(`${import.meta.env.DEV ? 'http://localhost:3001/api' : '/api'}/notes/${noteId}/label`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${getToken()}`,
-        },
-        body: JSON.stringify({
-          label: editingLabelText.trim() || null
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to update label: ${response.statusText}`);
-      }
-
-      // Reload project to get updated label
-      await reloadProjectFromBackend();
+      await updateNoteLabel(noteId, editingLabelValue.trim());
       
-    } catch (error) {
-      console.error('Error updating label:', error);
-      alert('Kunde inte uppdatera etikett: ' + (error instanceof Error ? error.message : 'Okänt fel'));
-    }
-
-    setEditingLabelId(null);
-    setEditingLabelText('');
-  };
-
-  const handleCancelEditLabel = () => {
-    setEditingLabelId(null);
-    setEditingLabelText('');
-  };
-
-  const handleSendEmail = async () => {
-    if (!emailAddress.trim() || !emailSubject.trim()) return;
-    
-    setIsEmailSending(true);
-    setEmailStatus('idle');
-    setEmailError('');
-    
-    try {
-      // Generate PDF
-      const reportText = editableReport || project.aiSummary || '';
-      const { pdfBuffer, fileName } = await generateProjectPDF({
-        ...project,
-        aiSummary: reportText
-      });
-      
-      // Send email
-      await sendEmailWithPDF(
-        emailAddress.trim(),
-        emailSubject.trim(),
-        pdfBuffer,
-        fileName
+      // Update the note in the project
+      const updatedNotes = project.notes.map(note => 
+        note.id === noteId 
+          ? { ...note, imageLabel: editingLabelValue.trim() }
+          : note
       );
       
-      setEmailStatus('success');
-      
-      // Close modal after success
-      setTimeout(() => {
-        setShowEmailModal(false);
-      }, 2000);
-      
-    } catch (error) {
-      console.error('Error sending email:', error);
-      setEmailStatus('error');
-      setEmailError(error instanceof Error ? error.message : 'Kunde inte skicka e-post');
-    } finally {
-      setIsEmailSending(false);
-    }
-  };
-
-  const handleExport = async () => {
-    try {
-      const reportText = editableReport || project.aiSummary || '';
-      await exportProjectToPDF({
+      const updatedProject = {
         ...project,
-        aiSummary: reportText
-      });
+        notes: updatedNotes,
+        updatedAt: new Date()
+      };
+      
+      onProjectUpdate(updatedProject);
+      setEditingLabelId(null);
+      setEditingLabelValue('');
     } catch (error) {
-      console.error('Error exporting PDF:', error);
+      console.error('Error updating label:', error);
+      alert('Kunde inte uppdatera etiketten. Försök igen.');
     }
   };
 
-  const openCamera = (mode: 'photo' | 'video') => {
-    if (project.notes.length >= 20) {
-      alert('Du kan ha maximalt 20 anteckningar per projekt.');
-      return;
-    }
-    setCameraMode(mode);
-    setShowCameraView(true);
+  const handleCancelEdit = () => {
+    setEditingLabelId(null);
+    setEditingLabelValue('');
   };
 
   const formatDate = (date: Date) => {
-    return date.toLocaleString('sv-SE', {
-      year: 'numeric',
-      month: 'short',
+    return date.toLocaleDateString('sv-SE', { 
+      year: 'numeric', 
+      month: 'short', 
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
     });
   };
 
-  const formatProjectDate = (date: Date) => {
-    return date.toLocaleDateString('sv-SE', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'photo': return <Camera className="w-4 h-4" />;
-      case 'video': return <Video className="w-4 h-4" />;
-      case 'text': return <FileText className="w-4 h-4" />;
-      default: return <Camera className="w-4 h-4" />;
-    }
-  };
-
-  const formatFileSize = (bytes?: number) => {
-    if (!bytes) return '';
-    const mb = bytes / (1024 * 1024);
-    return `${mb.toFixed(1)} MB`;
-  };
-
-  const handleMediaClick = (note: Note) => {
-    if (note.fileUrl && (note.type === 'photo' || note.type === 'video')) {
-      setSelectedMedia(note);
-    }
-  };
-
-  if (showCameraView) {
+  if (currentView === 'camera') {
     return (
       <CameraView
         projectId={project.id}
         mode={cameraMode}
-        onBack={() => setShowCameraView(false)}
-        onSave={handleAddNote}
+        onBack={() => setCurrentView('detail')}
+        onSave={handleCameraCapture}
       />
     );
   }
 
-  if (selectedMedia) {
-    return (
-      <div className="flex flex-col h-full bg-black">
-        <div className="bg-black text-white px-4 py-3 flex items-center justify-between">
+  return (
+    <div className="flex flex-col h-full pb-16">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 px-4 py-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center min-w-0 flex-1">
+            <button
+              onClick={onBack}
+              className="mr-3 p-2 -ml-2 text-gray-600 hover:text-gray-900 active:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <h1 className="text-lg font-semibold text-gray-900 truncate">{project.name}</h1>
+          </div>
           <button
-            onClick={() => setSelectedMedia(null)}
-            className="p-2 -ml-2 text-white hover:bg-gray-800 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <h1 className="text-lg font-semibold">
-            {selectedMedia.type === 'photo' ? 'Foto' : 'Video'}
-          </h1>
-          <button
-            onClick={() => {
-              if (confirm('Är du säker på att du vill ta bort denna anteckning?')) {
-                handleDeleteNote(selectedMedia.id);
-                setSelectedMedia(null);
-              }
-            }}
-            className="p-2 text-white hover:bg-red-600 rounded-lg transition-colors"
+            onClick={() => setShowDeleteConfirm(true)}
+            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
           >
             <Trash2 className="w-5 h-5" />
           </button>
         </div>
+      </div>
 
-        <div className="flex-1 flex items-center justify-center">
-          {selectedMedia.type === 'photo' ? (
-            <img 
-              src={selectedMedia.fileUrl} 
-              alt="Inspection media" 
-              className="max-w-full max-h-full object-contain"
-            />
-          ) : (
-            <video 
-              src={selectedMedia.fileUrl} 
-              controls 
-              className="max-w-full max-h-full object-contain"
-            />
-          )}
+      {/* Project Info */}
+      <div className="bg-white border-b border-gray-200 px-4 py-4">
+        <div className="space-y-2">
+          <div className="flex items-center text-gray-600 text-sm">
+            <span className="font-medium">📍</span>
+            <span className="ml-2">{project.location}</span>
+          </div>
+          <div className="flex items-center justify-between text-gray-600 text-sm">
+            <div className="flex items-center">
+              <span className="font-medium">📅</span>
+              <span className="ml-2">{formatDate(project.date)}</span>
+            </div>
+            <div className="flex items-center">
+              <span className="font-medium">👤</span>
+              <span className="ml-2">{project.inspector}</span>
+            </div>
+          </div>
         </div>
+      </div>
 
-        {selectedMedia.transcription && (
-          <div className="bg-black text-white p-4">
-            <div className="bg-gray-800 rounded-lg p-4">
-              <p className="text-sm text-gray-300 mb-2">Transkribering:</p>
-              <p className="text-white">{selectedMedia.transcription}</p>
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto">
+        {/* AI Summary Section */}
+        {project.aiSummary && (
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center">
+                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mr-3">
+                  <Sparkles className="w-4 h-4 text-white" />
+                </div>
+                <h3 className="font-semibold text-gray-900">AI-Rapport</h3>
+              </div>
+              <div className="flex space-x-2">
+                <button
+                  onClick={handleGenerateSummary}
+                  disabled={isGeneratingSummary || project.notes.length === 0}
+                  className="px-3 py-1.5 bg-orange-600 text-white text-sm rounded-lg hover:bg-orange-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center"
+                >
+                  {isGeneratingSummary ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  ) : (
+                    <Edit3 className="w-4 h-4 mr-2" />
+                  )}
+                  Uppdatera
+                </button>
+                <button
+                  onClick={() => exportProjectToPDF(project)}
+                  className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Ladda ner
+                </button>
+                <button
+                  onClick={() => setShowEmailModal(true)}
+                  className="px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors flex items-center"
+                >
+                  <Mail className="w-4 h-4 mr-2" />
+                  Skicka
+                </button>
+              </div>
+            </div>
+            <div className="bg-white rounded-lg p-4 shadow-sm">
+              <div className="prose prose-sm max-w-none">
+                <div className="whitespace-pre-wrap text-gray-700">{project.aiSummary}</div>
+              </div>
             </div>
           </div>
         )}
-      </div>
-    );
-  }
 
-  return (
-    <div className="flex flex-col h-full">
-      <div className="bg-white border-b border-gray-200 px-4 py-3">
-        <div className="flex items-center justify-between mb-3">
-          <button
-            onClick={onBack}
-            className="p-2 -ml-2 text-gray-600 hover:text-gray-900 active:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={handleExport}
-              className="p-2 text-gray-600 hover:text-gray-900 active:bg-gray-100 rounded-lg transition-colors"
-              title="Ladda ner PDF"
-            >
-              <Download className="w-5 h-5" />
-            </button>
-            <button
-              onClick={handleOpenEmailModal}
-              className="p-2 text-gray-600 hover:text-gray-900 active:bg-gray-100 rounded-lg transition-colors"
-              title="Skicka via e-post"
-            >
-              <Mail className="w-5 h-5" />
-            </button>
-            <div className="relative">
-              <button
-                onClick={() => setShowOptionsMenu(!showOptionsMenu)}
-                className="p-2 text-gray-600 hover:text-gray-900 active:bg-gray-100 rounded-lg transition-colors"
-              >
-                <MoreVertical className="w-5 h-5" />
-              </button>
-              
-              {showOptionsMenu && (
-                <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[160px]">
+        {/* Notes Section */}
+        <div className="p-4">
+          {/* Add Text Note */}
+          {isAddingTextNote ? (
+            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200 mb-4">
+              <textarea
+                value={newTextNote}
+                onChange={(e) => setNewTextNote(e.target.value)}
+                placeholder="Skriv din anteckning här..."
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                rows={3}
+                autoFocus
+              />
+              <div className="flex justify-end space-x-2 mt-3">
+                <button
+                  onClick={() => {
+                    setIsAddingTextNote(false);
+                    setNewTextNote('');
+                  }}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                >
+                  Avbryt
+                </button>
+                <button
+                  onClick={handleAddTextNote}
+                  disabled={!newTextNote.trim()}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                >
+                  Spara
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {/* Notes List */}
+          <div className="space-y-4">
+            {project.notes.map((note) => (
+              <div key={note.id} className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center mr-3 ${
+                      note.type === 'photo' ? 'bg-blue-100' :
+                      note.type === 'video' ? 'bg-red-100' : 'bg-gray-100'
+                    }`}>
+                      {note.type === 'photo' ? (
+                        <Camera className={`w-5 h-5 ${note.type === 'photo' ? 'text-blue-600' : ''}`} />
+                      ) : note.type === 'video' ? (
+                        <Video className={`w-5 h-5 ${note.type === 'video' ? 'text-red-600' : ''}`} />
+                      ) : (
+                        <FileText className="w-5 h-5 text-gray-600" />
+                      )}
+                    </div>
+                    <div>
+                      <div className="flex items-center">
+                        <span className="font-medium text-gray-900 capitalize">
+                          {note.type === 'photo' ? 'Photo' : note.type === 'video' ? 'Video' : 'Text'}
+                        </span>
+                        {note.fileSize && (
+                          <span className="text-gray-500 text-sm ml-2">
+                            ({formatFileSize(note.fileSize)})
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-gray-500 text-sm">
+                        {formatDate(note.timestamp)}
+                      </span>
+                    </div>
+                  </div>
                   <button
-                    onClick={() => {
-                      setShowOptionsMenu(false);
-                      setShowDeleteConfirm(true);
-                    }}
-                    className="w-full flex items-center px-4 py-3 text-left text-red-600 hover:bg-red-50 transition-colors"
+                    onClick={() => handleDeleteNote(note.id)}
+                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                   >
-                    <Trash2 className="w-4 h-4 mr-3" />
-                    Ta bort projekt
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
-              )}
-            </div>
-          </div>
-        </div>
-        
-        {/* Project Info - Mobile Optimized */}
-        <div className="space-y-2">
-          <h1 className="text-lg font-semibold text-gray-900">{project.name}</h1>
-          <div className="grid grid-cols-1 gap-2 text-sm text-gray-600">
-            <div className="flex items-center">
-              <MapPin className="w-4 h-4 mr-2 text-gray-400 flex-shrink-0" />
-              <span className="truncate">{project.location}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <Calendar className="w-4 h-4 mr-2 text-gray-400" />
-                <span>{formatProjectDate(project.date)}</span>
+
+                {/* Note Content */}
+                {note.type === 'photo' && note.imageLabel ? (
+                  <div className="mb-3">
+                    {editingLabelId === note.id ? (
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="text"
+                          value={editingLabelValue}
+                          onChange={(e) => setEditingLabelValue(e.target.value)}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              handleSaveLabel(note.id);
+                            } else if (e.key === 'Escape') {
+                              handleCancelEdit();
+                            }
+                          }}
+                          autoFocus
+                        />
+                        <button
+                          onClick={() => handleSaveLabel(note.id)}
+                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                        >
+                          <Check className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={handleCancelEdit}
+                          className="p-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-lg font-medium text-gray-900">{note.imageLabel}</h4>
+                        <button
+                          onClick={() => handleEditLabel(note.id, note.imageLabel || '')}
+                          className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : note.type !== 'photo' && (
+                  <div className="mb-3">
+                    <p className="text-gray-900">{note.content}</p>
+                  </div>
+                )}
+
+                {/* Media Display */}
+                {note.fileUrl && (
+                  <div className="mb-3">
+                    {note.type === 'photo' ? (
+                      <img 
+                        src={note.fileUrl} 
+                        alt={note.imageLabel || "Uploaded photo"}
+                        className="w-full rounded-lg shadow-sm"
+                        loading="lazy"
+                      />
+                    ) : note.type === 'video' ? (
+                      <video 
+                        src={note.fileUrl} 
+                        controls 
+                        className="w-full rounded-lg shadow-sm"
+                        preload="metadata"
+                        onError={(e) => {
+                          console.error('Video loading error:', e);
+                          console.error('Video URL:', note.fileUrl);
+                        }}
+                      >
+                        Din webbläsare stöder inte videouppspelning.
+                      </video>
+                    ) : null}
+                  </div>
+                )}
+
+                {/* Transcription */}
+                {note.transcription && (
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <p className="text-gray-700 text-sm italic">"{note.transcription}"</p>
+                  </div>
+                )}
               </div>
-              <div className="flex items-center">
-                <User className="w-4 h-4 mr-2 text-gray-400" />
-                <span className="truncate">{project.inspector}</span>
+            ))}
+
+            {project.notes.length === 0 && (
+              <div className="text-center py-12">
+                <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Inga anteckningar än</h3>
+                <p className="text-gray-500">Lägg till foton, videor eller textanteckningar för att komma igång.</p>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Add Note Modal */}
-      {showAddNoteModal && (
+      {/* Generate Report Button - Only show if no summary exists */}
+      {!project.aiSummary && project.notes.length > 0 && (
+        <div className="p-4 bg-white border-t border-gray-200">
+          <button
+            onClick={handleGenerateSummary}
+            disabled={isGeneratingSummary}
+            className="w-full bg-green-600 text-white py-3 px-4 rounded-xl font-medium hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-200 flex items-center justify-center"
+          >
+            {isGeneratingSummary ? (
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+            ) : (
+              <Sparkles className="w-5 h-5 mr-2" />
+            )}
+            {isGeneratingSummary ? 'Skapar rapport...' : 'Skapa Rapport'}
+          </button>
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      <div className="bg-white border-t border-gray-200 p-4 safe-area-pb">
+        <div className="grid grid-cols-4 gap-3">
+          <button
+            onClick={() => {
+              setCameraMode('photo');
+              setCurrentView('camera');
+            }}
+            className="flex flex-col items-center p-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors active:scale-98"
+          >
+            <Camera className="w-6 h-6 mb-2" />
+            <span className="text-sm font-medium">Foto</span>
+          </button>
+          
+          <button
+            onClick={() => {
+              setCameraMode('video');
+              setCurrentView('camera');
+            }}
+            className="flex flex-col items-center p-4 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors active:scale-98"
+          >
+            <Video className="w-6 h-6 mb-2" />
+            <span className="text-sm font-medium">Video</span>
+          </button>
+          
+          <button
+            onClick={() => exportProjectToPDF(project)}
+            className="flex flex-col items-center p-4 bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition-colors active:scale-98"
+          >
+            <Download className="w-6 h-6 mb-2" />
+            <span className="text-sm font-medium">Ladda upp</span>
+          </button>
+          
+          <button
+            onClick={() => setIsAddingTextNote(true)}
+            className="flex flex-col items-center p-4 bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition-colors active:scale-98"
+          >
+            <FileText className="w-6 h-6 mb-2" />
+            <span className="text-sm font-medium">Text</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Email Modal */}
+      {showEmailModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Lägg till textanteckning</h3>
-              <button
-                onClick={() => {
-                  setShowAddNoteModal(false);
-                  setNewNoteText('');
-                }}
-                className="p-1 text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <textarea
-              value={newNoteText}
-              onChange={(e) => setNewNoteText(e.target.value)}
-              placeholder="Skriv din anteckning här..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-              rows={4}
-              autoFocus
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Skicka rapport via e-post</h3>
+            <input
+              type="email"
+              value={emailAddress}
+              onChange={(e) => setEmailAddress(e.target.value)}
+              placeholder="E-postadress"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4"
             />
-            <div className="flex space-x-3 mt-4">
+            <div className="flex space-x-3">
               <button
                 onClick={() => {
-                  setShowAddNoteModal(false);
-                  setNewNoteText('');
+                  setShowEmailModal(false);
+                  setEmailAddress('');
                 }}
-                className="flex-1 bg-gray-100 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
               >
                 Avbryt
               </button>
               <button
-                onClick={handleAddTextNote}
-                disabled={!newNoteText.trim()}
-                className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                onClick={handleSendEmail}
+                disabled={isSendingEmail || !emailAddress.trim()}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
               >
-                Spara
+                {isSendingEmail ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  'Skicka'
+                )}
               </button>
             </div>
           </div>
@@ -580,615 +590,27 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 max-w-sm w-full">
-            <div className="text-center">
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Trash2 className="w-6 h-6 text-red-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Ta bort projekt?</h3>
-              <p className="text-gray-500 mb-6">
-                Detta kommer permanent ta bort projektet "{project.name}" och alla dess anteckningar. 
-                Denna åtgärd kan inte ångras.
-              </p>
-              <div className="flex space-x-3">
-                <button
-                  onClick={() => setShowDeleteConfirm(false)}
-                  className="flex-1 bg-gray-100 text-gray-700 py-3 px-4 rounded-lg font-medium hover:bg-gray-200 transition-colors"
-                >
-                  Avbryt
-                </button>
-                <button
-                  onClick={handleDeleteProject}
-                  className="flex-1 bg-red-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-red-700 transition-colors"
-                >
-                  Ta bort
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Email Modal */}
-      {showEmailModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full">
-            {emailStatus === 'idle' || emailStatus === 'error' ? (
-              <>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Skicka rapport via e-post</h3>
-                  <button
-                    onClick={() => setShowEmailModal(false)}
-                    className="p-1 text-gray-400 hover:text-gray-600"
-                    disabled={isEmailSending}
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-                
-                <div className="space-y-4">
-                  <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                      Mottagare
-                    </label>
-                    <input
-                      type="email"
-                      id="email"
-                      value={emailAddress}
-                      onChange={(e) => setEmailAddress(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="exempel@företag.se"
-                      required
-                      disabled={isEmailSending}
-                    />
-                  </div>
-                  
-                  <div>
-                    <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-2">
-                      Ämne
-                    </label>
-                    <input
-                      type="text"
-                      id="subject"
-                      value={emailSubject}
-                      onChange={(e) => setEmailSubject(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required
-                      disabled={isEmailSending}
-                    />
-                  </div>
-                  
-                  {emailStatus === 'error' && (
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                      <div className="flex items-center">
-                        <XCircle className="w-5 h-5 text-red-600 mr-2" />
-                        <p className="text-sm text-red-800">{emailError}</p>
-                      </div>
-                    </div>
-                  )}
-                  
-                  <div className="bg-gray-50 rounded-lg p-3">
-                    <p className="text-sm text-gray-600">
-                      Rapporten kommer att skickas som en PDF-bilaga med alla projektdetaljer, 
-                      AI-sammanfattning och anteckningar.
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex space-x-3 mt-6">
-                  <button
-                    onClick={() => setShowEmailModal(false)}
-                    className="flex-1 bg-gray-100 text-gray-700 py-3 px-4 rounded-lg font-medium hover:bg-gray-200 transition-colors"
-                    disabled={isEmailSending}
-                  >
-                    Avbryt
-                  </button>
-                  <button
-                    onClick={handleSendEmail}
-                    disabled={!emailAddress.trim() || !emailSubject.trim() || isEmailSending}
-                    className="flex-1 bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
-                  >
-                    {isEmailSending ? (
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <>
-                        <Send className="w-4 h-4 mr-2" />
-                        Skicka
-                      </>
-                    )}
-                  </button>
-                </div>
-              </>
-            ) : (
-              <div className="text-center py-4">
-                <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">E-post skickad!</h3>
-                <p className="text-gray-600">
-                  Rapporten har skickats till {emailAddress}
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Click outside to close options menu */}
-      {showOptionsMenu && (
-        <div 
-          className="fixed inset-0 z-0" 
-          onClick={() => setShowOptionsMenu(false)}
-        />
-      )}
-
-      <div className="flex-1 flex flex-col min-h-0">
-        {reportError && (
-          <div className="bg-red-50 border-b border-red-200 p-4">
-            <div className="flex items-center">
-              <AlertCircle className="w-5 h-5 text-red-600 mr-2" />
-              <p className="text-sm text-red-800">{reportError}</p>
-            </div>
-          </div>
-        )}
-
-        <div className="flex-1 overflow-y-auto p-4">
-          {/* Report Editor Modal */}
-          {showReportEditor && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
-              <div className="bg-white rounded-none sm:rounded-xl w-full h-full sm:max-w-4xl sm:w-full sm:max-h-[90vh] sm:h-auto flex flex-col">
-                <div className="flex items-center justify-between p-4 border-b border-gray-200">
-                  <h3 className="text-base sm:text-lg font-semibold text-gray-900">Redigera Rapport</h3>
-                  <div className="flex items-center space-x-2">
-                    <div className="flex bg-gray-100 rounded-lg p-1">
-                      <button
-                        onClick={() => setPreviewMode('edit')}
-                        className={`px-2 sm:px-3 py-1 rounded text-xs sm:text-sm font-medium transition-colors ${
-                          previewMode === 'edit'
-                            ? 'bg-white text-gray-900 shadow-sm'
-                            : 'text-gray-600 hover:text-gray-900'
-                        }`}
-                      >
-                        <Edit3 className="w-3 h-3 sm:w-4 sm:h-4 mr-1 inline" />
-                        Redigera
-                      </button>
-                      <button
-                        onClick={() => setPreviewMode('preview')}
-                        className={`px-2 sm:px-3 py-1 rounded text-xs sm:text-sm font-medium transition-colors ${
-                          previewMode === 'preview'
-                            ? 'bg-white text-gray-900 shadow-sm'
-                            : 'text-gray-600 hover:text-gray-900'
-                        }`}
-                      >
-                        <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-1 inline" />
-                        Granska
-                      </button>
-                    </div>
-                    <button
-                      onClick={() => setShowReportEditor(false)}
-                      className="p-1 text-gray-400 hover:text-gray-600"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-                
-                <div className="flex-1 overflow-hidden">
-                  {previewMode === 'edit' ? (
-                    <div className="h-full p-3 sm:p-4">
-                      <textarea
-                        value={editableReport}
-                        onChange={(e) => setEditableReport(e.target.value)}
-                        className="w-full h-full p-3 sm:p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none font-mono text-sm sm:text-base"
-                        placeholder="Skriv din rapport här..."
-                      />
-                    </div>
-                  ) : (
-                    <div className="h-full overflow-y-auto p-2 sm:p-4 bg-gray-50">
-                      <div className="bg-white rounded-lg p-4 sm:p-6 max-w-2xl mx-auto shadow-sm mb-4">
-                        {/* PDF Header */}
-                        <div className="mb-6">
-                          <h1 className="text-2xl font-bold text-gray-900 mb-4">Inspektionsrapport</h1>
-                          <div className="text-sm text-gray-700 space-y-1 mb-4">
-                            <p><strong>Projekt:</strong> {project.name}</p>
-                            <p><strong>Plats:</strong> {project.location}</p>
-                            <p><strong>Datum:</strong> {project.date.toLocaleDateString('sv-SE')}</p>
-                            <p><strong>Inspektör:</strong> {project.inspector}</p>
-                          </div>
-                          <hr className="border-gray-300 my-4" />
-                        </div>
-                        
-                        {/* AI Summary Section */}
-                        {editableReport && (
-                          <div className="mb-6">
-                            <h2 className="text-lg font-semibold text-gray-900 mb-3">AI-Sammanfattning</h2>
-                            <div className="text-sm text-gray-800 whitespace-pre-line leading-relaxed bg-gray-50 p-4 rounded-lg border">
-                              {editableReport}
-                            </div>
-                            <hr className="border-gray-300 my-6" />
-                          </div>
-                        )}
-                        
-                        {/* Notes Section */}
-                        {project.notes.length > 0 && (
-                          <div>
-                            <h2 className="text-lg font-semibold text-gray-900 mb-4">Anteckningar</h2>
-                            <div className="space-y-4">
-                              {project.notes.map((note, index) => (
-                                <div key={note.id} className="bg-gray-50 p-4 rounded-lg border">
-                                  <div className="text-sm text-gray-600 mb-2 font-medium">
-                                    {index + 1}. [{note.type.toUpperCase()}] - {note.timestamp.toLocaleString('sv-SE', {
-                                      year: 'numeric',
-                                      month: 'short',
-                                      day: 'numeric',
-                                      hour: '2-digit',
-                                      minute: '2-digit'
-                                    })}
-                                  </div>
-                                  <div className="text-sm text-gray-800 leading-relaxed">
-                                    {note.transcription || note.content}
-                                  </div>
-                                  {note.fileName && (
-                                    <div className="text-xs text-gray-500 mt-2">
-                                      Fil: {note.fileName}
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        
-                        {/* Footer */}
-                        <div className="mt-8 pt-4 border-t border-gray-300">
-                          <div className="text-xs text-gray-500 text-center">
-                            Genererad av Inspektionsassistenten - {new Date().toLocaleDateString('sv-SE')}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="border-t border-gray-200 p-4">
-                  <div className="flex justify-between items-center">
-                    <div className="text-xs sm:text-sm text-gray-500">
-                      {editableReport.length} tecken
-                    </div>
-                    <div className="flex space-x-3">
-                      <button
-                        onClick={() => setShowReportEditor(false)}
-                        className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
-                      >
-                        Stäng
-                      </button>
-                      <button
-                        onClick={() => {
-                          const updatedProject = { ...project, aiSummary: editableReport };
-                          onProjectUpdate(updatedProject);
-                          setShowReportEditor(false);
-                        }}
-                        className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg text-sm sm:text-base font-medium hover:bg-blue-700 transition-colors"
-                      >
-                        Spara Rapport
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {project.aiSummary && !showReportEditor && (
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
-              <div className="flex items-center mb-3">
-                <Sparkles className="w-5 h-5 text-blue-600 mr-2" />
-                <div className="flex items-center">
-                  <Sparkles className="w-5 h-5 text-blue-600 mr-2" />
-                  <h3 className="font-medium text-blue-900">Rapport</h3>
-                </div>
-                <button
-                  onClick={handleShowReportEditor}
-                  className="text-blue-600 hover:text-blue-800 p-1"
-                  title="Redigera rapport"
-                >
-                  <Edit3 className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="text-sm text-blue-800 whitespace-pre-line max-h-64 overflow-y-auto">
-                {editableReport || project.aiSummary}
-              </div>
-            </div>
-          )}
-
-          {project.notes.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center">
-                <Camera className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Inga anteckningar än</h3>
-                <p className="text-gray-500 mb-4">Börja dokumentera din inspektion.</p>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {project.notes.map((note) => (
-                <div 
-                  key={note.id} 
-                  className={`bg-white rounded-xl p-4 shadow-sm border border-gray-200 ${
-                    note.fileUrl && (note.type === 'photo' || note.type === 'video') 
-                      ? 'cursor-pointer hover:shadow-md transition-shadow' 
-                      : ''
-                  }`}
-                  onClick={() => handleMediaClick(note)}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${
-                        note.type === 'text' ? 'bg-green-100' : 'bg-blue-100'
-                      }`}>
-                        {getTypeIcon(note.type)}
-                      </div>
-                      <div>
-                        <span className="text-sm text-gray-500 capitalize">{note.type}</span>
-                        {note.fileSize && (
-                          <span className="text-xs text-gray-400 ml-2">
-                            ({formatFileSize(note.fileSize)})
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-xs text-gray-400">{formatDate(note.timestamp)}</span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (confirm('Är du säker på att du vill ta bort denna anteckning?')) {
-                            handleDeleteNote(note.id);
-                          }
-                        }}
-                        className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                  
-                  {/* Show content for text notes, transcription for audio/video, or image label for photos */}
-                  {(note.type === 'text' && note.content) && (
-                    <p className="text-gray-900 whitespace-pre-wrap mb-3">
-                      {note.content}
-                    </p>
-                  )}
-                  
-                  {(note.type === 'video' && note.transcription) && (
-                    <p className="text-gray-900 whitespace-pre-wrap mb-3">
-                      {note.transcription}
-                    </p>
-                  )}
-                  
-                  {(note.type === 'photo' && (note.imageLabel || editingLabelId === note.id)) && (
-                    <div className="mb-3">
-                      {editingLabelId === note.id ? (
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="text"
-                            value={editingLabelText}
-                            onChange={(e) => setEditingLabelText(e.target.value)}
-                            className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            placeholder="Beskriv vad som syns..."
-                            autoFocus
-                            onKeyPress={(e) => {
-                              if (e.key === 'Enter') {
-                                handleSaveLabel(note.id);
-                              } else if (e.key === 'Escape') {
-                                handleCancelEditLabel();
-                              }
-                            }}
-                          />
-                          <button
-                            onClick={() => handleSaveLabel(note.id)}
-                            className="p-1 text-green-600 hover:text-green-800"
-                            title="Spara"
-                          >
-                            <Check className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={handleCancelEditLabel}
-                            className="p-1 text-gray-600 hover:text-gray-800"
-                            title="Avbryt"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-between">
-                          <span className="text-gray-900 font-medium">
-                            {note.imageLabel}
-                          </span>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEditLabel(note.id, note.imageLabel || '');
-                            }}
-                            className="p-1 text-blue-600 hover:text-blue-800"
-                            title="Redigera etikett"
-                          >
-                            <Edit3 className="w-3 h-3" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  
-                  {note.fileUrl && note.type === 'photo' && (
-                    <div className="relative">
-                      <img 
-                        src={note.fileUrl} 
-                        alt="Inspection photo" 
-                        className="mt-3 rounded-lg max-w-full h-auto max-h-64 object-cover"
-                        onError={(e) => {
-                          console.error('Image failed to load:', note.fileUrl);
-                          const target = e.target as HTMLImageElement;
-                          target.style.display = 'none';
-                          // Show placeholder
-                          const placeholder = target.parentElement?.querySelector('.image-placeholder');
-                          if (placeholder) {
-                            (placeholder as HTMLElement).style.display = 'flex';
-                          }
-                        }}
-                        onLoad={() => {
-                          console.log('Image loaded successfully:', note.fileUrl);
-                        }}
-                      />
-                      <div className="image-placeholder hidden mt-3 bg-gray-100 rounded-lg h-64 flex items-center justify-center">
-                        <div className="text-center text-gray-500">
-                          <Image className="w-12 h-12 mx-auto mb-2" />
-                          <p className="text-sm">Bild kunde inte laddas</p>
-                        </div>
-                      </div>
-                      <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black bg-opacity-20 rounded-lg">
-                        <Image className="w-8 h-8 text-white" />
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Add label button for images without labels */}
-                  {note.type === 'photo' && !note.imageLabel && editingLabelId !== note.id && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEditLabel(note.id, '');
-                      }}
-                      className="text-xs text-gray-500 hover:text-blue-600 flex items-center mb-3"
-                    >
-                      <Plus className="w-3 h-3 mr-1" />
-                      Lägg till etikett
-                    </button>
-                  )}
-                  
-                  {note.fileUrl && note.type === 'video' && (
-                    <div className="relative mt-3">
-                      <video 
-                        src={note.fileUrl} 
-                        className="rounded-lg max-w-full h-auto max-h-64 object-cover"
-                        preload="metadata"
-                        controls={false}
-                        onError={(e) => {
-                          console.error('Video failed to load:', note.fileUrl);
-                          console.error('Video error details:', {
-                            error: e.currentTarget.error,
-                            networkState: e.currentTarget.networkState,
-                            readyState: e.currentTarget.readyState,
-                            src: e.currentTarget.src
-                          });
-                          const target = e.target as HTMLVideoElement;
-                          target.style.display = 'none';
-                          // Show placeholder
-                          const placeholder = target.parentElement?.querySelector('.video-placeholder');
-                          if (placeholder) {
-                            (placeholder as HTMLElement).style.display = 'flex';
-                          }
-                        }}
-                        onLoadedData={() => {
-                          console.log('Video loaded successfully:', note.fileUrl);
-                        }}
-                        onLoadStart={() => {
-                          console.log('Video loading started:', note.fileUrl);
-                        }}
-                      />
-                      <div className="video-placeholder hidden bg-gray-100 rounded-lg h-64 flex items-center justify-center">
-                        <div className="text-center text-gray-500">
-                          <Video className="w-12 h-12 mx-auto mb-2" />
-                          <p className="text-sm">Video kunde inte laddas</p>
-                          <p className="text-xs text-gray-400 mt-1">Kontrollera filformatet</p>
-                        </div>
-                      </div>
-                      <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-20 rounded-lg">
-                        <Play className="w-12 h-12 text-white" />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="bg-white border-t border-gray-200 p-4">
-          {/* Always show report generation button if there are notes */}
-          {project.notes.length > 0 && (
-            <button
-              onClick={handleCreateReport}
-              disabled={isGeneratingReport}
-              className={`w-full py-2.5 px-4 rounded-lg font-medium disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-200 flex items-center justify-center mb-3 ${
-                project.aiSummary 
-                  ? 'bg-orange-600 text-white hover:bg-orange-700' 
-                  : 'bg-teal-600 text-white hover:bg-teal-700'
-              }`}
-            >
-              {isGeneratingReport ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  {project.aiSummary ? 'Uppdatera Rapport' : 'Skapa Rapport'}
-                </>
-              )}
-            </button>
-          )}
-          
-          {project.aiSummary && (
-            <button
-              onClick={handleShowReportEditor}
-              className="w-full bg-blue-600 text-white py-2.5 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center mb-3"
-            >
-              <Edit3 className="w-4 h-4 mr-2" />
-              Redigera Rapport
-            </button>
-          )}
-          
-          <div className="grid grid-cols-4 gap-2">
-            <button
-              onClick={() => openCamera('photo')}
-              disabled={project.notes.length >= 20}
-              className="flex flex-col items-center justify-center p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-            >
-              <Camera className="w-5 h-5 mb-1" />
-              <span className="text-xs font-medium">Foto</span>
-            </button>
-            <button
-              onClick={() => openCamera('video')}
-              disabled={project.notes.length >= 20}
-              className="flex flex-col items-center justify-center p-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-            >
-              <Video className="w-5 h-5 mb-1" />
-              <span className="text-xs font-medium">Video</span>
-            </button>
-            <label className="flex flex-col items-center justify-center p-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors cursor-pointer">
-              <Upload className="w-5 h-5 mb-1" />
-              <span className="text-xs font-medium text-center leading-tight">Ladda upp</span>
-              <input
-                type="file"
-                accept="image/*,video/*"
-                onChange={handleFileUpload}
-                className="hidden"
-                disabled={project.notes.length >= 20}
-              />
-            </label>
-            <button
-              onClick={() => setShowAddNoteModal(true)}
-              disabled={project.notes.length >= 20}
-              className="flex flex-col items-center justify-center p-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-            >
-              <FileText className="w-5 h-5 mb-1" />
-              <span className="text-xs font-medium">Text</span>
-            </button>
-          </div>
-          
-          {project.notes.length >= 20 && (
-            <p className="text-xs text-gray-500 text-center mt-1">
-              Maximalt antal anteckningar (20) har nåtts
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Ta bort projekt</h3>
+            <p className="text-gray-600 mb-6">
+              Är du säker på att du vill ta bort "{project.name}"? Detta kan inte ångras.
             </p>
-          )}
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                Avbryt
+              </button>
+              <button
+                onClick={handleDeleteProject}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Ta bort
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

@@ -581,6 +581,17 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
           'svensk textning',
           'textning.nu',
           'undertextning',
+          'svensk undertextning',
+          'undertexter från amara.org-gemenskapen',
+          'amara.org',
+          'undertexter från',
+          'gemenskapen',
+          'textning av',
+          'översättning av'
+          'svenska textning',
+          'svensk textning',
+          'textning.nu',
+          'undertextning',
           'svensk undertextning'
         ];
         
@@ -591,11 +602,12 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
         
         const isTooShort = rawTranscription.length < 3;
         const isOnlyPunctuation = /^[.,!?;:\s]*$/.test(rawTranscription);
+        const isOnlyNumbers = /^[\d\s.,]*$/.test(rawTranscription);
         
         // Set transcription to empty if it's placeholder text or meaningless
-        if (isPlaceholder || isTooShort || isOnlyPunctuation) {
+        if (isPlaceholder || isTooShort || isOnlyPunctuation || isOnlyNumbers) {
           transcription = null; // No transcription text
-          console.log('Filtered out placeholder/empty transcription:', rawTranscription);
+          console.log('Filtered out placeholder/empty transcription. Raw text was:', rawTranscription);
         } else {
           transcription = rawTranscription;
         }
