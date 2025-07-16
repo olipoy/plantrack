@@ -177,6 +177,7 @@ function App() {
             type: note.type,
             content: note.content,
             transcription: note.transcription,
+            imageLabel: note.image_label,
             timestamp: new Date(note.created_at),
             fileUrl: note.files && note.files.length > 0 ? note.files[0].file_url : undefined,
             fileName: note.files && note.files.length > 0 ? note.files[0].file_name : undefined,

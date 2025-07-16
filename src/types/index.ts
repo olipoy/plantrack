@@ -16,6 +16,7 @@ export interface Note {
   type: 'photo' | 'video' | 'text';
   content: string;
   transcription?: string;
+  imageLabel?: string;
   timestamp: Date;
   fileUrl?: string;
   fileName?: string;

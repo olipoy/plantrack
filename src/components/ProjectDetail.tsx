@@ -35,6 +35,9 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
   const [emailError, setEmailError] = useState('');
   const [cameraMode, setCameraMode] = useState<'photo' | 'video'>('photo');
 
+  // State for editing image labels
+  const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
+  const [editingLabelText, setEditingLabelText] = useState('');
   // Initialize editable report when AI summary exists
   React.useEffect(() => {
     if (project.aiSummary && !editableReport) {
@@ -73,6 +76,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
         id: note.id,
         type: note.type,
         content: note.content,
+          imageLabel: note.image_label,
         transcription: note.transcription,
         timestamp: new Date(note.created_at),
         fileUrl: note.files && note.files.length > 0 ? note.files[0].file_url : undefined,
@@ -249,6 +253,44 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
     setEmailStatus('idle');
     setEmailError('');
     setShowEmailModal(true);
+  };
+  const handleEditLabel = (noteId: string, currentLabel: string) => {
+    setEditingLabelId(noteId);
+    setEditingLabelText(currentLabel || '');
+  };
+
+  const handleSaveLabel = async (noteId: string) => {
+    try {
+      const response = await fetch(`${import.meta.env.DEV ? 'http://localhost:3001/api' : '/api'}/notes/${noteId}/label`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getToken()}`,
+        },
+        body: JSON.stringify({
+          label: editingLabelText.trim() || null
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update label: ${response.statusText}`);
+      }
+
+      // Reload project to get updated label
+      await reloadProjectFromBackend();
+      
+    } catch (error) {
+      console.error('Error updating label:', error);
+      alert('Kunde inte uppdatera etikett: ' + (error instanceof Error ? error.message : 'Okänt fel'));
+    }
+
+    setEditingLabelId(null);
+    setEditingLabelText('');
+  };
+
+  const handleCancelEditLabel = () => {
+    setEditingLabelId(null);
+    setEditingLabelText('');
   };
 
   const handleSendEmail = async () => {
@@ -943,6 +985,75 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
                       <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black bg-opacity-20 rounded-lg">
                         <Image className="w-8 h-8 text-white" />
                       </div>
+                      
+                      {/* Image Label */}
+                      {(note.imageLabel || editingLabelId === note.id) && (
+                        <div className="mt-2">
+                          {editingLabelId === note.id ? (
+                            <div className="flex items-center space-x-2">
+                              <input
+                                type="text"
+                                value={editingLabelText}
+                                onChange={(e) => setEditingLabelText(e.target.value)}
+                                className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                placeholder="Beskriv vad som syns..."
+                                autoFocus
+                                onKeyPress={(e) => {
+                                  if (e.key === 'Enter') {
+                                    handleSaveLabel(note.id);
+                                  } else if (e.key === 'Escape') {
+                                    handleCancelEditLabel();
+                                  }
+                                }}
+                              />
+                              <button
+                                onClick={() => handleSaveLabel(note.id)}
+                                className="p-1 text-green-600 hover:text-green-800"
+                                title="Spara"
+                              >
+                                <Check className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={handleCancelEditLabel}
+                                className="p-1 text-gray-600 hover:text-gray-800"
+                                title="Avbryt"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between bg-blue-50 px-3 py-2 rounded-lg">
+                              <span className="text-sm text-blue-800 font-medium">
+                                {note.imageLabel}
+                              </span>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditLabel(note.id, note.imageLabel || '');
+                                }}
+                                className="p-1 text-blue-600 hover:text-blue-800"
+                                title="Redigera etikett"
+                              >
+                                <Edit3 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Add label button for images without labels */}
+                      {!note.imageLabel && editingLabelId !== note.id && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditLabel(note.id, '');
+                          }}
+                          className="mt-2 text-xs text-gray-500 hover:text-blue-600 flex items-center"
+                        >
+                          <Plus className="w-3 h-3 mr-1" />
+                          Lägg till etikett
+                        </button>
+                      )}
                     </div>
                   )}
                   

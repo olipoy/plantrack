@@ -596,13 +596,104 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
       }
     }
 
+    // Generate image labels for photos using OpenAI Vision API
+    let imageLabel = null;
+    if (req.file.mimetype.startsWith('image/')) {
+      try {
+        console.log('Starting image recognition...');
+        console.log('=== IMAGE RECOGNITION DEBUG ===');
+        
+        let imageBuffer;
+        let imageUrl;
+
+        if (s3 && fileUrl.startsWith('http')) {
+          console.log('Using S3 image for recognition:', fileUrl);
+          imageUrl = fileUrl;
+        } else {
+          console.log('Using local image for recognition:', req.file.path);
+          imageBuffer = await fs.readFile(req.file.path);
+          const base64Image = imageBuffer.toString('base64');
+          imageUrl = `data:${req.file.mimetype};base64,${base64Image}`;
+        }
+
+        console.log('Calling OpenAI Vision API...');
+        const visionStartTime = Date.now();
+        
+        const visionResponse = await openai.chat.completions.create({
+          model: 'gpt-4-vision-preview',
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: 'Beskriv vad som syns i denna bild med 1-3 ord på svenska. Fokusera på det huvudsakliga objektet eller systemet som visas. Exempel: "värmepump", "elcentral", "ventilationskanal", "rörledning", "brandvarnare". Svara endast med beskrivningen, inga extra ord.'
+                },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: imageUrl,
+                    detail: 'low' // Use low detail for faster processing and lower cost
+                  }
+                }
+              ]
+            }
+          ],
+          max_tokens: 50,
+          temperature: 0.3
+        });
+
+        const visionEndTime = Date.now();
+        const visionDuration = visionEndTime - visionStartTime;
+
+        const rawLabel = visionResponse.choices[0].message.content?.trim() || '';
+        
+        // Clean up the label - remove quotes, extra punctuation, etc.
+        imageLabel = rawLabel
+          .replace(/^["']|["']$/g, '') // Remove surrounding quotes
+          .replace(/\.$/, '') // Remove trailing period
+          .toLowerCase()
+          .trim();
+
+        // Validate label length and content
+        if (imageLabel.length > 50 || imageLabel.length < 2) {
+          console.log('Label too long or too short, discarding:', imageLabel);
+          imageLabel = null;
+        }
+
+        console.log('Image recognition successful:', {
+          duration: `${visionDuration}ms`,
+          rawLabel,
+          cleanedLabel: imageLabel
+        });
+        
+        console.log('=== END IMAGE RECOGNITION DEBUG ===');
+      } catch (visionError) {
+        console.error('=== IMAGE RECOGNITION ERROR ===');
+        console.error('Error type:', visionError.constructor.name);
+        console.error('Error message:', visionError.message);
+        console.error('Full error:', visionError);
+        
+        if (visionError.response) {
+          console.error('OpenAI Vision API response error:', {
+            status: visionError.response.status,
+            statusText: visionError.response.statusText,
+            data: visionError.response.data
+          });
+        }
+        
+        console.error('=== END IMAGE RECOGNITION ERROR ===');
+        imageLabel = null; // Don't fail the upload if vision fails
+      }
+    }
     console.log('Saving note to database...');
     // Save note to database
     const note = await noteDb.createNote(
       projectId,
       noteType,
       content || (noteType === 'photo' ? 'Foto taget' : 'Videoinspelning'),
-      transcription
+      transcription,
+      imageLabel
     );
 
     // Add file info to note if there's a file

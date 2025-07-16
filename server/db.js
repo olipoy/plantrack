@@ -119,10 +119,10 @@ const projectDb = {
 // Note-related database functions
 const noteDb = {
   // Create a new note
-  async createNote(projectId, type, content, transcription) {
+  async createNote(projectId, type, content, transcription, imageLabel = null) {
     const result = await query(
-      'INSERT INTO notes (project_id, type, content, transcription) VALUES ($1, $2, $3, $4) RETURNING *',
-      [projectId, type, content, transcription]
+      'INSERT INTO notes (project_id, type, content, transcription, image_label) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [projectId, type, content, transcription, imageLabel]
     );
     return result.rows[0];
   },
@@ -158,6 +158,19 @@ const noteDb = {
     return result.rows;
   },
 
+  // Update note label
+  async updateNoteLabel(noteId, userId, newLabel) {
+    // First verify the note belongs to the user's project
+    const result = await query(
+      `UPDATE notes 
+       SET image_label = $1
+       WHERE id = $2 
+       AND project_id IN (SELECT id FROM projects WHERE user_id = $3)
+       RETURNING *`,
+      [newLabel, noteId, userId]
+    );
+    return result.rows[0];
+  },
   // Add file to note
   async addFileToNote(noteId, fileUrl, fileType, fileName, fileSize) {
     const result = await query(
