@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Project, Note } from '../types';
-import { ArrowLeft, Camera, Video, FileText, Download, Mail, Trash2, Edit3, Check, X, Sparkles, RotateCcw, Upload } from 'lucide-react';
+import { ArrowLeft, Camera, Video, FileText, Download, Mail, Trash2, Edit3, Check, X, Sparkles, RotateCcw, Upload, Search } from 'lucide-react';
 import { CameraView } from './CameraView';
 import { addNoteToProject, deleteNoteFromProject, deleteProject } from '../utils/storage';
 import { summarizeNotes, sendEmailWithPDF } from '../utils/api';
@@ -24,16 +24,16 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const [cameraMode, setCameraMode] = useState<'photo' | 'video'>('photo');
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [isReportExpanded, setIsReportExpanded] = useState(false);
-  const [isEditingReport, setIsEditingReport] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [editedReportText, setEditedReportText] = useState('');
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [emailAddress, setEmailAddress] = useState('');
   const [isSendingEmail, setIsSendingEmail] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [newTextNote, setNewTextNote] = useState('');
   const [isAddingTextNote, setIsAddingTextNote] = useState(false);
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
   const [editingLabelValue, setEditingLabelValue] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const handleCameraCapture = (note: Omit<Note, 'id'>) => {
     console.log('Camera capture completed, adding note:', note);
@@ -88,17 +88,17 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
 
   const handleEditReport = () => {
     setEditedReportText(project.aiSummary || '');
-    setIsEditingReport(true);
+    setShowEditModal(true);
   };
 
   const handleSaveReport = () => {
     const updatedProject = { ...project, aiSummary: editedReportText };
     onProjectUpdate(updatedProject);
-    setIsEditingReport(false);
+    setShowEditModal(false);
   };
 
   const handleCancelEditReport = () => {
-    setIsEditingReport(false);
+    setShowEditModal(false);
     setEditedReportText('');
   };
 
@@ -367,55 +367,31 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
             </div>
 
             {/* Expandable Report Content */}
-            {isReportExpanded && (
-              <div className="px-4 pb-4">
-                <div className="bg-white rounded-lg p-4 shadow-sm">
-                  {isEditingReport ? (
-                    <div>
-                      <textarea
-                        value={editedReportText}
-                        onChange={(e) => setEditedReportText(e.target.value)}
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                        rows={12}
-                        placeholder="Redigera rapporten..."
-                      />
-                      <div className="flex justify-end space-x-2 mt-3">
-                        <button
-                          onClick={handleCancelEditReport}
-                          className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-                        >
-                          Avbryt
-                        </button>
-                        <button
-                          onClick={handleSaveReport}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                        >
-                          Spara
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <div className="flex justify-between items-start mb-3">
-                        <div className="prose prose-sm max-w-none flex-1">
-                          <div className="whitespace-pre-wrap text-gray-700">{project.aiSummary}</div>
-                        </div>
-                        <button
-                          onClick={handleEditReport}
-                          className="ml-3 p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex-shrink-0"
-                          title="Redigera rapport"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
+        {/* Expandable Report Content */}
+        {isReportExpanded && (
+          <div className="px-4 pb-4">
+            <div className="bg-white rounded-lg p-4 shadow-sm">
+              <div className="prose prose-sm max-w-none">
+                <div className="whitespace-pre-wrap text-gray-700">{project.aiSummary}</div>
               </div>
             </div>
-            )}
           </div>
         )}
 
+        {/* Toggle Button */}
+        <div className="px-4 pb-4">
+          <button
+            onClick={() => setIsReportExpanded(!isReportExpanded)}
+            className="w-full py-2 text-blue-600 hover:text-blue-700 text-sm font-medium transition-colors"
+          >
+            {isReportExpanded ? 'Dölj rapport' : 'Visa rapport'}
+          </button>
+        </div>
+      </div>
+    )}
+
+    {/* Content */}
+    <div className="flex-1 overflow-y-auto">
         {/* Notes Section */}
         <div className="p-4">
           {/* Add Text Note */}
@@ -590,6 +566,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
           </div>
         </div>
       </div>
+      </div>
 
       {/* Generate Report Button - Only show if no summary exists */}
       {!project.aiSummary && project.notes.length > 0 && (
@@ -666,10 +643,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
             />
             <div className="flex space-x-3">
               <button
-                onClick={() => {
-                  setShowEmailModal(false);
-                  setEmailAddress('');
-                }}
+                onClick={() => setShowEmailModal(false)}
                 className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
               >
                 Avbryt
@@ -677,13 +651,39 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
               <button
                 onClick={handleSendEmail}
                 disabled={isSendingEmail || !emailAddress.trim()}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
               >
-                {isSendingEmail ? (
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  'Skicka'
-                )}
+                {isSendingEmail ? 'Skickar...' : 'Skicka'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Report Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Redigera AI-Rapport</h3>
+            <textarea
+              value={editedReportText}
+              onChange={(e) => setEditedReportText(e.target.value)}
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              rows={15}
+              placeholder="Redigera rapporten..."
+            />
+            <div className="flex justify-end space-x-3 mt-4">
+              <button
+                onClick={handleCancelEditReport}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                Avbryt
+              </button>
+              <button
+                onClick={handleSaveReport}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Spara ändringar
               </button>
             </div>
           </div>
