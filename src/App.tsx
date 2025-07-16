@@ -6,7 +6,7 @@ import { ProjectDetail } from './components/ProjectDetail';
 import { GlobalAIChat } from './components/GlobalAIChat';
 import { AuthForm } from './components/AuthForm';
 import { populateWithMockData } from './utils/storage';
-import { getUserProjects } from './utils/api';
+import { getUserProjects, getProjectById } from './utils/api';
 import { ClipboardList, Plus, FolderOpen, Bot, LogOut, User, ChevronDown, X } from 'lucide-react';
 import { isAuthenticated, getUser, logout } from './utils/auth';
 
