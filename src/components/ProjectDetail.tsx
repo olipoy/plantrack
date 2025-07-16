@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Project, Note } from '../types';
 import { ArrowLeft, Plus, Camera, Video, Download, Sparkles, AlertCircle, Play, Image, MapPin, Calendar, User, Trash2, MoreVertical, Upload, FileText, X, Mail, Send, CheckCircle, XCircle, Edit3, Eye } from 'lucide-react';
 import { CameraView } from './CameraView';
@@ -42,43 +42,54 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
     }
   }, [project.aiSummary, editableReport]);
 
+  // Helper function to reload project from backend
+  const reloadProjectFromBackend = async () => {
+    try {
+      console.log('Reloading project from backend...');
+      const fullProject = await getProjectById(project.id);
+      console.log('Reloaded project data:', fullProject);
+      
+      const formattedProject = formatBackendProject(fullProject);
+      console.log('Formatted reloaded project:', formattedProject);
+      
+      onProjectUpdate(formattedProject);
+    } catch (error) {
+      console.error('Error reloading project:', error);
+      throw error;
+    }
+  };
+
+  // Helper function to format backend project data
+  const formatBackendProject = (backendProject: any): Project => {
+    return {
+      id: backendProject.id,
+      name: backendProject.name,
+      location: backendProject.location || '',
+      date: new Date(backendProject.project_date || backendProject.created_at),
+      inspector: backendProject.inspector || '',
+      createdAt: new Date(backendProject.created_at),
+      updatedAt: new Date(backendProject.updated_at || backendProject.created_at),
+      notes: (backendProject.notes || []).map((note: any) => ({
+        id: note.id,
+        type: note.type,
+        content: note.content,
+        transcription: note.transcription,
+        timestamp: new Date(note.created_at),
+        fileUrl: note.files && note.files.length > 0 ? note.files[0].file_url : undefined,
+        fileName: note.files && note.files.length > 0 ? note.files[0].file_name : undefined,
+        fileSize: note.files && note.files.length > 0 ? note.files[0].file_size : undefined
+      })),
+      aiSummary: backendProject.ai_summary,
+      noteCount: (backendProject.notes || []).length
+    };
+  };
+
   const handleAddNote = async (note: Omit<Note, 'id'>) => {
     console.log('handleAddNote called with:', note);
     try {
       // Reload project from backend to get updated notes
       console.log('Reloading project from backend after note addition...');
-      const updatedProject = await getProjectById(project.id);
-      console.log('Updated project data:', updatedProject);
-      
-      // Convert backend project to frontend format
-      const formattedProject: Project = {
-        id: updatedProject.id,
-        name: updatedProject.name,
-        location: updatedProject.location || '',
-        date: new Date(updatedProject.project_date || updatedProject.created_at),
-        inspector: updatedProject.inspector || '',
-        createdAt: new Date(updatedProject.created_at),
-        updatedAt: new Date(updatedProject.updated_at || updatedProject.created_at),
-        notes: (updatedProject.notes || []).map((note: any) => ({
-          id: note.id,
-          type: note.type,
-          content: note.content,
-          transcription: note.transcription,
-          timestamp: new Date(note.created_at),
-          fileUrl: note.files && note.files.length > 0 ? note.files[0].file_url : undefined,
-          fileName: note.files && note.files.length > 0 ? note.files[0].file_name : undefined,
-          fileSize: note.files && note.files.length > 0 ? note.files[0].file_size : undefined
-        })),
-        aiSummary: updatedProject.ai_summary
-      };
-      
-      console.log('Formatted project after reload:', formattedProject);
-      console.log('Number of notes after reload:', formattedProject.notes.length);
-      
-      // Update note count
-      formattedProject.noteCount = formattedProject.notes.length;
-      
-      onProjectUpdate(formattedProject);
+      await reloadProjectFromBackend();
     } catch (error) {
       console.error('Error reloading project after note addition:', error);
       // Fallback: add note to current project state
@@ -101,51 +112,45 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
   };
 
   const handleDeleteNote = (noteId: string) => {
-    const projects = deleteNoteFromProject(project.id, noteId);
-    const updatedProject = projects.find(p => p.id === project.id);
-    if (updatedProject) {
-      onProjectUpdate(updatedProject);
-    }
+    // This function would need to be implemented to delete from database
+    // For now, just reload the project
+    reloadProjectFromBackend();
   };
 
-  const handleAddTextNote = () => {
+  const handleAddTextNote = async () => {
     if (!newNoteText.trim()) return;
     
     console.log('Adding text note:', newNoteText.trim());
     
-    // Create text note via API
-    const createTextNote = async () => {
-      try {
-        const response = await fetch(`${import.meta.env.DEV ? 'http://localhost:3001/api' : '/api'}/notes`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${getToken()}`,
-          },
-          body: JSON.stringify({
-            projectId: project.id,
-            type: 'text',
-            content: newNoteText.trim()
-          }),
-        });
+    try {
+      const response = await fetch(`${import.meta.env.DEV ? 'http://localhost:3001/api' : '/api'}/notes`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getToken()}`,
+        },
+        body: JSON.stringify({
+          projectId: project.id,
+          type: 'text',
+          content: newNoteText.trim()
+        }),
+      });
 
-        if (!response.ok) {
-          throw new Error(`Failed to create text note: ${response.statusText}`);
-        }
-
-        const result = await response.json();
-        console.log('Text note created successfully:', result);
-
-        // Reload project to get updated notes
-        await reloadProjectFromBackend();
-        
-      } catch (error) {
-        console.error('Error creating text note:', error);
-        alert('Kunde inte spara textanteckning: ' + (error instanceof Error ? error.message : 'Okänt fel'));
+      if (!response.ok) {
+        throw new Error(`Failed to create text note: ${response.statusText}`);
       }
-    };
 
-    createTextNote();
+      const result = await response.json();
+      console.log('Text note created successfully:', result);
+
+      // Reload project to get updated notes
+      await reloadProjectFromBackend();
+      
+    } catch (error) {
+      console.error('Error creating text note:', error);
+      alert('Kunde inte spara textanteckning: ' + (error instanceof Error ? error.message : 'Okänt fel'));
+    }
+
     setNewNoteText('');
     setShowAddNoteModal(false);
   };
@@ -187,26 +192,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
 
   const handleDeleteProject = () => {
     deleteProjectAPI(project.id)
-
-  // Helper function to reload project from backend
-  const reloadProjectFromBackend = async () => {
-    try {
-      console.log('Reloading project from backend...');
-      const fullProject = await getProjectById(project.id);
-      console.log('Reloaded project data:', fullProject);
-      
-      const formattedProject = formatBackendProject(fullProject);
-      console.log('Formatted reloaded project:', formattedProject);
-      
-      onProjectUpdate(formattedProject);
-    } catch (error) {
-      console.error('Error reloading project:', error);
-      throw error;
-    }
-  };
-
-  const handleDeleteProject = () => {
-    deleteProjectAPI(project.id)
       .then(() => {
         onProjectDelete();
       })
@@ -215,32 +200,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
         alert('Kunde inte ta bort projekt: ' + (error instanceof Error ? error.message : 'Okänt fel'));
       });
   };
-
-  // Helper function to format backend project data
-  const formatBackendProject = (backendProject: any): Project => {
-    return {
-      id: backendProject.id,
-      name: backendProject.name,
-      location: backendProject.location || '',
-      date: new Date(backendProject.project_date || backendProject.created_at),
-      inspector: backendProject.inspector || '',
-      createdAt: new Date(backendProject.created_at),
-      updatedAt: new Date(backendProject.updated_at || backendProject.created_at),
-      notes: (backendProject.notes || []).map((note: any) => ({
-        id: note.id,
-        type: note.type,
-        content: note.content,
-        transcription: note.transcription,
-        timestamp: new Date(note.created_at),
-        fileUrl: note.files && note.files.length > 0 ? note.files[0].file_url : undefined,
-        fileName: note.files && note.files.length > 0 ? note.files[0].file_name : undefined,
-        fileSize: note.files && note.files.length > 0 ? note.files[0].file_size : undefined
-      })),
-      aiSummary: backendProject.ai_summary,
-      noteCount: (backendProject.notes || []).length
-    };
-  };
-
 
   const handleCreateReport = async () => {
     setIsGeneratingReport(true);
