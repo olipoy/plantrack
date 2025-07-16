@@ -134,52 +134,18 @@ function App() {
                 <div className="bg-white border-b border-gray-200 px-4 py-6">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center">
-                      <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center mr-3">
-                        <ClipboardList className="w-6 h-6 text-white" />
-                      </div>
+                      {/* User Profile Icon */}
+                      <button
+                        onClick={() => setShowUserMenu(!showUserMenu)}
+                        className="w-10 h-10 bg-gray-600 rounded-full flex items-center justify-center mr-3 text-white text-sm font-medium hover:bg-gray-700 transition-colors"
+                      >
+                        {getUserInitials(getUser()?.name || '')}
+                      </button>
                       <div>
-                        <h1 className="text-xl font-bold text-gray-900">Inspektionsassistent</h1>
+                        <h1 className="text-xl font-bold text-gray-900">Projekt</h1>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-3">
-                      {/* User Profile Menu */}
-                      <div className="relative">
-                        <button
-                          onClick={() => setShowUserMenu(!showUserMenu)}
-                          className="flex items-center space-x-2 p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                        >
-                          <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                            {getUserInitials(getUser()?.name || '')}
-                          </div>
-                          <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
-                        </button>
-                        
-                        {showUserMenu && (
-                          <>
-                            <div 
-                              className="fixed inset-0 z-10" 
-                              onClick={() => setShowUserMenu(false)}
-                            />
-                            <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 min-w-[200px]">
-                              <div className="p-3 border-b border-gray-100">
-                                <p className="text-sm font-medium text-gray-900">{getUser()?.name}</p>
-                                <p className="text-xs text-gray-500">{getUser()?.email}</p>
-                              </div>
-                              <button
-                                onClick={() => {
-                                  setShowUserMenu(false);
-                                  handleLogout();
-                                }}
-                                className="w-full flex items-center px-3 py-2 text-left text-red-600 hover:bg-red-50 transition-colors"
-                              >
-                                <LogOut className="w-4 h-4 mr-2" />
-                                Logga ut
-                              </button>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                      
+                    <div className="flex items-center">
                       {/* New Project Button */}
                       <button
                         onClick={() => setCurrentView('new')}
@@ -190,6 +156,62 @@ function App() {
                     </div>
                   </div>
                 </div>
+                
+                {/* Full Screen Navigation Modal */}
+                {showUserMenu && (
+                  <div className="fixed inset-0 bg-white z-50 flex flex-col">
+                    {/* Modal Header */}
+                    <div className="bg-white border-b border-gray-200 px-4 py-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <div className="w-10 h-10 bg-gray-600 rounded-full flex items-center justify-center mr-3 text-white text-sm font-medium">
+                            {getUserInitials(getUser()?.name || '')}
+                          </div>
+                          <div>
+                            <h2 className="text-xl font-bold text-gray-900">Meny</h2>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setShowUserMenu(false)}
+                          className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors"
+                        >
+                          <X className="w-5 h-5 text-gray-600" />
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Modal Content */}
+                    <div className="flex-1 p-6">
+                      {/* User Info Section */}
+                      <div className="bg-gray-50 rounded-xl p-4 mb-6">
+                        <div className="flex items-center mb-3">
+                          <div className="w-12 h-12 bg-gray-600 rounded-full flex items-center justify-center mr-4 text-white text-lg font-medium">
+                            {getUserInitials(getUser()?.name || '')}
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-semibold text-gray-900">{getUser()?.name}</h3>
+                            <p className="text-sm text-gray-600">{getUser()?.email}</p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Navigation Options */}
+                      <div className="space-y-2">
+                        <button
+                          onClick={() => {
+                            setShowUserMenu(false);
+                            handleLogout();
+                          }}
+                          className="w-full flex items-center p-4 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors"
+                        >
+                          <LogOut className="w-5 h-5 mr-3" />
+                          <span className="font-medium">Logga ut</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 <div className="flex-1 overflow-y-auto">
                   <ProjectList projects={projects} onSelectProject={handleSelectProject} />
                 </div>
