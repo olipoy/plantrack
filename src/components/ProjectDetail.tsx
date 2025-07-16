@@ -335,6 +335,23 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
             </div>
           </div>
         </div>
+      ) : project.notes.length > 0 ? (
+        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-b border-gray-200">
+          <div className="p-4">
+            <button
+              onClick={handleGenerateSummary}
+              disabled={isGeneratingSummary}
+              className="w-full bg-green-600 text-white py-3 px-4 rounded-xl font-medium hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-200 flex items-center justify-center"
+            >
+              {isGeneratingSummary ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+              ) : (
+                <Sparkles className="w-5 h-5 mr-2" />
+              )}
+              {isGeneratingSummary ? 'Skapar rapport...' : 'Skapa Rapport'}
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Content */}
@@ -504,24 +521,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
           </div>
         </div>
       </div>
-
-      {/* Generate Report Button - Only show if no summary exists */}
-      {!project.aiSummary && project.notes.length > 0 && (
-        <div className="p-4 bg-white border-t border-gray-200">
-          <button
-            onClick={handleGenerateSummary}
-            disabled={isGeneratingSummary}
-            className="w-full bg-green-600 text-white py-3 px-4 rounded-xl font-medium hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-200 flex items-center justify-center"
-          >
-            {isGeneratingSummary ? (
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-            ) : (
-              <Sparkles className="w-5 h-5 mr-2" />
-            )}
-            {isGeneratingSummary ? 'Skapar rapport...' : 'Skapa Rapport'}
-          </button>
-        </div>
-      )}
 
       {/* Action Buttons */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4">
