@@ -577,7 +577,7 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
         // Common placeholder texts to filter out
         const placeholderTexts = [
           'svensktextning.nu',
-          'svenska textning',
+          'svenska textning', 
           'svensk textning',
           'textning.nu',
           'undertextning',
@@ -588,11 +588,6 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
           'gemenskapen',
           'textning av',
           'översättning av'
-          'svenska textning',
-          'svensk textning',
-          'textning.nu',
-          'undertextning',
-          'svensk undertextning'
         ];
         
         // Check if transcription is just placeholder text or too short to be meaningful
