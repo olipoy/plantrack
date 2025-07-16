@@ -177,6 +177,31 @@ export const summarizeNotes = async (
   return result;
 };
 
+export const updateNoteLabel = async (
+  noteId: string,
+  label: string
+): Promise<any> => {
+  const token = getToken();
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/notes/${noteId}/label`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ label }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to update note label: ${response.statusText}`);
+  }
+
+  return response.json();
+};
+
 export const sendEmailWithPDF = async (
   to: string,
   subject: string,
