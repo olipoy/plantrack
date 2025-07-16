@@ -24,16 +24,17 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const [cameraMode, setCameraMode] = useState<'photo' | 'video'>('photo');
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [isReportExpanded, setIsReportExpanded] = useState(false);
-  const [isEditingReport, setIsEditingReport] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [editedReportText, setEditedReportText] = useState('');
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [emailAddress, setEmailAddress] = useState('');
   const [isSendingEmail, setIsSendingEmail] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [newTextNote, setNewTextNote] = useState('');
   const [isAddingTextNote, setIsAddingTextNote] = useState(false);
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
   const [editingLabelValue, setEditingLabelValue] = useState('');
+  const [isEditingReport, setIsEditingReport] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const handleCameraCapture = (note: Omit<Note, 'id'>) => {
     console.log('Camera capture completed, adding note:', note);
