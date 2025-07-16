@@ -12,6 +12,10 @@ import AWS from 'aws-sdk';
 import { v4 as uuidv4 } from 'uuid';
 import sgMail from '@sendgrid/mail';
 
+// Polyfill for OpenAI library File upload support
+import { File } from 'node:buffer';
+globalThis.File = File;
+
 // Import authentication and database modules (ESM)
 import { authenticateToken, registerUser, loginUser } from './auth.js';
 import { projectDb, noteDb, summaryDb } from './db.js';
