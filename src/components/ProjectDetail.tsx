@@ -352,6 +352,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
             </button>
           </div>
         </div>
+      ) : null}
       )}
 
       {/* Content */}
