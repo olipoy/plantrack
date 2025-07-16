@@ -71,7 +71,7 @@ function App() {
   }, [isLoggedIn]);
 
   const handleProjectCreated = (project: Project) => {
-    // Add the new project to the current list
+    const updatedProjects = [project, ...projects];
     setProjects(prev => [project, ...prev]);
     setSelectedProject(project);
     setCurrentView('detail');
@@ -147,33 +147,9 @@ function App() {
     return <AuthForm onAuthSuccess={handleAuthSuccess} />;
   }
 
-  const handleProjectCreated = (project: Project) => {
-    const updatedProjects = [...projects, project];
-    setProjects(updatedProjects);
-    saveProjects(updatedProjects);
-    setSelectedProject(project);
-    setCurrentView('detail');
-  };
-
   const handleSelectProject = (project: Project) => {
     setSelectedProject(project);
     setCurrentView('detail');
-  };
-
-  const handleProjectUpdate = (updatedProject: Project) => {
-    const updatedProjects = projects.map(p => 
-      p.id === updatedProject.id ? updatedProject : p
-    );
-    setProjects(updatedProjects);
-    saveProjects(updatedProjects);
-    setSelectedProject(updatedProject);
-  };
-
-  const handleProjectDelete = () => {
-    const updatedProjects = loadProjects(); // Reload from storage after deletion
-    setProjects(updatedProjects);
-    setCurrentView('list');
-    setSelectedProject(null);
   };
 
   const handleBackToList = () => {
