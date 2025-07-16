@@ -42,9 +42,12 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
   }, [project.aiSummary, editableReport]);
 
   const handleAddNote = async (note: Omit<Note, 'id'>) => {
+    console.log('handleAddNote called with:', note);
     try {
       // Reload project from backend to get updated notes
+      console.log('Reloading project from backend after note addition...');
       const updatedProject = await getProjectById(project.id);
+      console.log('Updated project data:', updatedProject);
       
       // Convert backend project to frontend format
       const formattedProject: Project = {
@@ -68,10 +71,14 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
         aiSummary: updatedProject.ai_summary
       };
       
+      console.log('Formatted project after reload:', formattedProject);
+      console.log('Number of notes after reload:', formattedProject.notes.length);
+      
       onProjectUpdate(formattedProject);
     } catch (error) {
       console.error('Error reloading project after note addition:', error);
       // Fallback: add note to current project state
+      console.log('Using fallback: adding note to current state');
       const newNote: Note = {
         ...note,
         id: generateId()
@@ -83,6 +90,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
         updatedAt: new Date()
       };
       
+      console.log('Fallback updated project:', updatedProject);
       onProjectUpdate(updatedProject);
     }
     setShowCameraView(false);

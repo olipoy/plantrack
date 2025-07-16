@@ -175,6 +175,14 @@ app.get('/api/projects/:id', authenticateToken, async (req, res) => {
     // Get notes for this project
     const notes = await noteDb.getProjectNotes(req.params.id);
     console.log('Notes found:', notes.length, 'notes');
+    console.log('Notes details:', notes.map(n => ({ 
+      id: n.id, 
+      type: n.type, 
+      content: n.content?.substring(0, 50),
+      transcription: n.transcription?.substring(0, 50),
+      hasFiles: n.files && n.files.length > 0,
+      fileUrl: n.files && n.files.length > 0 ? n.files[0].file_url : null
+    })));
     
     project.notes = notes;
 

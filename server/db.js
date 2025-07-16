@@ -129,6 +129,7 @@ const noteDb = {
 
   // Get all notes for a project
   async getProjectNotes(projectId) {
+    console.log('Getting notes for project:', projectId);
     const result = await query(
       `SELECT n.*, 
        json_agg(
@@ -147,6 +148,13 @@ const noteDb = {
        ORDER BY n.created_at ASC`,
       [projectId]
     );
+    console.log('Database notes query result:', result.rows.length, 'notes found');
+    console.log('Notes data:', result.rows.map(n => ({ 
+      id: n.id, 
+      type: n.type, 
+      content: n.content?.substring(0, 30),
+      hasFiles: n.files && n.files.length > 0 
+    })));
     return result.rows;
   },
 

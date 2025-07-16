@@ -196,6 +196,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
       if (uploadResponse.success) {
         setTranscription(uploadResponse.transcription || '');
         
+        console.log('Upload successful, creating note object');
         const note: Omit<Note, 'id'> = {
           type: mode,
           content: mode === 'photo' ? 'Foto taget' : 'Videoinspelning',
@@ -206,6 +207,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
           fileSize: uploadResponse.size
         };
         
+        console.log('Calling onSave with note:', note);
         onSave(note);
       } else {
         throw new Error('Upload failed');

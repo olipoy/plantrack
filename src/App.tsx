@@ -37,7 +37,9 @@ function App() {
     
     const loadUserProjects = async () => {
       try {
+        console.log('Loading user projects from backend...');
         const backendProjects = await getUserProjects();
+        console.log('Backend projects received:', backendProjects);
         
         // Convert backend projects to frontend format
         const formattedProjects: Project[] = backendProjects.map(p => ({
@@ -48,15 +50,19 @@ function App() {
           inspector: p.inspector || '',
           createdAt: new Date(p.created_at),
           updatedAt: new Date(p.updated_at || p.created_at),
-          notes: p.notes || [],
+          notes: [], // Notes will be loaded when project is selected
           aiSummary: p.ai_summary
         }));
         
+        console.log('Formatted projects:', formattedProjects);
+        
         // If no projects exist, add sample projects for demo
         if (formattedProjects.length === 0) {
+          console.log('No projects found, loading sample data');
           const sampleProjects = populateWithMockData();
           setProjects(sampleProjects);
         } else {
+          console.log('Setting projects from backend');
           setProjects(formattedProjects);
         }
       } catch (error) {
@@ -71,13 +77,13 @@ function App() {
   }, [isLoggedIn]);
 
   const handleProjectCreated = (project: Project) => {
-    const updatedProjects = [project, ...projects];
     setProjects(prev => [project, ...prev]);
     setSelectedProject(project);
     setCurrentView('detail');
   };
 
   const handleProjectUpdate = (updatedProject: Project) => {
+    console.log('Updating project:', updatedProject);
     setProjects(prev => prev.map(p => 
       p.id === updatedProject.id ? updatedProject : p
     ));
@@ -96,7 +102,7 @@ function App() {
         inspector: p.inspector || '',
         createdAt: new Date(p.created_at),
         updatedAt: new Date(p.updated_at || p.created_at),
-        notes: p.notes || [],
+        notes: [],
         aiSummary: p.ai_summary
       }));
       setProjects(formattedProjects);
@@ -148,10 +154,13 @@ function App() {
   }
 
   const handleSelectProject = (project: Project) => {
+    console.log('Selecting project:', project.id);
     // Load full project details including notes from backend
     const loadProjectDetails = async () => {
       try {
+        console.log('Loading project details from backend...');
         const fullProject = await getProjectById(project.id);
+        console.log('Full project data received:', fullProject);
         
         // Convert backend project to frontend format
         const formattedProject: Project = {
@@ -174,6 +183,9 @@ function App() {
           })),
           aiSummary: fullProject.ai_summary
         };
+        
+        console.log('Formatted project with notes:', formattedProject);
+        console.log('Number of notes:', formattedProject.notes.length);
         
         setSelectedProject(formattedProject);
         setCurrentView('detail');
