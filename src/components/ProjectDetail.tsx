@@ -23,7 +23,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const [currentView, setCurrentView] = useState<'detail' | 'camera'>('detail');
   const [cameraMode, setCameraMode] = useState<'photo' | 'video'>('photo');
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
-  const [isReportExpanded, setIsReportExpanded] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editedReportText, setEditedReportText] = useState('');
   const [showEmailModal, setShowEmailModal] = useState(false);
@@ -278,17 +277,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
             </button>
             <h1 className="text-lg font-semibold text-gray-900 truncate">{project.name}</h1>
           </div>
-          <div className="flex items-center space-x-2">
-            {project.aiSummary && (
-              <button
-                onClick={() => setShowEmailModal(true)}
-                className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors flex-shrink-0"
-                title="Skicka via e-post"
-              >
-                <Mail className="w-5 h-5" />
-              </button>
-            )}
-          </div>
         </div>
       </div>
 
@@ -303,7 +291,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                 </div>
                 <h3 className="font-semibold text-gray-900">AI-Rapport</h3>
               </div>
-              <div className="flex space-x-1">
+              <div className="flex space-x-2">
                 <button
                   onClick={handleEditReport}
                   className="p-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center"
@@ -330,29 +318,22 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                 >
                   <Search className="w-4 h-4" />
                 </button>
+                <button
+                  onClick={() => setShowEmailModal(true)}
+                  className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center"
+                  title="Skicka via e-post"
+                >
+                  <Mail className="w-4 h-4" />
+                </button>
               </div>
             </div>
-          </div>
-
-          {/* Expandable Report Content */}
-          {isReportExpanded && (
-            <div className="px-4 pb-4">
-              <div className="bg-white rounded-lg p-4 shadow-sm">
-                <div className="prose prose-sm max-w-none">
-                  <div className="whitespace-pre-wrap text-gray-700">{project.aiSummary}</div>
-                </div>
+            
+            {/* Report Content - Always Visible */}
+            <div className="bg-white rounded-lg p-4 shadow-sm">
+              <div className="prose prose-sm max-w-none">
+                <div className="whitespace-pre-wrap text-gray-700">{project.aiSummary}</div>
               </div>
             </div>
-          )}
-
-          {/* Toggle Button */}
-          <div className="px-4 pb-4">
-            <button
-              onClick={() => setIsReportExpanded(!isReportExpanded)}
-              className="w-full py-2 text-blue-600 hover:text-blue-700 text-sm font-medium transition-colors"
-            >
-              {isReportExpanded ? 'Dölj rapport' : 'Visa rapport'}
-            </button>
           </div>
         </div>
       )}
@@ -544,7 +525,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
       )}
 
       {/* Action Buttons */}
-      <div className="bg-white border-t border-gray-200 p-4">
+      <div className="bg-white border-t border-gray-200 p-4 pb-2">
         <div className="grid grid-cols-4 gap-3">
           <button
             onClick={() => {
