@@ -864,7 +864,26 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
                         src={note.fileUrl} 
                         alt="Inspection photo" 
                         className="mt-3 rounded-lg max-w-full h-auto max-h-64 object-cover"
+                        onError={(e) => {
+                          console.error('Image failed to load:', note.fileUrl);
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          // Show placeholder
+                          const placeholder = target.parentElement?.querySelector('.image-placeholder');
+                          if (placeholder) {
+                            (placeholder as HTMLElement).style.display = 'flex';
+                          }
+                        }}
+                        onLoad={() => {
+                          console.log('Image loaded successfully:', note.fileUrl);
+                        }}
                       />
+                      <div className="image-placeholder hidden mt-3 bg-gray-100 rounded-lg h-64 flex items-center justify-center">
+                        <div className="text-center text-gray-500">
+                          <Image className="w-12 h-12 mx-auto mb-2" />
+                          <p className="text-sm">Bild kunde inte laddas</p>
+                        </div>
+                      </div>
                       <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black bg-opacity-20 rounded-lg">
                         <Image className="w-8 h-8 text-white" />
                       </div>
@@ -877,7 +896,26 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
                         src={note.fileUrl} 
                         className="rounded-lg max-w-full h-auto max-h-64 object-cover"
                         poster=""
+                        onError={(e) => {
+                          console.error('Video failed to load:', note.fileUrl);
+                          const target = e.target as HTMLVideoElement;
+                          target.style.display = 'none';
+                          // Show placeholder
+                          const placeholder = target.parentElement?.querySelector('.video-placeholder');
+                          if (placeholder) {
+                            (placeholder as HTMLElement).style.display = 'flex';
+                          }
+                        }}
+                        onLoadedData={() => {
+                          console.log('Video loaded successfully:', note.fileUrl);
+                        }}
                       />
+                      <div className="video-placeholder hidden bg-gray-100 rounded-lg h-64 flex items-center justify-center">
+                        <div className="text-center text-gray-500">
+                          <Video className="w-12 h-12 mx-auto mb-2" />
+                          <p className="text-sm">Video kunde inte laddas</p>
+                        </div>
+                      </div>
                       <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-20 rounded-lg">
                         <Play className="w-12 h-12 text-white" />
                       </div>

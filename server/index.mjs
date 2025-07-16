@@ -220,8 +220,11 @@ if (NODE_ENV === 'production') {
   const distPath = join(__dirname, '../dist');
   app.use(express.static(distPath));
   
-  // Serve uploaded files
-  app.use('/uploads', express.static(join(__dirname, 'uploads')));
+  // Serve uploaded files with proper error handling
+  app.use('/uploads', express.static(join(__dirname, 'uploads'), {
+    fallthrough: false,
+    maxAge: '1d'
+  }));
   
   // Handle client-side routing - serve index.html for all non-API routes
   app.use((req, res, next) => {
@@ -232,18 +235,53 @@ if (NODE_ENV === 'production') {
     res.sendFile(join(distPath, 'index.html'));
   });
 } else {
-  // Serve uploaded files in development
-  app.use('/uploads', express.static(join(__dirname, 'uploads')));
+  // Serve uploaded files in development with proper error handling
+  app.use('/uploads', express.static(join(__dirname, 'uploads'), {
+    fallthrough: false,
+    maxAge: '1d'
+  }));
 }
+
+// Add explicit uploads route with debugging
+app.get('/uploads/:filename', (req, res) => {
+  const filename = req.params.filename;
+  const filePath = join(__dirname, 'uploads', filename);
+  
+  console.log('File request:', filename);
+  console.log('File path:', filePath);
+  
+  // Check if file exists
+  fs.access(filePath)
+    .then(() => {
+      console.log('File exists, serving:', filename);
+      res.sendFile(filePath);
+    })
+    .catch(() => {
+      console.log('File not found:', filename);
+      res.status(404).json({ error: 'File not found' });
+    });
+});
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = join(__dirname, 'uploads');
 try {
   await fs.access(uploadsDir);
+  console.log('Uploads directory exists');
 } catch {
   await fs.mkdir(uploadsDir, { recursive: true });
+  console.log('Created uploads directory');
 }
 
+// List existing files in uploads directory
+try {
+  const files = await fs.readdir(uploadsDir);
+  console.log('Existing files in uploads:', files.length, 'files');
+  if (files.length > 0) {
+    console.log('Sample files:', files.slice(0, 5));
+  }
+} catch (error) {
+  console.log('Error reading uploads directory:', error);
+}
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -324,6 +362,16 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
     } else {
       console.log('Using local storage');
       fileUrl = `/uploads/${req.file.filename}`;
+      console.log('File saved to:', req.file.path);
+      console.log('File URL will be:', fileUrl);
+      
+      // Verify file exists
+      try {
+        await fs.access(req.file.path);
+        console.log('File verified to exist at:', req.file.path);
+      } catch (error) {
+        console.error('File does not exist after upload:', error);
+      }
     }
 
     // Transcribe audio/video files
