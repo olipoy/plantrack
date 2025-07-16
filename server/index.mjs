@@ -246,6 +246,11 @@ const chatHistory = new Map();
 // Upload and transcribe endpoint
 app.post('/api/upload', authenticateToken, upload.single('file'), async (req, res) => {
   try {
+    console.log('Upload endpoint hit');
+    console.log('User:', req.user?.id);
+    console.log('File:', req.file ? 'Present' : 'Missing');
+    console.log('Body:', req.body);
+    
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
@@ -255,18 +260,22 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
       return res.status(400).json({ error: 'Project ID is required' });
     }
 
+    console.log('Verifying project ownership...');
     // Verify project belongs to user
     const project = await projectDb.getProjectById(projectId, req.user.id);
     if (!project) {
+      console.log('Project not found for user');
       return res.status(404).json({ error: 'Project not found' });
     }
 
+    console.log('Project verified, processing file...');
     let fileUrl = null;
     let transcription = null;
 
     // Upload to S3 if configured, otherwise use local storage
     if (s3 && process.env.AWS_S3_BUCKET) {
       try {
+        console.log('Uploading to S3...');
         const fileContent = await fs.readFile(req.file.path);
         const uploadParams = {
           Bucket: process.env.AWS_S3_BUCKET,
@@ -277,6 +286,7 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
 
         const uploadResult = await s3.upload(uploadParams).promise();
         fileUrl = uploadResult.Location;
+        console.log('S3 upload successful:', fileUrl);
 
         // Clean up local file
         await fs.unlink(req.file.path);
@@ -285,12 +295,14 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
         fileUrl = `/uploads/${req.file.filename}`;
       }
     } else {
+      console.log('Using local storage');
       fileUrl = `/uploads/${req.file.filename}`;
     }
 
     // Transcribe audio/video files
     if (req.file.mimetype.startsWith('audio/') || req.file.mimetype.startsWith('video/')) {
       try {
+        console.log('Starting transcription...');
         const filePath = s3 ? null : req.file.path;
         let audioBuffer;
 
@@ -307,13 +319,15 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
         await fs.mkdir(join(__dirname, 'temp'), { recursive: true });
         await fs.writeFile(tempFile, Buffer.from(audioBuffer));
 
+        console.log('Calling OpenAI transcription...');
         const transcriptionResponse = await openai.audio.transcriptions.create({
-          file: await fs.readFile(tempFile),
+          file: fs.createReadStream(tempFile),
           model: 'whisper-1',
           language: 'sv'
         });
 
         transcription = transcriptionResponse.text;
+        console.log('Transcription successful');
 
         // Clean up temp file
         await fs.unlink(tempFile);
@@ -323,6 +337,7 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
       }
     }
 
+    console.log('Saving note to database...');
     // Save note to database
     const note = await noteDb.createNote(
       projectId,
@@ -342,6 +357,7 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
       );
     }
 
+    console.log('Upload completed successfully');
     res.json({
       success: true,
       noteId: note.id,
@@ -355,7 +371,11 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
 
   } catch (error) {
     console.error('Upload error:', error);
-    res.status(500).json({ error: 'Upload failed' });
+    res.status(500).json({ 
+      error: 'Upload failed', 
+      details: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 

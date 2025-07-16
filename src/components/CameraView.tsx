@@ -195,7 +195,14 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, onBack, onSav
       const fileExtension = mediaType === 'photo' ? 'jpg' : 'webm';
       const fileName = `${mediaType}_${Date.now()}.${fileExtension}`;
       const file = new File([capturedMedia], fileName, { 
-        type: capturedMedia.type 
+        type: mediaType === 'photo' ? 'image/jpeg' : 'video/webm'
+      });
+
+      console.log('Uploading file:', {
+        name: fileName,
+        type: file.type,
+        size: file.size,
+        projectId
       });
 
       const uploadResponse = await uploadFile(
@@ -204,6 +211,8 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, onBack, onSav
         mediaType,
         (progress) => setUploadProgress(progress)
       );
+
+      console.log('Upload response:', uploadResponse);
 
       if (uploadResponse.success) {
         setTranscription(uploadResponse.transcription || '');
@@ -224,7 +233,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, onBack, onSav
       }
     } catch (error) {
       console.error('Error saving media:', error);
-      setError(error instanceof Error ? error.message : 'Uppladdning misslyckades');
+      setError(error instanceof Error ? error.message : 'Uppladdning misslyckades. Kontrollera internetanslutningen.');
     } finally {
       setIsUploading(false);
     }

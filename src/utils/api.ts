@@ -46,6 +46,15 @@ export const uploadFile = async (
       return;
     }
 
+    console.log('Starting upload with token:', token ? 'Present' : 'Missing');
+    console.log('Upload details:', {
+      fileName: file.name,
+      fileType: file.type,
+      fileSize: file.size,
+      projectId,
+      noteType
+    });
+
     const formData = new FormData();
     formData.append('file', file);
     formData.append('projectId', projectId);
@@ -63,21 +72,38 @@ export const uploadFile = async (
     }
 
     xhr.addEventListener('load', () => {
+      console.log('Upload response status:', xhr.status);
+      console.log('Upload response text:', xhr.responseText);
+      
       if (xhr.status === 200) {
         try {
           const response = JSON.parse(xhr.responseText);
           resolve(response);
         } catch (error) {
+          console.error('JSON parse error:', error);
           reject(new Error('Invalid response format'));
         }
       } else if (xhr.status === 401) {
         reject(new Error('Authentication expired. Please log in again.'));
+      } else if (xhr.status === 500) {
+        try {
+          const errorResponse = JSON.parse(xhr.responseText);
+          reject(new Error(errorResponse.error || 'Server error occurred'));
+        } catch {
+          reject(new Error('Server error occurred. Please try again.'));
+        }
       } else {
-        reject(new Error(`Upload failed with status ${xhr.status}`));
+        try {
+          const errorResponse = JSON.parse(xhr.responseText);
+          reject(new Error(errorResponse.error || `Upload failed with status ${xhr.status}`));
+        } catch {
+          reject(new Error(`Upload failed with status ${xhr.status}`));
+        }
       }
     });
 
     xhr.addEventListener('error', () => {
+      console.error('Network error during upload');
       reject(new Error('Network error during upload'));
     });
 
