@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Project, Note } from '../types';
 import { ArrowLeft, Plus, Camera, Video, Download, Sparkles, AlertCircle, Play, Image, MapPin, Calendar, User, Trash2, MoreVertical, Upload, FileText, X, Mail, Send, CheckCircle, XCircle, Edit3, Eye } from 'lucide-react';
-import { MediaRecorder } from './MediaRecorder';
+import { CameraView } from './CameraView';
 import { exportProjectToPDF, generateProjectPDF } from '../utils/export';
 import { addNoteToProject, deleteProject, deleteNoteFromProject, generateId } from '../utils/storage';
 import { summarizeNotes, sendEmailWithPDF } from '../utils/api';
@@ -14,8 +14,7 @@ interface ProjectDetailProps {
 }
 
 export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onProjectUpdate, onProjectDelete }) => {
-  const [showMediaRecorder, setShowMediaRecorder] = useState(false);
-  const [mediaType, setMediaType] = useState<'photo' | 'video'>('photo');
+  const [showCameraView, setShowCameraView] = useState(false);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [reportError, setReportError] = useState('');
   const [showReportEditor, setShowReportEditor] = useState(false);
@@ -46,7 +45,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
     if (updatedProject) {
       onProjectUpdate(updatedProject);
     }
-    setShowMediaRecorder(false);
+    setShowCameraView(false);
   };
 
   const handleDeleteNote = (noteId: string) => {
@@ -190,13 +189,12 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
     }
   };
 
-  const openMediaRecorder = (type: 'photo' | 'video') => {
+  const openCamera = () => {
     if (project.notes.length >= 20) {
       alert('Du kan ha maximalt 20 anteckningar per projekt.');
       return;
     }
-    setMediaType(type);
-    setShowMediaRecorder(true);
+    setShowCameraView(true);
   };
 
   const formatDate = (date: Date) => {
@@ -238,12 +236,11 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
     }
   };
 
-  if (showMediaRecorder) {
+  if (showCameraView) {
     return (
-      <MediaRecorder
-        type={mediaType}
+      <CameraView
         projectId={project.id}
-        onBack={() => setShowMediaRecorder(false)}
+        onBack={() => setShowCameraView(false)}
         onSave={handleAddNote}
       />
     );
@@ -863,20 +860,12 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
           
           <div className="grid grid-cols-4 gap-2">
             <button
-              onClick={() => openMediaRecorder('photo')}
+              onClick={openCamera}
               disabled={project.notes.length >= 20}
               className="flex flex-col items-center justify-center p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
             >
               <Camera className="w-5 h-5 mb-1" />
-              <span className="text-xs font-medium">Foto</span>
-            </button>
-            <button
-              onClick={() => openMediaRecorder('video')}
-              disabled={project.notes.length >= 20}
-              className="flex flex-col items-center justify-center p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-            >
-              <Video className="w-5 h-5 mb-1" />
-              <span className="text-xs font-medium">Video</span>
+              <span className="text-xs font-medium">Kamera</span>
             </button>
             <label className="flex flex-col items-center justify-center p-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors cursor-pointer">
               <Upload className="w-5 h-5 mb-1" />
