@@ -1,4 +1,6 @@
 // API configuration for different environments
+import { getToken } from './auth';
+
 const getApiBaseUrl = () => {
   // In development, use local server
   if (import.meta.env.DEV) {
@@ -38,6 +40,12 @@ export const uploadFile = async (
   onProgress?: (progress: number) => void
 ): Promise<UploadResponse> => {
   return new Promise((resolve, reject) => {
+    const token = getToken();
+    if (!token) {
+      reject(new Error('Authentication required'));
+      return;
+    }
+
     const formData = new FormData();
     formData.append('file', file);
     formData.append('projectId', projectId);
@@ -62,6 +70,8 @@ export const uploadFile = async (
         } catch (error) {
           reject(new Error('Invalid response format'));
         }
+      } else if (xhr.status === 401) {
+        reject(new Error('Authentication expired. Please log in again.'));
       } else {
         reject(new Error(`Upload failed with status ${xhr.status}`));
       }
@@ -72,6 +82,7 @@ export const uploadFile = async (
     });
 
     xhr.open('POST', `${API_BASE_URL}/upload`);
+    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     xhr.send(formData);
   });
 };
@@ -81,10 +92,16 @@ export const sendChatMessage = async (
   projects: any[],
   userId?: string
 ): Promise<ChatResponse> => {
+  const token = getToken();
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
   const response = await fetch(`${API_BASE_URL}/chat`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
     },
     body: JSON.stringify({
       message,
@@ -105,10 +122,16 @@ export const summarizeNotes = async (
   projectName: string,
   projectLocation: string
 ): Promise<{ summary: string }> => {
+  const token = getToken();
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
   const response = await fetch(`${API_BASE_URL}/summarize`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
     },
     body: JSON.stringify({
       notes,
@@ -131,10 +154,16 @@ export const sendEmailWithPDF = async (
   fileName: string,
   text?: string
 ): Promise<{ success: boolean; message: string }> => {
+  const token = getToken();
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
   const response = await fetch(`${API_BASE_URL}/send-email`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
     },
     body: JSON.stringify({
       to,

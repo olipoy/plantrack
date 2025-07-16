@@ -112,6 +112,12 @@ export const shortenAddress = (fullAddress: string): string => {
 
 // Mock data population function
 export const populateWithMockData = () => {
+  // Don't populate mock data in production or if user already has projects
+  const existingProjects = loadProjects();
+  if (existingProjects.length > 0) {
+    return existingProjects;
+  }
+
   const mockProjects: Project[] = [
     {
       id: 'mock-project-1',
