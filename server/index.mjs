@@ -652,7 +652,7 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
         const visionStartTime = Date.now();
         
         const visionResponse = await openai.chat.completions.create({
-          model: 'gpt-4-vision-preview',
+          model: 'gpt-4o',
           messages: [
             {
               role: 'user',
@@ -665,7 +665,7 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
                   type: 'image_url',
                   image_url: {
                     url: imageUrl,
-                    detail: 'low' // Use low detail for faster processing and lower cost
+                    detail: 'low'
                   }
                 }
               ]
