@@ -161,15 +161,28 @@ app.get('/api/projects', authenticateToken, async (req, res) => {
 // Get specific project with notes
 app.get('/api/projects/:id', authenticateToken, async (req, res) => {
   try {
+    console.log('Getting project details for ID:', req.params.id, 'User:', req.user.id);
+    
     const project = await projectDb.getProjectById(req.params.id, req.user.id);
     
     if (!project) {
+      console.log('Project not found');
       return res.status(404).json({ error: 'Project not found' });
     }
 
+    console.log('Project found:', project);
+
     // Get notes for this project
     const notes = await noteDb.getProjectNotes(req.params.id);
+    console.log('Notes found:', notes.length, 'notes');
+    
     project.notes = notes;
+
+    console.log('Sending project with notes:', {
+      projectId: project.id,
+      notesCount: notes.length,
+      notes: notes.map(n => ({ id: n.id, type: n.type, hasFiles: n.files && n.files.length > 0 }))
+    });
 
     res.json(project);
   } catch (error) {

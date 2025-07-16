@@ -280,6 +280,8 @@ export const getProjectById = async (projectId: string): Promise<any> => {
     throw new Error('Authentication required');
   }
 
+  console.log('Fetching project details for ID:', projectId);
+
   const response = await fetch(`${API_BASE_URL}/projects/${projectId}`, {
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -287,10 +289,13 @@ export const getProjectById = async (projectId: string): Promise<any> => {
   });
 
   if (!response.ok) {
+    console.error('Failed to get project:', response.status, response.statusText);
     throw new Error(`Failed to get project: ${response.statusText}`);
   }
 
-  return response.json();
+  const project = await response.json();
+  console.log('Project details received:', project);
+  return project;
 };
 
 export const deleteProject = async (projectId: string): Promise<void> => {

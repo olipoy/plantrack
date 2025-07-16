@@ -41,9 +41,47 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
   }, [project.aiSummary, editableReport]);
 
   const handleAddNote = async (note: Omit<Note, 'id'>) => {
-    const projects = addNoteToProject(project.id, note);
-    const updatedProject = projects.find(p => p.id === project.id);
-    if (updatedProject) {
+    try {
+      // Reload project from backend to get updated notes
+      const updatedProject = await getProjectById(project.id);
+      
+      // Convert backend project to frontend format
+      const formattedProject: Project = {
+        id: updatedProject.id,
+        name: updatedProject.name,
+        location: updatedProject.location || '',
+        date: new Date(updatedProject.project_date || updatedProject.created_at),
+        inspector: updatedProject.inspector || '',
+        createdAt: new Date(updatedProject.created_at),
+        updatedAt: new Date(updatedProject.updated_at || updatedProject.created_at),
+        notes: (updatedProject.notes || []).map((note: any) => ({
+          id: note.id,
+          type: note.type,
+          content: note.content,
+          transcription: note.transcription,
+          timestamp: new Date(note.created_at),
+          fileUrl: note.files && note.files.length > 0 ? note.files[0].file_url : undefined,
+          fileName: note.files && note.files.length > 0 ? note.files[0].file_name : undefined,
+          fileSize: note.files && note.files.length > 0 ? note.files[0].file_size : undefined
+        })),
+        aiSummary: updatedProject.ai_summary
+      };
+      
+      onProjectUpdate(formattedProject);
+    } catch (error) {
+      console.error('Error reloading project after note addition:', error);
+      // Fallback: add note to current project state
+      const newNote: Note = {
+        ...note,
+        id: generateId()
+      };
+      
+      const updatedProject = {
+        ...project,
+        notes: [...project.notes, newNote],
+        updatedAt: new Date()
+      };
+      
       onProjectUpdate(updatedProject);
     }
     setShowCameraView(false);

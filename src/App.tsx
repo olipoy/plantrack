@@ -148,8 +148,44 @@ function App() {
   }
 
   const handleSelectProject = (project: Project) => {
-    setSelectedProject(project);
-    setCurrentView('detail');
+    // Load full project details including notes from backend
+    const loadProjectDetails = async () => {
+      try {
+        const fullProject = await getProjectById(project.id);
+        
+        // Convert backend project to frontend format
+        const formattedProject: Project = {
+          id: fullProject.id,
+          name: fullProject.name,
+          location: fullProject.location || '',
+          date: new Date(fullProject.project_date || fullProject.created_at),
+          inspector: fullProject.inspector || '',
+          createdAt: new Date(fullProject.created_at),
+          updatedAt: new Date(fullProject.updated_at || fullProject.created_at),
+          notes: (fullProject.notes || []).map((note: any) => ({
+            id: note.id,
+            type: note.type,
+            content: note.content,
+            transcription: note.transcription,
+            timestamp: new Date(note.created_at),
+            fileUrl: note.files && note.files.length > 0 ? note.files[0].file_url : undefined,
+            fileName: note.files && note.files.length > 0 ? note.files[0].file_name : undefined,
+            fileSize: note.files && note.files.length > 0 ? note.files[0].file_size : undefined
+          })),
+          aiSummary: fullProject.ai_summary
+        };
+        
+        setSelectedProject(formattedProject);
+        setCurrentView('detail');
+      } catch (error) {
+        console.error('Error loading project details:', error);
+        // Fallback to basic project info
+        setSelectedProject(project);
+        setCurrentView('detail');
+      }
+    };
+    
+    loadProjectDetails();
   };
 
   const handleBackToList = () => {

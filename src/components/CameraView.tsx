@@ -233,7 +233,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, onBack, onSav
       }
     } catch (error) {
       console.error('Error saving media:', error);
-      setError(error instanceof Error ? error.message : 'Uppladdning misslyckades. Kontrollera internetanslutningen.');
+      setError(error instanceof Error ? error.message : 'Uppladdning misslyckades. Kontrollera internetanslutningen och försök igen.');
     } finally {
       setIsUploading(false);
     }
