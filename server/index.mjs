@@ -19,9 +19,18 @@ console.log("### ENV VARS ###", process.env);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+// Fix uploads directory path for production
+const uploadsDir = NODE_ENV === 'production' 
+  ? join(process.cwd(), 'server', 'uploads')  // /app/server/uploads in production
+  : join(__dirname, 'uploads');               // ./server/uploads in development
+
+console.log('Environment:', NODE_ENV);
+console.log('Current working directory:', process.cwd());
+console.log('__dirname:', __dirname);
+console.log('Uploads directory:', uploadsDir);
+
 const app = express();
 const PORT = process.env.PORT || 3001;
-const NODE_ENV = process.env.NODE_ENV || 'development';
 
 // Initialize OpenAI
 const openai = new OpenAI({
@@ -303,7 +312,6 @@ app.get('/uploads/:filename', (req, res) => {
 });
 
 // Create uploads directory if it doesn't exist
-const uploadsDir = join(__dirname, 'uploads');
 try {
   await fs.access(uploadsDir);
   console.log('Uploads directory exists');
