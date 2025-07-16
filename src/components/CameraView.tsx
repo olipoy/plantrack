@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Check, X } from 'lucide-react';
 import { Note } from '../types';
 import { uploadFile } from '../utils/api';
+import { ensureSizeLimit, formatFileSize, getVideoDuration } from '../utils/videoCompression';
 
 interface CameraViewProps {
   projectId: string;
@@ -20,6 +21,8 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
   const [transcription, setTranscription] = useState('');
+  const [isCompressing, setIsCompressing] = useState(false);
+  const [compressionProgress, setCompressionProgress] = useState('');
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -143,10 +146,9 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
       
       recorder.onstop = () => {
         const blob = new Blob(chunks, { type: 'video/webm' });
-        setCapturedMedia(blob);
-        const url = URL.createObjectURL(blob);
-        setPreviewUrl(url);
-        setCurrentMode('preview');
+        
+        // Compress video before preview
+        compressAndSetMedia(blob);
       };
       
       recorder.start();
@@ -163,6 +165,43 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       stopRecordingTimer();
+    }
+  };
+
+  const compressAndSetMedia = async (originalBlob: Blob) => {
+    setIsCompressing(true);
+    setCompressionProgress('Komprimerar video...');
+    
+    try {
+      // Get original video info
+      const originalSize = originalBlob.size;
+      const duration = await getVideoDuration(originalBlob);
+      
+      console.log(`Original video: ${formatFileSize(originalSize)}, ${duration.toFixed(1)}s`);
+      setCompressionProgress(`Original: ${formatFileSize(originalSize)} (${duration.toFixed(1)}s)`);
+      
+      // Compress to ensure it's under 20MB (buffer for 25MB limit)
+      const compressedBlob = await ensureSizeLimit(originalBlob, 20);
+      
+      const compressionRatio = ((originalSize - compressedBlob.size) / originalSize * 100);
+      console.log(`Compressed: ${formatFileSize(compressedBlob.size)} (${compressionRatio.toFixed(1)}% reduction)`);
+      
+      setCapturedMedia(compressedBlob);
+      const url = URL.createObjectURL(compressedBlob);
+      setPreviewUrl(url);
+      setCurrentMode('preview');
+      
+    } catch (error) {
+      console.error('Compression failed:', error);
+      // Fall back to original if compression fails
+      setCapturedMedia(originalBlob);
+      const url = URL.createObjectURL(originalBlob);
+      setPreviewUrl(url);
+      setCurrentMode('preview');
+      setError('Video compression failed, using original file');
+    } finally {
+      setIsCompressing(false);
+      setCompressionProgress('');
     }
   };
 
@@ -275,6 +314,23 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
     );
   }
 
+  if (isCompressing) {
+    return (
+      <div className="fixed inset-0 bg-black flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-6 max-w-sm mx-4">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-green-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Komprimerar video</h3>
+            <p className="text-sm text-gray-600 mb-2">Optimerar filstorlek...</p>
+            {compressionProgress && (
+              <p className="text-xs text-gray-500">{compressionProgress}</p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 bg-black z-50 flex flex-col">
       {/* Header */}
@@ -375,6 +431,18 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
               </div>
             )}
             
+            {/* Show file size info */}
+            {capturedMedia && (
+              <div className="bg-black/70 rounded-lg p-3 mb-4">
+                <p className="text-white text-xs text-center">
+                  Filstorlek: {formatFileSize(capturedMedia.size)}
+                  {capturedMedia.size > 20 * 1024 * 1024 && (
+                    <span className="text-yellow-300 ml-2">⚠️ Stor fil</span>
+                  )}
+                </p>
+              </div>
+            )}
+            
             <div className="flex items-center justify-center space-x-8">
               <button
                 onClick={handleDiscard}
@@ -385,14 +453,22 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
               
               <button
                 onClick={handleConfirm}
-                className="w-16 h-16 bg-green-600 rounded-full flex items-center justify-center hover:bg-green-700 transition-colors"
+                disabled={capturedMedia && capturedMedia.size > 25 * 1024 * 1024}
+                className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors ${
+                  capturedMedia && capturedMedia.size > 25 * 1024 * 1024
+                    ? 'bg-gray-500 cursor-not-allowed'
+                    : 'bg-green-600 hover:bg-green-700'
+                }`}
               >
                 <Check className="w-8 h-8 text-white" />
               </button>
             </div>
             
             <p className="text-white text-center text-sm mt-4 opacity-80">
-              Behåll eller ta om
+              {capturedMedia && capturedMedia.size > 25 * 1024 * 1024
+                ? 'Filen är för stor - ta om med kortare inspelning'
+                : 'Behåll eller ta om'
+              }
             </p>
           </div>
         </>
