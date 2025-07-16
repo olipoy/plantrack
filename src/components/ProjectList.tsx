@@ -61,18 +61,47 @@ export const ProjectList: React.FC<ProjectListProps> = ({ projects, onSelectProj
         <div
           key={project.id}
           onClick={() => onSelectProject(project)}
-          className="bg-white rounded-xl p-4 shadow-sm border border-gray-200 cursor-pointer hover:shadow-md transition-shadow duration-200 active:scale-98 relative"
+          className="bg-white rounded-xl p-4 shadow-sm border border-gray-200 cursor-pointer hover:shadow-md transition-shadow duration-200 active:scale-98"
         >
-          <div className="flex items-center justify-between">
-            <div className="flex-1 min-w-0">
+          <div className="relative">
+            {/* Header with title and menu */}
+            <div className="flex items-start justify-between mb-3">
               <h3 className="font-semibold text-gray-900 truncate text-lg">
                 {project.name}
               </h3>
+              <div className="flex items-center ml-3 flex-shrink-0">
+                <div className="relative">
+                  <button
+                    onClick={(e) => handleMenuClick(e, project.id)}
+                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <MoreVertical className="w-4 h-4" />
+                  </button>
+                  
+                  {/* Dropdown Menu */}
+                  {showDeleteMenu === project.id && (
+                    <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[120px]">
+                      <button
+                        onClick={(e) => handleDeleteClick(e, project.id)}
+                        className="w-full px-4 py-2 text-left text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Ta bort
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <ChevronRight className="w-5 h-5 text-gray-400 ml-1" />
+              </div>
+            </div>
+            
+            {/* Project details */}
+            <div className="space-y-2">
               <div className="flex items-center text-gray-500 text-sm mt-1">
                 <MapPin className="w-4 h-4 mr-1 flex-shrink-0" />
                 <span className="truncate">{project.location}</span>
               </div>
-              <div className="flex items-center justify-between mt-3">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center text-gray-500 text-sm">
                   <Calendar className="w-4 h-4 mr-1" />
                   <span>{formatDate(project.date)}</span>
@@ -82,7 +111,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({ projects, onSelectProj
                   <span className="truncate">{project.inspector}</span>
                 </div>
               </div>
-              <div className="flex items-center justify-between mt-2">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center text-sm">
                   <span className="text-gray-500 mr-2">
                     {project.noteCount || project.notes.length} anteckningar
@@ -97,30 +126,6 @@ export const ProjectList: React.FC<ProjectListProps> = ({ projects, onSelectProj
                   Uppdaterad {formatDate(project.updatedAt)}
                 </span>
               </div>
-            </div>
-            <div className="flex items-center ml-3 flex-shrink-0">
-              <div className="relative">
-                <button
-                  onClick={(e) => handleMenuClick(e, project.id)}
-                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <MoreVertical className="w-4 h-4" />
-                </button>
-                
-                {/* Dropdown Menu */}
-                {showDeleteMenu === project.id && (
-                  <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[120px]">
-                    <button
-                      onClick={(e) => handleDeleteClick(e, project.id)}
-                      className="w-full px-4 py-2 text-left text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center"
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Ta bort
-                    </button>
-                  </div>
-                )}
-              </div>
-              <ChevronRight className="w-5 h-5 text-gray-400 ml-1" />
             </div>
           </div>
         </div>
