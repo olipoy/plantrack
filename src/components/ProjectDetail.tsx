@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Project, Note } from '../types';
-import { ArrowLeft, Camera, Video, FileText, Download, Mail, Trash2, Edit3, Check, X, Sparkles, RotateCcw, Upload, Search } from 'lucide-react';
+import { ArrowLeft, Camera, Video, FileText, Mail, Edit3, Check, X, Sparkles, RotateCcw, Upload, Search } from 'lucide-react';
 import { CameraView } from './CameraView';
-import { addNoteToProject, deleteNoteFromProject, deleteProject } from '../utils/storage';
+import { addNoteToProject, deleteNoteFromProject } from '../utils/storage';
 import { summarizeNotes, sendEmailWithPDF } from '../utils/api';
 import { exportProjectToPDF, generateProjectPDF } from '../utils/export';
 import { updateNoteLabel } from '../utils/api';
@@ -33,7 +33,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const [isAddingTextNote, setIsAddingTextNote] = useState(false);
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
   const [editingLabelValue, setEditingLabelValue] = useState('');
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const handleCameraCapture = (note: Omit<Note, 'id'>) => {
     console.log('Camera capture completed, adding note:', note);
@@ -51,16 +50,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
     const updatedProject = updatedProjects.find(p => p.id === project.id);
     if (updatedProject) {
       onProjectUpdate(updatedProject);
-    }
-  };
-
-  const handleDeleteProject = async () => {
-    try {
-      await deleteProject(project.id);
-      onProjectDelete();
-    } catch (error) {
-      console.error('Error deleting project:', error);
-      alert('Kunde inte ta bort projektet. Försök igen.');
     }
   };
 
@@ -135,6 +124,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
     };
     input.click();
   };
+
   const handleSendEmail = async () => {
     if (!emailAddress.trim()) {
       alert('Ange en e-postadress');
@@ -298,43 +288,14 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                 <Mail className="w-5 h-5" />
               </button>
             )}
-            <button
-              onClick={() => setShowDeleteConfirm(true)}
-              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
-            >
-              <Trash2 className="w-5 h-5" />
-            </button>
           </div>
         </div>
       </div>
 
-      {/* Project Info */}
-      <div className="bg-white border-b border-gray-200 px-4 py-4">
-        <div className="space-y-2">
-          <div className="flex items-center text-gray-600 text-sm">
-            <span className="font-medium">📍</span>
-            <span className="ml-2">{project.location}</span>
-          </div>
-          <div className="flex items-center justify-between text-gray-600 text-sm">
-            <div className="flex items-center">
-              <span className="font-medium">📅</span>
-              <span className="ml-2">{formatDate(project.date)}</span>
-            </div>
-            <div className="flex items-center">
-              <span className="font-medium">👤</span>
-              <span className="ml-2">{project.inspector}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto">
-        {/* AI Summary Section */}
-        {project.aiSummary && (
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200">
-            {/* Report Header */}
-            <div className="p-4 pb-3">
+      {/* AI Summary Section - Moved to top */}
+      {project.aiSummary && (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200">
+          <div className="p-4 pb-3">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center">
                 <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mr-3">
@@ -343,6 +304,13 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                 <h3 className="font-semibold text-gray-900">AI-Rapport</h3>
               </div>
               <div className="flex space-x-1">
+                <button
+                  onClick={handleEditReport}
+                  className="p-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center"
+                  title="Redigera rapport"
+                >
+                  <Edit3 className="w-4 h-4" />
+                </button>
                 <button
                   onClick={handleGenerateSummary}
                   disabled={isGeneratingSummary || project.notes.length === 0}
@@ -358,40 +326,39 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                 <button
                   onClick={() => exportProjectToPDF(project)}
                   className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
-                  title="Ladda ner PDF"
+                  title="Förhandsgranska PDF"
                 >
-                  <Download className="w-4 h-4" />
+                  <Search className="w-4 h-4" />
                 </button>
               </div>
             </div>
-            </div>
+          </div>
 
-            {/* Expandable Report Content */}
-        {/* Expandable Report Content */}
-        {isReportExpanded && (
-          <div className="px-4 pb-4">
-            <div className="bg-white rounded-lg p-4 shadow-sm">
-              <div className="prose prose-sm max-w-none">
-                <div className="whitespace-pre-wrap text-gray-700">{project.aiSummary}</div>
+          {/* Expandable Report Content */}
+          {isReportExpanded && (
+            <div className="px-4 pb-4">
+              <div className="bg-white rounded-lg p-4 shadow-sm">
+                <div className="prose prose-sm max-w-none">
+                  <div className="whitespace-pre-wrap text-gray-700">{project.aiSummary}</div>
+                </div>
               </div>
             </div>
+          )}
+
+          {/* Toggle Button */}
+          <div className="px-4 pb-4">
+            <button
+              onClick={() => setIsReportExpanded(!isReportExpanded)}
+              className="w-full py-2 text-blue-600 hover:text-blue-700 text-sm font-medium transition-colors"
+            >
+              {isReportExpanded ? 'Dölj rapport' : 'Visa rapport'}
+            </button>
           </div>
-        )}
-
-        {/* Toggle Button */}
-        <div className="px-4 pb-4">
-          <button
-            onClick={() => setIsReportExpanded(!isReportExpanded)}
-            className="w-full py-2 text-blue-600 hover:text-blue-700 text-sm font-medium transition-colors"
-          >
-            {isReportExpanded ? 'Dölj rapport' : 'Visa rapport'}
-          </button>
         </div>
-      </div>
-    )}
+      )}
 
-    {/* Content */}
-    <div className="flex-1 overflow-y-auto">
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto">
         {/* Notes Section */}
         <div className="p-4">
           {/* Add Text Note */}
@@ -459,15 +426,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                         {formatDate(note.timestamp)}
                       </span>
                     </div>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <button
-                      onClick={() => handleDeleteNote(note.id)}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Ta bort anteckning"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
                   </div>
                 </div>
 
@@ -565,7 +523,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
             )}
           </div>
         </div>
-      </div>
       </div>
 
       {/* Generate Report Button - Only show if no summary exists */}
@@ -667,32 +624,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-6 max-w-sm w-full">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Ta bort projekt</h3>
-            <p className="text-gray-600 mb-6">
-              Är du säker på att du vill ta bort "{project.name}"? Detta kan inte ångras.
-            </p>
-            <div className="flex space-x-3">
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-              >
-                Avbryt
-              </button>
-              <button
-                onClick={handleDeleteProject}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-              >
-                Ta bort
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Edit Report Modal */}
       {showEditModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -703,6 +634,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
               onChange={(e) => setEditedReportText(e.target.value)}
               className="w-full h-64 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               placeholder="Redigera rapporten här..."
+              rows={15}
             />
             <div className="flex justify-end space-x-3 mt-4">
               <button
