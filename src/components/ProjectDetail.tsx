@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Project, Note } from '../types';
-import { ArrowLeft, Camera, Video, FileText, Download, Mail, Trash2, Edit3, Check, X, Sparkles, RotateCcw, Upload } from 'lucide-react';
+import { ArrowLeft, Camera, Video, FileText, Download, Mail, Trash2, Edit3, Check, X, Sparkles, RotateCcw, Upload, Search } from 'lucide-react';
 import { CameraView } from './CameraView';
 import { addNoteToProject, deleteNoteFromProject, deleteProject } from '../utils/storage';
 import { summarizeNotes, sendEmailWithPDF } from '../utils/api';
@@ -24,12 +24,11 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const [cameraMode, setCameraMode] = useState<'photo' | 'video'>('photo');
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [isReportExpanded, setIsReportExpanded] = useState(false);
-  const [isEditingReport, setIsEditingReport] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [editedReportText, setEditedReportText] = useState('');
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [emailAddress, setEmailAddress] = useState('');
   const [isSendingEmail, setIsSendingEmail] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [newTextNote, setNewTextNote] = useState('');
   const [isAddingTextNote, setIsAddingTextNote] = useState(false);
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
@@ -88,17 +87,17 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
 
   const handleEditReport = () => {
     setEditedReportText(project.aiSummary || '');
-    setIsEditingReport(true);
+    setShowEditModal(true);
   };
 
   const handleSaveReport = () => {
     const updatedProject = { ...project, aiSummary: editedReportText };
     onProjectUpdate(updatedProject);
-    setIsEditingReport(false);
+    setShowEditModal(false);
   };
 
   const handleCancelEditReport = () => {
-    setIsEditingReport(false);
+    setShowEditModal(false);
     setEditedReportText('');
   };
 
@@ -367,55 +366,31 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
             </div>
 
             {/* Expandable Report Content */}
-            {isReportExpanded && (
-              <div className="px-4 pb-4">
-                <div className="bg-white rounded-lg p-4 shadow-sm">
-                  {isEditingReport ? (
-                    <div>
-                      <textarea
-                        value={editedReportText}
-                        onChange={(e) => setEditedReportText(e.target.value)}
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                        rows={12}
-                        placeholder="Redigera rapporten..."
-                      />
-                      <div className="flex justify-end space-x-2 mt-3">
-                        <button
-                          onClick={handleCancelEditReport}
-                          className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-                        >
-                          Avbryt
-                        </button>
-                        <button
-                          onClick={handleSaveReport}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                        >
-                          Spara
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <div className="flex justify-between items-start mb-3">
-                        <div className="prose prose-sm max-w-none flex-1">
-                          <div className="whitespace-pre-wrap text-gray-700">{project.aiSummary}</div>
-                        </div>
-                        <button
-                          onClick={handleEditReport}
-                          className="ml-3 p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex-shrink-0"
-                          title="Redigera rapport"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
+        {/* Expandable Report Content */}
+        {isReportExpanded && (
+          <div className="px-4 pb-4">
+            <div className="bg-white rounded-lg p-4 shadow-sm">
+              <div className="prose prose-sm max-w-none">
+                <div className="whitespace-pre-wrap text-gray-700">{project.aiSummary}</div>
               </div>
             </div>
-            )}
           </div>
         )}
 
+        {/* Toggle Button */}
+        <div className="px-4 pb-4">
+          <button
+            onClick={() => setIsReportExpanded(!isReportExpanded)}
+            className="w-full py-2 text-blue-600 hover:text-blue-700 text-sm font-medium transition-colors"
+          >
+            {isReportExpanded ? 'Dölj rapport' : 'Visa rapport'}
+          </button>
+        </div>
+      </div>
+    )}
+
+    {/* Content */}
+    <div className="flex-1 overflow-y-auto">
         {/* Notes Section */}
         <div className="p-4">
           {/* Add Text Note */}
@@ -665,25 +640,30 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4"
             />
             <div className="flex space-x-3">
+      {/* Edit Report Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Redigera AI-Rapport</h3>
+            <textarea
+              value={editedReportText}
+              onChange={(e) => setEditedReportText(e.target.value)}
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              rows={15}
+              placeholder="Redigera rapporten..."
+            />
+            <div className="flex justify-end space-x-3 mt-4">
               <button
-                onClick={() => {
-                  setShowEmailModal(false);
-                  setEmailAddress('');
-                }}
-                className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                onClick={handleCancelEditReport}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
               >
                 Avbryt
               </button>
               <button
-                onClick={handleSendEmail}
-                disabled={isSendingEmail || !emailAddress.trim()}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                onClick={handleSaveReport}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
-                {isSendingEmail ? (
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  'Skicka'
-                )}
+                Spara ändringar
               </button>
             </div>
           </div>
@@ -697,24 +677,57 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Ta bort projekt</h3>
             <p className="text-gray-600 mb-6">
               Är du säker på att du vill ta bort "{project.name}"? Detta kan inte ångras.
-            </p>
-            <div className="flex space-x-3">
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-              >
-                Avbryt
-              </button>
-              <button
-                onClick={handleDeleteProject}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-              >
-                Ta bort
-              </button>
-            </div>
-          </div>
-        </div>
+        {project.aiSummary && (
+          <button
+            onClick={() => setShowEmailModal(true)}
+            className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors flex-shrink-0"
+            title="Skicka via e-post"
+          >
+            <Mail className="w-5 h-5" />
+          </button>
+        )}
       )}
     </div>
   );
-};
+    {/* AI Summary Section - Moved to top */}
+    {project.aiSummary && (
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200">
+        {/* Report Header */}
+        <div className="p-4 pb-3">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center">
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mr-3">
+              <Sparkles className="w-4 h-4 text-white" />
+            </div>
+            <h3 className="font-semibold text-gray-900">AI-Rapport</h3>
+          </div>
+          <div className="flex space-x-1">
+            <button
+              onClick={() => setShowEditModal(true)}
+              className="p-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center"
+              title="Redigera rapport"
+            >
+              <Edit3 className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleGenerateSummary}
+              disabled={isGeneratingSummary || project.notes.length === 0}
+              className="p-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center"
+              title="Uppdatera rapport"
+            >
+              {isGeneratingSummary ? (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <RotateCcw className="w-4 h-4" />
+              )}
+            </button>
+            <button
+              onClick={() => exportProjectToPDF(project)}
+              className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+              title="Förhandsgranska PDF"
+            >
+              <Search className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+        </div>

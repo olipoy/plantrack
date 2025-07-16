@@ -302,7 +302,11 @@ function App() {
                 )}
                 
                 <div className="flex-1 overflow-y-auto">
-                  <ProjectList projects={projects} onSelectProject={handleSelectProject} />
+                  <ProjectList 
+                    projects={projects} 
+                    onSelectProject={handleSelectProject}
+                    onProjectDeleted={handleProjectDelete}
+                  />
                 </div>
               </>
             )}
