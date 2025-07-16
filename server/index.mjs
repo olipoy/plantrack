@@ -260,6 +260,38 @@ app.post('/api/notes', authenticateToken, async (req, res) => {
   }
 });
 
+// Update note label endpoint
+app.put('/api/notes/:id/label', authenticateToken, async (req, res) => {
+  try {
+    const { label } = req.body;
+    const noteId = req.params.id;
+    
+    console.log('Updating note label:', { noteId, label, userId: req.user.id });
+    
+    if (!noteId) {
+      return res.status(400).json({ error: 'Note ID is required' });
+    }
+
+    // Update note label in database
+    const updatedNote = await noteDb.updateNoteLabel(noteId, req.user.id, label);
+    
+    if (!updatedNote) {
+      console.log('Note not found for user');
+      return res.status(404).json({ error: 'Note not found' });
+    }
+
+    console.log('Note label updated successfully:', updatedNote);
+    res.json(updatedNote);
+
+  } catch (error) {
+    console.error('Update note label error:', error);
+    res.status(500).json({ 
+      error: 'Failed to update note label',
+      details: error.message 
+    });
+  }
+});
+
 // Delete project
 app.delete('/api/projects/:id', authenticateToken, async (req, res) => {
   try {
