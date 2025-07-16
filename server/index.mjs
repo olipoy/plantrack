@@ -14,6 +14,13 @@ import sgMail from '@sendgrid/mail';
 // Import authentication and database modules (ESM)
 import { authenticateToken, registerUser, loginUser } from './auth.js';
 import { projectDb, noteDb, summaryDb } from './db.js';
+
+// Load environment variables
+dotenv.config();
+
+// Define NODE_ENV after loading environment
+const NODE_ENV = process.env.NODE_ENV || 'development';
+
 console.log("### ENV VARS ###", process.env);
 
 const __filename = fileURLToPath(import.meta.url);
