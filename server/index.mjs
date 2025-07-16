@@ -5,6 +5,7 @@ import multer from 'multer';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import fs from 'fs/promises';
+import { createReadStream } from 'fs';
 import dotenv from 'dotenv';
 import OpenAI from 'openai';
 import AWS from 'aws-sdk';
@@ -508,7 +509,7 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
         
         const transcriptionStartTime = Date.now();
         const transcriptionResponse = await openai.audio.transcriptions.create({
-          file: fs.createReadStream(tempFile),
+          file: createReadStream(tempFile),
           model: 'whisper-1',
           language: 'sv'
         });
