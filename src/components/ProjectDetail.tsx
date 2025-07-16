@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Project, Note } from '../types';
-import { ArrowLeft, Camera, Video, FileText, Download, Mail, Trash2, Edit3, Check, X, Sparkles } from 'lucide-react';
+import { ArrowLeft, Camera, Video, FileText, Download, Mail, Trash2, Edit3, Check, X, Sparkles, RotateCcw } from 'lucide-react';
 import { CameraView } from './CameraView';
 import { addNoteToProject, deleteNoteFromProject, deleteProject } from '../utils/storage';
 import { summarizeNotes, sendEmailWithPDF } from '../utils/api';
@@ -236,12 +236,23 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
             </button>
             <h1 className="text-lg font-semibold text-gray-900 truncate">{project.name}</h1>
           </div>
-          <button
-            onClick={() => setShowDeleteConfirm(true)}
-            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
-          >
-            <Trash2 className="w-5 h-5" />
-          </button>
+          <div className="flex items-center space-x-2">
+            {project.aiSummary && (
+              <button
+                onClick={() => setShowEmailModal(true)}
+                className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors flex-shrink-0"
+                title="Skicka via e-post"
+              >
+                <Mail className="w-5 h-5" />
+              </button>
+            )}
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
+            >
+              <Trash2 className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -381,27 +392,20 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                         {formatDate(note.timestamp)}
                       </span>
                     </div>
-                  </div>
+                <div className="flex items-center space-x-1">
                   <button
-                    onClick={() => handleDeleteNote(note.id)}
-                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    className="p-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                    title="Uppdatera rapport"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
 
-                {/* Note Content */}
+                    className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 {note.type === 'photo' && note.imageLabel ? (
                   <div className="mb-3">
                     {editingLabelId === note.id ? (
                       <div className="flex items-center space-x-2">
-                        <input
-                          type="text"
-                          value={editingLabelValue}
-                          onChange={(e) => setEditingLabelValue(e.target.value)}
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
                               handleSaveLabel(note.id);
                             } else if (e.key === 'Escape') {
                               handleCancelEdit();
@@ -431,7 +435,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                         >
                           <Edit3 className="w-4 h-4" />
                         </button>
-                      </div>
+                      <RotateCcw className="w-4 h-4" />
                     )}
                   </div>
                 ) : note.type !== 'photo' && (
@@ -506,17 +510,17 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
       )}
 
       {/* Action Buttons */}
-      <div className="bg-white border-t border-gray-200 p-4 safe-area-pb">
-        <div className="grid grid-cols-4 gap-2">
+      <div className="bg-white border-t border-gray-200 px-4 pt-3 pb-4 safe-area-pb">
+        <div className="grid grid-cols-4 gap-3">
           <button
             onClick={() => {
               setCameraMode('photo');
               setCurrentView('camera');
             }}
-            className="flex flex-col items-center p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors active:scale-98"
+            className="flex flex-col items-center justify-center p-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors active:scale-98 aspect-square"
           >
-            <Camera className="w-5 h-5 mb-1" />
-            <span className="text-xs font-medium">Foto</span>
+            <Camera className="w-6 h-6 mb-1" />
+            <span className="text-sm font-medium">Foto</span>
           </button>
           
           <button
@@ -524,26 +528,26 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
               setCameraMode('video');
               setCurrentView('camera');
             }}
-            className="flex flex-col items-center p-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors active:scale-98"
+            className="flex flex-col items-center justify-center p-4 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors active:scale-98 aspect-square"
           >
-            <Video className="w-5 h-5 mb-1" />
-            <span className="text-xs font-medium">Video</span>
+            <Video className="w-6 h-6 mb-1" />
+            <span className="text-sm font-medium">Video</span>
           </button>
           
           <button
             onClick={() => exportProjectToPDF(project)}
-            className="flex flex-col items-center p-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors active:scale-98"
+            className="flex flex-col items-center justify-center p-4 bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition-colors active:scale-98 aspect-square"
           >
-            <Download className="w-5 h-5 mb-1" />
-            <span className="text-xs font-medium">Ladda ner</span>
+            <Download className="w-6 h-6 mb-1" />
+            <span className="text-sm font-medium">Ladda ner</span>
           </button>
           
           <button
             onClick={() => setIsAddingTextNote(true)}
-            className="flex flex-col items-center p-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors active:scale-98"
+            className="flex flex-col items-center justify-center p-4 bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition-colors active:scale-98 aspect-square"
           >
-            <FileText className="w-5 h-5 mb-1" />
-            <span className="text-xs font-medium">Text</span>
+            <FileText className="w-6 h-6 mb-1" />
+            <span className="text-sm font-medium">Text</span>
           </button>
         </div>
       </div>
