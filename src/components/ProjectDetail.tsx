@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Project, Note } from '../types';
-import { ArrowLeft, Camera, Video, FileText, Download, Mail, Trash2, Edit3, Check, X, Sparkles, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Camera, Video, FileText, Download, Mail, Trash2, Edit3, Check, X, Sparkles, RotateCcw, Upload } from 'lucide-react';
 import { CameraView } from './CameraView';
 import { addNoteToProject, deleteNoteFromProject, deleteProject } from '../utils/storage';
 import { summarizeNotes, sendEmailWithPDF } from '../utils/api';
@@ -23,6 +23,9 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const [currentView, setCurrentView] = useState<'detail' | 'camera'>('detail');
   const [cameraMode, setCameraMode] = useState<'photo' | 'video'>('photo');
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+  const [isReportExpanded, setIsReportExpanded] = useState(false);
+  const [isEditingReport, setIsEditingReport] = useState(false);
+  const [editedReportText, setEditedReportText] = useState('');
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [emailAddress, setEmailAddress] = useState('');
   const [isSendingEmail, setIsSendingEmail] = useState(false);
@@ -83,6 +86,55 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
     }
   };
 
+  const handleEditReport = () => {
+    setEditedReportText(project.aiSummary || '');
+    setIsEditingReport(true);
+  };
+
+  const handleSaveReport = () => {
+    const updatedProject = { ...project, aiSummary: editedReportText };
+    onProjectUpdate(updatedProject);
+    setIsEditingReport(false);
+  };
+
+  const handleCancelEditReport = () => {
+    setIsEditingReport(false);
+    setEditedReportText('');
+  };
+
+  const handleFileUpload = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*,video/*';
+    input.multiple = true;
+    input.onchange = async (e) => {
+      const files = (e.target as HTMLInputElement).files;
+      if (!files) return;
+
+      for (const file of Array.from(files)) {
+        try {
+          const note: Omit<Note, 'id'> = {
+            type: file.type.startsWith('image/') ? 'photo' : 'video',
+            content: file.type.startsWith('image/') ? 'Uppladdad bild' : 'Uppladdad video',
+            timestamp: new Date(),
+            fileUrl: URL.createObjectURL(file),
+            fileName: file.name,
+            fileSize: file.size
+          };
+          
+          const updatedProjects = addNoteToProject(project.id, note);
+          const updatedProject = updatedProjects.find(p => p.id === project.id);
+          if (updatedProject) {
+            onProjectUpdate(updatedProject);
+          }
+        } catch (error) {
+          console.error('Error uploading file:', error);
+          alert('Kunde inte ladda upp fil. Försök igen.');
+        }
+      }
+    };
+    input.click();
+  };
   const handleSendEmail = async () => {
     if (!emailAddress.trim()) {
       alert('Ange en e-postadress');
@@ -280,7 +332,9 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
       <div className="flex-1 overflow-y-auto">
         {/* AI Summary Section */}
         {project.aiSummary && (
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200 p-4">
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200">
+            {/* Report Header */}
+            <div className="p-4 pb-3">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center">
                 <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mr-3">
@@ -310,11 +364,55 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                 </button>
               </div>
             </div>
-            <div className="bg-white rounded-lg p-4 shadow-sm">
-              <div className="prose prose-sm max-w-none">
-                <div className="whitespace-pre-wrap text-gray-700">{project.aiSummary}</div>
+            </div>
+
+            {/* Expandable Report Content */}
+            {isReportExpanded && (
+              <div className="px-4 pb-4">
+                <div className="bg-white rounded-lg p-4 shadow-sm">
+                  {isEditingReport ? (
+                    <div>
+                      <textarea
+                        value={editedReportText}
+                        onChange={(e) => setEditedReportText(e.target.value)}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                        rows={12}
+                        placeholder="Redigera rapporten..."
+                      />
+                      <div className="flex justify-end space-x-2 mt-3">
+                        <button
+                          onClick={handleCancelEditReport}
+                          className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                        >
+                          Avbryt
+                        </button>
+                        <button
+                          onClick={handleSaveReport}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          Spara
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="prose prose-sm max-w-none flex-1">
+                          <div className="whitespace-pre-wrap text-gray-700">{project.aiSummary}</div>
+                        </div>
+                        <button
+                          onClick={handleEditReport}
+                          className="ml-3 p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex-shrink-0"
+                          title="Redigera rapport"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
               </div>
             </div>
+            )}
           </div>
         )}
 
@@ -417,7 +515,15 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                         />
                         <button
                           onClick={() => handleSaveLabel(note.id)}
-                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                  <div>
+                    <h3 className="font-semibold text-gray-900">AI-Rapport</h3>
+                    <button
+                      onClick={() => setIsReportExpanded(!isReportExpanded)}
+                      className="text-sm text-blue-600 hover:text-blue-800 transition-colors"
+                    >
+                      {isReportExpanded ? 'Dölj rapport' : 'Visa rapport'}
+                    </button>
+                  </div>
                         >
                           <Check className="w-4 h-4" />
                         </button>
@@ -512,7 +618,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
       )}
 
       {/* Action Buttons */}
-      <div className="bg-white border-t border-gray-200 p-4 safe-area-pb">
+      <div className="bg-white border-t border-gray-200 p-4">
         <div className="grid grid-cols-4 gap-3">
           <button
             onClick={() => {
@@ -537,11 +643,11 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
           </button>
           
           <button
-            onClick={() => exportProjectToPDF(project)}
-            className="flex flex-col items-center justify-center p-3 bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition-colors active:scale-98 aspect-square"
+            onClick={handleFileUpload}
+            className="flex flex-col items-center justify-center p-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors active:scale-98 aspect-square"
           >
-            <Download className="w-5 h-5 mb-1" />
-            <span className="text-xs font-medium">Ladda ner</span>
+            <Upload className="w-5 h-5 mb-1" />
+            <span className="text-xs font-medium">Ladda upp</span>
           </button>
           
           <button
