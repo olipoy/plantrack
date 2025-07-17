@@ -796,16 +796,25 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Message is required' });
     }
 
+    console.log('=== CHAT REQUEST DEBUG ===');
+    console.log('User ID:', req.user.id);
+    console.log('Message:', message);
+
     // Get user's projects from database
     const projects = await projectDb.getUserProjects(req.user.id);
+    console.log('Projects from DB:', projects.length, 'projects found');
     
     // Get detailed project data with notes
     const projectsWithNotes = await Promise.all(
       projects.map(async (project) => {
         const notes = await noteDb.getProjectNotes(project.id);
+        console.log(`Project ${project.name}: ${notes.length} notes`);
         return { ...project, notes };
       })
     );
+
+    console.log('Projects with notes:', projectsWithNotes.length);
+    console.log('Total notes across all projects:', projectsWithNotes.reduce((sum, p) => sum + p.notes.length, 0));
 
     // Get or create chat history for user
     const userId = req.user.id;
@@ -817,7 +826,7 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
     // Prepare context from all projects
     const projectContext = projectsWithNotes.map(project => {
       const notesText = project.notes.map(note => 
-        `[${note.type}] ${note.transcription || note.content}`
+        `[${note.type}] ${note.transcription || note.content || note.image_label || 'Ingen text'}`
       ).join('\n');
       
       return `Projekt: ${project.name}
@@ -827,6 +836,17 @@ Anteckningar:
 ${notesText}
 ${project.ai_summary ? `\nAI-Sammanfattning: ${project.ai_summary}` : ''}`;
     }).join('\n\n---\n\n');
+
+    console.log('Project context length:', projectContext.length);
+    console.log('Project context preview:', projectContext.substring(0, 500) + '...');
+
+    if (projectContext.trim().length === 0) {
+      console.log('WARNING: Empty project context!');
+      return res.json({
+        response: 'Det finns inga sparade projekt eller anteckningar ännu som jag kan använda för att svara på din fråga. Skapa eller lägg till projekt för att börja spara information.',
+        chatHistory: userChatHistory
+      });
+    }
 
     // Build messages for OpenAI
     const messages = [
@@ -842,6 +862,8 @@ Svara på svenska och var specifik när du refererar till projekt och anteckning
       { role: 'user', content: message }
     ];
 
+    console.log('Sending to OpenAI with context length:', projectContext.length);
+
     const completion = await openai.chat.completions.create({
       model: 'gpt-4',
       messages,
@@ -850,6 +872,9 @@ Svara på svenska och var specifik när du refererar till projekt och anteckning
     });
 
     const assistantResponse = completion.choices[0].message.content;
+
+    console.log('OpenAI response received');
+    console.log('=== END CHAT REQUEST DEBUG ===');
 
     // Update chat history
     userChatHistory.push(

@@ -91,12 +91,12 @@ export const GlobalAIChat: React.FC<GlobalAIChatProps> = ({ projects }) => {
       setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
       console.error('Error getting AI response:', error);
-      setError('Kunde inte få svar från AI-assistenten. Kontrollera att servern körs och OpenAI API-nyckeln är konfigurerad.');
+      setError(`Kunde inte få svar från AI-assistenten: ${error instanceof Error ? error.message : 'Okänt fel'}`);
       
       const errorMessage: ChatMessage = {
         id: generateId(),
         role: 'assistant',
-        content: 'Jag kan inte svara just nu. Kontrollera att servern körs och OpenAI API-nyckeln är konfigurerad.',
+        content: `Jag kan inte svara just nu. Fel: ${error instanceof Error ? error.message : 'Okänt fel'}`,
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);
