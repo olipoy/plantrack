@@ -1030,22 +1030,34 @@ app.post('/api/summarize', authenticateToken, async (req, res) => {
 // Email endpoint
 app.post('/api/send-email', authenticateToken, async (req, res) => {
   try {
+    console.log('=== EMAIL ENDPOINT HIT ===');
+    console.log('User ID:', req.user.id);
+    console.log('Request body keys:', Object.keys(req.body));
+    
     const { to, subject, text, pdfBuffer, fileName, projectId } = req.body;
 
     if (!process.env.SENDGRID_API_KEY) {
+      console.log('SendGrid API key not configured');
       return res.status(500).json({ error: 'SendGrid API key not configured' });
     }
 
-    if (!to || !subject || !pdfBuffer || !projectId) {
-      return res.status(400).json({ error: 'Missing required fields' });
+    if (!to || !subject || !pdfBuffer) {
+      console.log('Missing required fields:', { to: !!to, subject: !!subject, pdfBuffer: !!pdfBuffer });
+      return res.status(400).json({ error: 'Missing required fields: to, subject, and pdfBuffer are required' });
     }
 
-    // Verify project belongs to user
-    const project = await projectDb.getProjectById(projectId, req.user.id);
-    if (!project) {
-      return res.status(404).json({ error: 'Project not found' });
+    // Verify project belongs to user (if projectId is provided)
+    if (projectId) {
+      console.log('Verifying project ownership for project:', projectId);
+      const project = await projectDb.getProjectById(projectId, req.user.id);
+      if (!project) {
+        console.log('Project not found for user');
+        return res.status(404).json({ error: 'Project not found' });
+      }
+      console.log('Project verified:', project.name);
     }
 
+    console.log('Preparing email message...');
     const msg = {
       to,
       from: process.env.FROM_EMAIL || 'noreply@inspektionsassistent.se',
@@ -1071,11 +1083,30 @@ app.post('/api/send-email', authenticateToken, async (req, res) => {
       ]
     };
 
+    console.log('Sending email via SendGrid...');
+    console.log('Email details:', {
+      to: msg.to,
+      subject: msg.subject,
+      attachmentSize: pdfBuffer.length,
+      fileName: fileName
+    });
+    
     await sgMail.send(msg);
+    console.log('Email sent successfully');
     res.json({ success: true, message: 'Email sent successfully' });
 
   } catch (error) {
-    console.error('Email sending error:', error);
+    console.error('=== EMAIL SENDING ERROR ===');
+    console.error('Error type:', error.constructor.name);
+    console.error('Error message:', error.message);
+    console.error('Full error:', error);
+    
+    // Check if it's a SendGrid specific error
+    if (error.response && error.response.body) {
+      console.error('SendGrid API error:', error.response.body);
+    }
+    
+    console.error('=== END EMAIL ERROR ===');
     res.status(500).json({ 
       error: 'Failed to send email',
       details: error.message 

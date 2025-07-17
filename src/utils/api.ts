@@ -224,7 +224,8 @@ export const sendEmailWithPDF = async (
   subject: string,
   pdfBuffer: string,
   fileName: string,
-  text?: string
+  text?: string,
+  projectId?: string
 ): Promise<{ success: boolean; message: string }> => {
   const token = getToken();
   if (!token) {
@@ -242,7 +243,8 @@ export const sendEmailWithPDF = async (
       subject,
       text,
       pdfBuffer,
-      fileName
+      fileName,
+      projectId
     }),
   });
 

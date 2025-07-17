@@ -29,6 +29,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const [editedReportText, setEditedReportText] = useState('');
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [emailAddress, setEmailAddress] = useState('');
+  const [emailSubject, setEmailSubject] = useState('');
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [newTextNote, setNewTextNote] = useState('');
   const [isAddingTextNote, setIsAddingTextNote] = useState(false);
@@ -142,8 +143,8 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   };
 
   const handleSendEmail = async () => {
-    if (!emailAddress.trim()) {
-      alert('Ange en e-postadress');
+    if (!emailAddress.trim() || !emailSubject.trim()) {
+      alert('Ange både e-postadress och ämnesrad');
       return;
     }
 
@@ -152,15 +153,17 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
       const { pdfBuffer, fileName } = await generateProjectPDF(project);
       await sendEmailWithPDF(
         emailAddress,
-        `Inspektionsrapport - ${project.name}`,
+        emailSubject,
         pdfBuffer,
         fileName,
-        `Inspektionsrapport för ${project.name} på ${project.location}`
+        `Inspektionsrapport för ${project.name} på ${project.location}`,
+        project.id
       );
       
       alert('Rapporten har skickats!');
       setShowEmailModal(false);
       setEmailAddress('');
+      setEmailSubject('');
     } catch (error) {
       console.error('Error sending email:', error);
       alert('Kunde inte skicka e-post. Försök igen.');
@@ -643,23 +646,54 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
         </div>
       )}
 
+      {/* Initialize email subject when modal opens */}
+      {showEmailModal && !emailSubject && (() => {
+        setEmailSubject(`Inspektionsrapport - ${project.name}`);
+        return null;
+      })()}
+
       {/* Email Modal */}
       {showEmailModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-6 max-w-sm w-full">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Skicka rapport via e-post</h3>
-            <input
-              type="email"
-              value={emailAddress}
-              onChange={(e) => setEmailAddress(e.target.value)}
-              placeholder="E-postadress"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4"
-            />
-            <div className="flex space-x-3">
+            
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="emailSubject" className="block text-sm font-medium text-gray-700 mb-2">
+                  Ämnesrad
+                </label>
+                <input
+                  type="text"
+                  id="emailSubject"
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  placeholder="Ämnesrad för e-posten"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="emailAddress" className="block text-sm font-medium text-gray-700 mb-2">
+                  E-postadress
+                </label>
+                <input
+                  type="email"
+                  id="emailAddress"
+                  value={emailAddress}
+                  onChange={(e) => setEmailAddress(e.target.value)}
+                  placeholder="mottagare@email.se"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+            
+            <div className="flex space-x-3 mt-6">
               <button
                 onClick={() => {
                   setShowEmailModal(false);
                   setEmailAddress('');
+                  setEmailSubject('');
                 }}
                 className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
               >
@@ -667,7 +701,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
               </button>
               <button
                 onClick={handleSendEmail}
-                disabled={isSendingEmail || !emailAddress.trim()}
+                disabled={isSendingEmail || !emailAddress.trim() || !emailSubject.trim()}
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
               >
                 {isSendingEmail ? (
