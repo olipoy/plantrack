@@ -49,9 +49,22 @@ export const GlobalAIChat: React.FC<GlobalAIChatProps> = ({ projects }) => {
   const handleSend = async () => {
     if (!inputValue.trim() || isLoading || serverStatus !== 'online') return;
 
+    console.log('=== AI CHAT DEBUG - FRONTEND ===');
+    console.log('Projects received in GlobalAIChat:', projects.length);
+    console.log('Projects data:', projects.map(p => ({
+      id: p.id,
+      name: p.name,
+      location: p.location,
+      notesCount: p.notes?.length || 0,
+      hasNotes: p.notes && p.notes.length > 0
+    })));
+    
     // Check if there are any projects or notes to analyze
     const hasProjects = projects.length > 0;
-    const hasNotes = projects.some(project => project.notes.length > 0);
+    const hasNotes = projects.some(project => project.notes && project.notes.length > 0);
+    
+    console.log('Has projects:', hasProjects);
+    console.log('Has notes:', hasNotes);
 
     const userMessage: ChatMessage = {
       id: generateId(),
@@ -65,12 +78,13 @@ export const GlobalAIChat: React.FC<GlobalAIChatProps> = ({ projects }) => {
     setIsLoading(true);
     setError('');
 
-    // If no projects or notes exist, provide fallback response
-    if (!hasProjects || !hasNotes) {
+    // If no projects exist, provide fallback response
+    if (!hasProjects) {
+      console.log('No projects found, showing fallback message');
       const fallbackMessage: ChatMessage = {
         id: generateId(),
         role: 'assistant',
-        content: 'Det finns inga sparade projekt eller anteckningar ännu som jag kan använda för att svara på din fråga. Skapa eller lägg till projekt för att börja spara information.',
+        content: `Det finns inga sparade projekt ännu som jag kan använda för att svara på din fråga. Skapa projekt för att börja spara information. (Debug: ${projects.length} projekt mottagna)`,
         timestamp: new Date()
       };
       
@@ -78,8 +92,11 @@ export const GlobalAIChat: React.FC<GlobalAIChatProps> = ({ projects }) => {
       setIsLoading(false);
       return;
     }
+    
+    console.log('Sending chat message to API...');
     try {
       const response = await sendChatMessage(userMessage.content, projects);
+      console.log('API response received:', response);
       
       const assistantMessage: ChatMessage = {
         id: generateId(),
@@ -91,12 +108,13 @@ export const GlobalAIChat: React.FC<GlobalAIChatProps> = ({ projects }) => {
       setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
       console.error('Error getting AI response:', error);
-      setError(`Kunde inte få svar från AI-assistenten: ${error instanceof Error ? error.message : 'Okänt fel'}`);
+      const errorMsg = error instanceof Error ? error.message : 'Okänt fel';
+      setError(`Kunde inte få svar från AI-assistenten: ${errorMsg}`);
       
       const errorMessage: ChatMessage = {
         id: generateId(),
         role: 'assistant',
-        content: `Jag kan inte svara just nu. Fel: ${error instanceof Error ? error.message : 'Okänt fel'}`,
+        content: `Jag kan inte svara just nu. Fel: ${errorMsg}. Debug: ${projects.length} projekt, ${projects.reduce((sum, p) => sum + (p.notes?.length || 0), 0)} anteckningar totalt.`,
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);

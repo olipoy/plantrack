@@ -796,24 +796,43 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Message is required' });
     }
 
-    console.log('=== CHAT REQUEST DEBUG ===');
+    console.log('=== CHAT ENDPOINT HIT ===');
     console.log('User ID:', req.user.id);
     console.log('Message:', message);
+    console.log('Request body keys:', Object.keys(req.body));
+    console.log('Projects in request:', req.body.projects ? req.body.projects.length : 'undefined');
 
     // Get user's projects from database
     const projects = await projectDb.getUserProjects(req.user.id);
+    console.log('=== DATABASE PROJECTS ===');
     console.log('Projects from DB:', projects.length, 'projects found');
+    console.log('DB Projects:', projects.map(p => ({
+      id: p.id,
+      name: p.name,
+      location: p.location,
+      note_count: p.note_count
+    })));
     
     // Get detailed project data with notes
+    console.log('=== FETCHING NOTES FOR EACH PROJECT ===');
     const projectsWithNotes = await Promise.all(
       projects.map(async (project) => {
+        console.log(`Fetching notes for project: ${project.name} (${project.id})`);
         const notes = await noteDb.getProjectNotes(project.id);
-        console.log(`Project ${project.name}: ${notes.length} notes`);
+        console.log(`Project ${project.name}: ${notes.length} notes found`);
+        console.log('Notes preview:', notes.slice(0, 2).map(n => ({
+          id: n.id,
+          type: n.type,
+          content: n.content?.substring(0, 50),
+          transcription: n.transcription?.substring(0, 50),
+          image_label: n.image_label
+        })));
         return { ...project, notes };
       })
     );
 
-    console.log('Projects with notes:', projectsWithNotes.length);
+    console.log('=== FINAL PROJECT DATA ===');
+    console.log('Projects with notes count:', projectsWithNotes.length);
     console.log('Total notes across all projects:', projectsWithNotes.reduce((sum, p) => sum + p.notes.length, 0));
 
     // Get or create chat history for user
@@ -824,31 +843,39 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
     const userChatHistory = chatHistory.get(userId);
 
     // Prepare context from all projects
+    console.log('=== PREPARING CONTEXT ===');
     const projectContext = projectsWithNotes.map(project => {
       const notesText = project.notes.map(note => 
         `[${note.type}] ${note.transcription || note.content || note.image_label || 'Ingen text'}`
       ).join('\n');
       
-      return `Projekt: ${project.name}
+      const contextBlock = `Projekt: ${project.name}
 Plats: ${project.location || 'Ej angiven'}
 Datum: ${new Date(project.created_at).toLocaleDateString('sv-SE')}
 Anteckningar:
 ${notesText}
 ${project.ai_summary ? `\nAI-Sammanfattning: ${project.ai_summary}` : ''}`;
+      
+      console.log(`Context for ${project.name}:`, contextBlock.substring(0, 200) + '...');
+      return contextBlock;
     }).join('\n\n---\n\n');
 
-    console.log('Project context length:', projectContext.length);
+    console.log('=== FINAL CONTEXT ===');
+    console.log('Total context length:', projectContext.length);
     console.log('Project context preview:', projectContext.substring(0, 500) + '...');
 
     if (projectContext.trim().length === 0) {
-      console.log('WARNING: Empty project context!');
+      console.log('❌ WARNING: Empty project context!');
+      console.log('Projects count:', projectsWithNotes.length);
+      console.log('Projects with notes:', projectsWithNotes.filter(p => p.notes.length > 0).length);
       return res.json({
-        response: 'Det finns inga sparade projekt eller anteckningar ännu som jag kan använda för att svara på din fråga. Skapa eller lägg till projekt för att börja spara information.',
+        response: `Det finns inga sparade projekt eller anteckningar ännu som jag kan använda för att svara på din fråga. Debug: ${projectsWithNotes.length} projekt hittade, ${projectsWithNotes.reduce((sum, p) => sum + p.notes.length, 0)} anteckningar totalt.`,
         chatHistory: userChatHistory
       });
     }
 
     // Build messages for OpenAI
+    console.log('=== CALLING OPENAI ===');
     const messages = [
       {
         role: 'system',
@@ -862,7 +889,9 @@ Svara på svenska och var specifik när du refererar till projekt och anteckning
       { role: 'user', content: message }
     ];
 
-    console.log('Sending to OpenAI with context length:', projectContext.length);
+    console.log('Sending to OpenAI...');
+    console.log('Messages count:', messages.length);
+    console.log('System message length:', messages[0].content.length);
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4',
@@ -872,9 +901,9 @@ Svara på svenska och var specifik när du refererar till projekt och anteckning
     });
 
     const assistantResponse = completion.choices[0].message.content;
+    console.log('✅ OpenAI response received, length:', assistantResponse.length);
 
-    console.log('OpenAI response received');
-    console.log('=== END CHAT REQUEST DEBUG ===');
+    console.log('=== CHAT SUCCESS ===');
 
     // Update chat history
     userChatHistory.push(
@@ -893,8 +922,15 @@ Svara på svenska och var specifik när du refererar till projekt och anteckning
     });
 
   } catch (error) {
-    console.error('Chat error:', error);
-    res.status(500).json({ error: 'Chat request failed' });
+    console.error('=== CHAT ERROR ===');
+    console.error('Error type:', error.constructor.name);
+    console.error('Error message:', error.message);
+    console.error('Full error:', error);
+    console.error('=== END CHAT ERROR ===');
+    res.status(500).json({ 
+      error: 'Chat request failed',
+      details: error.message 
+    });
   }
 });
 

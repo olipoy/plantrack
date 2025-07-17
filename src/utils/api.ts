@@ -123,6 +123,17 @@ export const sendChatMessage = async (
     throw new Error('Authentication required');
   }
 
+  console.log('=== API CHAT DEBUG ===');
+  console.log('Sending to API:', {
+    message: message.substring(0, 100),
+    projectsCount: projects.length,
+    projectsData: projects.map(p => ({
+      id: p.id,
+      name: p.name,
+      notesCount: p.notes?.length || 0
+    }))
+  });
+
   const response = await fetch(`${API_BASE_URL}/chat`, {
     method: 'POST',
     headers: {
@@ -136,11 +147,17 @@ export const sendChatMessage = async (
     }),
   });
 
+  console.log('API response status:', response.status);
+  
   if (!response.ok) {
+    const errorText = await response.text();
+    console.error('API error response:', errorText);
     throw new Error(`Chat request failed: ${response.statusText}`);
   }
 
-  return response.json();
+  const result = await response.json();
+  console.log('API response data:', result);
+  return result;
 };
 
 export const summarizeNotes = async (
