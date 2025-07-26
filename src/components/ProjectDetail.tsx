@@ -46,6 +46,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const [individualEmailMessage, setIndividualEmailMessage] = useState('');
   const [isSendingIndividualEmail, setIsSendingIndividualEmail] = useState(false);
   const [directSendNote, setDirectSendNote] = useState<Note | null>(null);
+  const [autoOpenIndividualReport, setAutoOpenIndividualReport] = useState<string | null>(null);
 
   // Settings view modal states
   const [settingsShowReportModal, setSettingsShowReportModal] = useState(false);
@@ -116,6 +117,18 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
     
     return () => clearTimeout(timeoutId);
   }, [project.notes, project.id, onProjectUpdate]);
+
+  // Auto-open individual report modal when a new note is added
+  useEffect(() => {
+    if (autoOpenIndividualReport) {
+      const noteToOpen = project.notes.find(note => note.id === autoOpenIndividualReport);
+      if (noteToOpen) {
+        setSelectedNoteForReport(noteToOpen);
+        setShowIndividualReportModal(true);
+        setAutoOpenIndividualReport(null); // Clear the auto-open state
+      }
+    }
+  }, [autoOpenIndividualReport, project.notes]);
 
   const handleCameraCapture = (note: Omit<Note, 'id'>) => {
     console.log('Camera capture completed, adding note:', note);
