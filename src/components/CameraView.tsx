@@ -528,6 +528,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
               
               <button
                 onClick={handleDirectSend}
+                onMouseDown={() => console.log('🔍 DEBUG: Direct send button clicked')}
                 disabled={capturedMedia && capturedMedia.size > 25 * 1024 * 1024}
                 className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors ${
                   capturedMedia && capturedMedia.size > 25 * 1024 * 1024
