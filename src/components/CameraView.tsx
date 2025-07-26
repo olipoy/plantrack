@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Check, X } from 'lucide-react';
+import { ArrowLeft, Check, X, Send, Mail } from 'lucide-react';
 import { Note } from '../types';
-import { uploadFile } from '../utils/api';
+import { uploadFile, generateIndividualReport, submitIndividualReport } from '../utils/api';
 import { ensureSizeLimit, formatFileSize, getVideoDuration } from '../utils/videoCompression';
+import { IndividualReportModal } from './IndividualReportModal';
 
 interface CameraViewProps {
   projectId: string;
@@ -23,6 +24,9 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
   const [transcription, setTranscription] = useState('');
   const [isCompressing, setIsCompressing] = useState(false);
   const [compressionProgress, setCompressionProgress] = useState('');
+  const [showIndividualModal, setShowIndividualModal] = useState(false);
+  const [savedNoteId, setSavedNoteId] = useState<string | null>(null);
+  const [savedNote, setSavedNote] = useState<Note | null>(null);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -273,6 +277,15 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
       console.log('Saving note:', note);
       onSave(note);
       
+      // Create a temporary note with ID for the modal
+      const noteWithId: Note = {
+        ...note,
+        id: response.noteId || 'temp-' + Date.now()
+      };
+      
+      setSavedNote(noteWithId);
+      setSavedNoteId(noteWithId.id);
+      setShowIndividualModal(true);
     } catch (error) {
       console.error('Upload failed:', error);
       setError(error instanceof Error ? error.message : 'Uppladdning misslyckades');
@@ -281,6 +294,12 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
     }
   };
 
+  const handleIndividualModalClose = () => {
+    setShowIndividualModal(false);
+    setSavedNoteId(null);
+    setSavedNote(null);
+    onBack(); // Go back to project view after modal closes
+  };
   const handleDiscard = () => {
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
@@ -486,6 +505,15 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
       )}
 
       <canvas ref={canvasRef} className="hidden" />
+      
+      {/* Individual Report Modal */}
+      {showIndividualModal && savedNoteId && savedNote && (
+        <IndividualReportModal
+          noteId={savedNoteId}
+          note={savedNote}
+          onClose={handleIndividualModalClose}
+        />
+      )}
     </div>
   );
 };
