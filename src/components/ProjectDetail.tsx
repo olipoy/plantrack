@@ -47,6 +47,15 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const [isSendingIndividualEmail, setIsSendingIndividualEmail] = useState(false);
   const [directSendNote, setDirectSendNote] = useState<Note | null>(null);
 
+  // Settings view modal states
+  const [settingsShowReportModal, setSettingsShowReportModal] = useState(false);
+  const [settingsShowEditModal, setSettingsShowEditModal] = useState(false);
+  const [settingsShowEmailModal, setSettingsShowEmailModal] = useState(false);
+  const [settingsEditedReportText, setSettingsEditedReportText] = useState('');
+  const [settingsEmailAddress, setSettingsEmailAddress] = useState('');
+  const [settingsEmailSubject, setSettingsEmailSubject] = useState('');
+  const [settingsIsSendingEmail, setSettingsIsSendingEmail] = useState(false);
+
   // Polling for image labels that are still loading
   useEffect(() => {
     const notesWithLoadingLabels = project.notes.filter(note => 
@@ -226,26 +235,59 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
     }
   };
 
-  const handleEditReport = () => {
-    setEditedReportText(project.aiSummary || '');
-    setShowEditModal(true);
-    setShowProjectSettings(false);
+  const handleSettingsEditReport = () => {
+    setSettingsEditedReportText(project.aiSummary || '');
+    setSettingsShowEditModal(true);
   };
 
-  const handleSaveReport = () => {
-    const updatedProject = { ...project, aiSummary: editedReportText };
+  const handleSettingsSaveReport = () => {
+    const updatedProject = { ...project, aiSummary: settingsEditedReportText };
     onProjectUpdate(updatedProject);
-    setShowEditModal(false);
+    setSettingsShowEditModal(false);
   };
 
-  const handlePreviewReport = () => {
-    setShowReportModal(true);
-    setShowProjectSettings(false);
+  const handleSettingsPreviewReport = () => {
+    setSettingsShowReportModal(true);
   };
 
-  const handleCancelEditReport = () => {
-    setShowEditModal(false);
-    setEditedReportText('');
+  const handleSettingsCancelEditReport = () => {
+    setSettingsShowEditModal(false);
+    setSettingsEditedReportText('');
+  };
+
+  const handleSettingsShowEmailModal = () => {
+    setSettingsEmailSubject(`Inspektionsrapport - ${project.name}`);
+    setSettingsShowEmailModal(true);
+  };
+
+  const handleSettingsSendEmail = async () => {
+    if (!settingsEmailAddress.trim() || !settingsEmailSubject.trim()) {
+      alert('Ange både e-postadress och ämnesrad');
+      return;
+    }
+
+    setSettingsIsSendingEmail(true);
+    try {
+      const { pdfBuffer, fileName } = await generateProjectPDF(project);
+      await sendEmailWithPDF(
+        settingsEmailAddress,
+        settingsEmailSubject,
+        pdfBuffer,
+        fileName,
+        `Inspektionsrapport för ${project.name} på ${project.location}`,
+        project.id
+      );
+      
+      alert('Rapporten har skickats!');
+      setSettingsShowEmailModal(false);
+      setSettingsEmailAddress('');
+      setSettingsEmailSubject('');
+    } catch (error) {
+      console.error('Error sending email:', error);
+      alert('Kunde inte skicka e-post. Försök igen.');
+    } finally {
+      setSettingsIsSendingEmail(false);
+    }
   };
 
   const handleFileUpload = () => {
@@ -539,7 +581,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
           <div className="space-y-3">
             {/* Preview Report */}
             <button
-              onClick={handlePreviewReport}
+              onClick={handleSettingsPreviewReport}
               disabled={!project.aiSummary}
               className="w-full flex items-center justify-between p-4 bg-white rounded-xl border border-gray-200 hover:bg-gray-50 disabled:bg-gray-50 disabled:cursor-not-allowed transition-colors"
             >
@@ -559,7 +601,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
 
             {/* Edit Report */}
             <button
-              onClick={handleEditReport}
+              onClick={handleSettingsEditReport}
               disabled={!project.aiSummary}
               className="w-full flex items-center justify-between p-4 bg-white rounded-xl border border-gray-200 hover:bg-gray-50 disabled:bg-gray-50 disabled:cursor-not-allowed transition-colors"
             >
@@ -579,7 +621,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
 
             {/* Send Report */}
             <button
-              onClick={() => setShowEmailModal(true)}
+              onClick={handleSettingsShowEmailModal}
               disabled={!project.aiSummary}
               className="w-full flex items-center justify-between p-4 bg-white rounded-xl border border-gray-200 hover:bg-gray-50 disabled:bg-gray-50 disabled:cursor-not-allowed transition-colors"
             >
@@ -626,6 +668,130 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
             )}
           </div>
         </div>
+
+        {/* Settings View Modals */}
+        
+        {/* Settings Report Preview Modal */}
+        {settingsShowReportModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">AI-Rapport</h3>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => exportProjectToPDF(project)}
+                    className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    title="Ladda ner PDF"
+                  >
+                    <Search className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setSettingsShowReportModal(false)}
+                    className="p-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              <div className="prose prose-sm max-w-none">
+                <div className="whitespace-pre-wrap text-gray-700">{project.aiSummary}</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Settings Edit Report Modal */}
+        {settingsShowEditModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Redigera rapport</h3>
+              <textarea
+                value={settingsEditedReportText}
+                onChange={(e) => setSettingsEditedReportText(e.target.value)}
+                className="w-full h-64 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                placeholder="Redigera rapporten här..."
+                rows={15}
+              />
+              <div className="flex justify-end space-x-3 mt-4">
+                <button
+                  onClick={handleSettingsCancelEditReport}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                >
+                  Avbryt
+                </button>
+                <button
+                  onClick={handleSettingsSaveReport}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Spara
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Settings Email Modal */}
+        {settingsShowEmailModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl p-6 max-w-md w-full">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Skicka rapport via e-post</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="settingsEmailSubject" className="block text-sm font-medium text-gray-700 mb-2">
+                    Ämnesrad
+                  </label>
+                  <input
+                    type="text"
+                    id="settingsEmailSubject"
+                    value={settingsEmailSubject}
+                    onChange={(e) => setSettingsEmailSubject(e.target.value)}
+                    placeholder="Ämnesrad för e-posten"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                
+                <div>
+                  <label htmlFor="settingsEmailAddress" className="block text-sm font-medium text-gray-700 mb-2">
+                    E-postadress
+                  </label>
+                  <input
+                    type="email"
+                    id="settingsEmailAddress"
+                    value={settingsEmailAddress}
+                    onChange={(e) => setSettingsEmailAddress(e.target.value)}
+                    placeholder="mottagare@email.se"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex space-x-3 mt-6">
+                <button
+                  onClick={() => {
+                    setSettingsShowEmailModal(false);
+                    setSettingsEmailAddress('');
+                    setSettingsEmailSubject('');
+                  }}
+                  className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                >
+                  Avbryt
+                </button>
+                <button
+                  onClick={handleSettingsSendEmail}
+                  disabled={settingsIsSendingEmail || !settingsEmailAddress.trim() || !settingsEmailSubject.trim()}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                >
+                  {settingsIsSendingEmail ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    'Skicka'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
