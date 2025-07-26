@@ -610,3 +610,5 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
     </div>
   );
 };
+
+export { ProjectDetail };
