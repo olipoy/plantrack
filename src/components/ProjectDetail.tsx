@@ -25,6 +25,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const [cameraMode, setCameraMode] = useState<'photo' | 'video'>('photo');
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [autoOpenIndividualReport, setAutoOpenIndividualReport] = useState<string | null>(null);
+  const [autoOpenIndividualReport, setAutoOpenIndividualReport] = useState<string | null>(null);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -138,6 +139,10 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
     onProjectUpdate(updatedProject);
     
     // Auto-open individual report modal for the new note
+    setAutoOpenIndividualReport(newNote.id);
+    
+    // Auto-open individual report modal for the new note
+    console.log('🔍 DEBUG: Setting auto-open individual report for note:', newNote.id);
     setAutoOpenIndividualReport(newNote.id);
     setCurrentView('detail');
   };
