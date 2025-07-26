@@ -42,14 +42,6 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
     };
   }, []);
 
-  // Reset loading state when component unmounts or view changes
-  useEffect(() => {
-    return () => {
-      setIsUploading(false);
-      setUploadProgress(0);
-    };
-  }, []);
-
   const initializeCamera = async () => {
     try {
       setError('');
