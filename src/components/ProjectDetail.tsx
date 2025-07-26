@@ -24,6 +24,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const [showProjectSettings, setShowProjectSettings] = useState(false);
   const [cameraMode, setCameraMode] = useState<'photo' | 'video'>('photo');
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
+  const [autoOpenIndividualReport, setAutoOpenIndividualReport] = useState<string | null>(null);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -121,9 +122,8 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
     console.log('Camera capture completed, adding note:', note);
     
     // Create a note with proper ID from backend response
-    const newNote: Note = {
       id: note.id || `temp-${Date.now()}`,
-      ...note,
+      ...note
     };
     
     // Immediately update the project state to show the new note
@@ -135,6 +135,9 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
     
     console.log('Project updated with new note:', updatedProject);
     onProjectUpdate(updatedProject);
+    
+    // Auto-open individual report modal for the new note
+    setAutoOpenIndividualReport(newNote.id);
     setCurrentView('detail');
   };
 
@@ -207,6 +210,21 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
       setCurrentView('detail');
     }
   };
+
+  const handleTextNoteSubmit = (content: string) => {
+    const note: Omit<Note, 'id'> = {
+      type: 'text',
+      content,
+      timestamp: new Date()
+    };
+    
+    const updatedProjects = addNoteToProject(project.id, note);
+    const updatedProject = updatedProjects.find(p => p.id === project.id);
+    if (updatedProject) {
+      onProjectUpdate(updatedProject);
+    }
+  };
+
   const handleDeleteNote = (noteId: string) => {
     const updatedProjects = deleteNoteFromProject(project.id, noteId);
     const updatedProject = updatedProjects.find(p => p.id === project.id);
