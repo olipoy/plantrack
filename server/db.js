@@ -171,6 +171,43 @@ const noteDb = {
     );
     return result.rows[0];
   },
+
+  // Update note submission status
+  async updateNoteSubmissionStatus(noteId, userId, submitted, individualReport = null) {
+    const result = await query(
+      `UPDATE notes 
+       SET submitted = $1, individual_report = $2
+       WHERE id = $3 
+       AND project_id IN (SELECT id FROM projects WHERE user_id = $4)
+       RETURNING *`,
+      [submitted, individualReport, noteId, userId]
+    );
+    return result.rows[0];
+  },
+
+  // Get individual note with submission status
+  async getNoteById(noteId, userId) {
+    const result = await query(
+      `SELECT n.*, 
+       json_agg(
+         json_build_object(
+           'id', nf.id,
+           'file_url', nf.file_url,
+           'file_type', nf.file_type,
+           'file_name', nf.file_name,
+           'file_size', nf.file_size
+         )
+       ) FILTER (WHERE nf.id IS NOT NULL) as files
+       FROM notes n
+       LEFT JOIN note_files nf ON n.id = nf.note_id
+       WHERE n.id = $1
+       AND n.project_id IN (SELECT id FROM projects WHERE user_id = $2)
+       GROUP BY n.id`,
+      [noteId, userId]
+    );
+    return result.rows[0];
+  },
+
   // Add file to note
   async addFileToNote(noteId, fileUrl, fileType, fileName, fileSize) {
     const result = await query(

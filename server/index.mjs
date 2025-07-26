@@ -934,6 +934,228 @@ Svara på svenska och var specifik när du refererar till projekt och anteckning
   }
 });
 
+// Generate individual item report endpoint
+app.post('/api/notes/:id/generate-report', authenticateToken, async (req, res) => {
+  try {
+    console.log('=== INDIVIDUAL REPORT GENERATION ===');
+    console.log('User ID:', req.user.id);
+    console.log('Note ID:', req.params.id);
+    
+    const noteId = req.params.id;
+
+    if (!noteId) {
+      console.log('Missing note ID in request');
+      return res.status(400).json({ error: 'Note ID is required' });
+    }
+
+    console.log('Getting note details...');
+    // Get the specific note with project info
+    const note = await noteDb.getNoteById(noteId, req.user.id);
+    if (!note) {
+      console.log('Note not found for user');
+      return res.status(404).json({ error: 'Note not found' });
+    }
+
+    console.log('Note found:', {
+      id: note.id,
+      type: note.type,
+      hasContent: !!note.content,
+      hasTranscription: !!note.transcription,
+      hasImageLabel: !!note.image_label
+    });
+
+    // Get project info for context
+    const project = await projectDb.getProjectById(note.project_id, req.user.id);
+    if (!project) {
+      console.log('Project not found for note');
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    console.log('Project found:', project.name);
+
+    // Prepare content for AI analysis
+    const noteContent = note.transcription || note.content || note.image_label || 'Ingen textinformation tillgänglig';
+    const noteType = note.type === 'photo' ? 'Foto' : note.type === 'video' ? 'Video' : 'Textanteckning';
+    
+    if (!process.env.OPENAI_API_KEY) {
+      console.log('OpenAI API key not configured');
+      return res.status(500).json({ error: 'OpenAI API key not configured' });
+    }
+    
+    console.log('Calling OpenAI for individual item report...');
+    console.log('Content preview:', noteContent.substring(0, 100));
+    
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4',
+      messages: [
+        {
+          role: 'system',
+          content: `Du är en expert på facilitetsinspektioner. Skapa en detaljerad rapport för en enskild inspektionspost på svenska. 
+
+Rapporten ska innehålla:
+- Beskrivning av vad som observerats
+- Identifierade problem eller avvikelser (om några)
+- Rekommenderade åtgärder
+- Prioritetsnivå (hög/medium/låg)
+- Uppskattad tidsram för åtgärd
+
+Håll rapporten fokuserad på denna specifika post och gör den professionell och actionable.`
+        },
+        {
+          role: 'user',
+          content: `Skapa en rapport för denna inspektionspost:
+
+Projekt: ${project.name}
+Plats: ${project.location || 'Ej angiven'}
+Typ av post: ${noteType}
+Datum: ${new Date(note.created_at).toLocaleDateString('sv-SE')}
+
+Innehåll: ${noteContent}`
+        }
+      ],
+      max_tokens: 600,
+      temperature: 0.3
+    });
+
+    const individualReport = completion.choices[0].message.content;
+    console.log('OpenAI response received, report length:', individualReport.length);
+
+    console.log('Saving individual report to database...');
+    // Save the individual report to the note
+    await noteDb.updateNoteSubmissionStatus(noteId, req.user.id, false, individualReport);
+    console.log('Individual report saved successfully');
+
+    console.log('=== INDIVIDUAL REPORT GENERATION SUCCESS ===');
+    res.json({ report: individualReport });
+
+  } catch (error) {
+    console.error('=== INDIVIDUAL REPORT GENERATION ERROR ===');
+    console.error('Error type:', error.constructor.name);
+    console.error('Error message:', error.message);
+    console.error('Full error:', error);
+    
+    if (error.response) {
+      console.error('OpenAI API response error:', {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        data: error.response.data
+      });
+    }
+    
+    console.error('=== END INDIVIDUAL REPORT GENERATION ERROR ===');
+    res.status(500).json({ 
+      error: 'Individual report generation failed',
+      details: error.message 
+    });
+  }
+});
+
+// Submit individual item report endpoint
+app.post('/api/notes/:id/submit', authenticateToken, async (req, res) => {
+  try {
+    console.log('=== INDIVIDUAL ITEM SUBMISSION ===');
+    console.log('User ID:', req.user.id);
+    console.log('Note ID:', req.params.id);
+    
+    const { to, subject, customMessage } = req.body;
+    const noteId = req.params.id;
+
+    if (!to || !subject) {
+      console.log('Missing required fields:', { to: !!to, subject: !!subject });
+      return res.status(400).json({ error: 'Email address and subject are required' });
+    }
+
+    if (!process.env.SENDGRID_API_KEY) {
+      console.log('SendGrid API key not configured');
+      return res.status(500).json({ error: 'SendGrid API key not configured' });
+    }
+
+    console.log('Getting note with report...');
+    // Get the note with its individual report
+    const note = await noteDb.getNoteById(noteId, req.user.id);
+    if (!note) {
+      console.log('Note not found for user');
+      return res.status(404).json({ error: 'Note not found' });
+    }
+
+    if (!note.individual_report) {
+      console.log('No individual report found for note');
+      return res.status(400).json({ error: 'No report generated for this item. Please generate a report first.' });
+    }
+
+    // Get project info for context
+    const project = await projectDb.getProjectById(note.project_id, req.user.id);
+    if (!project) {
+      console.log('Project not found for note');
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    console.log('Preparing email with individual report...');
+    const emailContent = `
+${customMessage || 'Se bifogad rapport för enskild inspektionspost.'}
+
+---
+
+${note.individual_report}
+
+---
+
+Denna rapport genererades automatiskt av Inspektionsassistenten för projekt: ${project.name}
+Plats: ${project.location || 'Ej angiven'}
+Datum: ${new Date(note.created_at).toLocaleDateString('sv-SE')}
+    `.trim();
+
+    const msg = {
+      to,
+      from: process.env.FROM_EMAIL || 'noreply@inspektionsassistent.se',
+      subject,
+      text: emailContent,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #2563EB;">Inspektionsrapport - Enskild post</h2>
+          ${customMessage ? `<p>${customMessage.replace(/\n/g, '<br>')}</p><hr>` : ''}
+          <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            ${note.individual_report.replace(/\n/g, '<br>')}
+          </div>
+          <hr>
+          <p style="color: #666; font-size: 12px;">
+            Denna rapport genererades automatiskt av Inspektionsassistenten<br>
+            Projekt: ${project.name}<br>
+            Plats: ${project.location || 'Ej angiven'}<br>
+            Datum: ${new Date(note.created_at).toLocaleDateString('sv-SE')}
+          </p>
+        </div>
+      `
+    };
+
+    console.log('Sending individual report email...');
+    await sgMail.send(msg);
+    
+    console.log('Marking item as submitted...');
+    // Mark the note as submitted
+    await noteDb.updateNoteSubmissionStatus(noteId, req.user.id, true, note.individual_report);
+    
+    console.log('Individual item submitted successfully');
+    res.json({ success: true, message: 'Individual report sent successfully' });
+
+  } catch (error) {
+    console.error('=== INDIVIDUAL ITEM SUBMISSION ERROR ===');
+    console.error('Error type:', error.constructor.name);
+    console.error('Error message:', error.message);
+    console.error('Full error:', error);
+    
+    if (error.response && error.response.body) {
+      console.error('SendGrid API error:', error.response.body);
+    }
+    
+    console.error('=== END INDIVIDUAL ITEM SUBMISSION ERROR ===');
+    res.status(500).json({ 
+      error: 'Failed to send individual report',
+      details: error.message 
+    });
+  }
+});
+
 // Summarize notes endpoint
 app.post('/api/summarize', authenticateToken, async (req, res) => {
   try {

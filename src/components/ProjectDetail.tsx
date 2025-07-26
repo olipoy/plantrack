@@ -3,7 +3,7 @@ import { Project, Note } from '../types';
 import { ArrowLeft, Camera, Video, FileText, Mail, Edit3, Check, X, Sparkles, RotateCcw, Upload, Search } from 'lucide-react';
 import { CameraView } from './CameraView';
 import { addNoteToProject, deleteNoteFromProject } from '../utils/storage';
-import { summarizeNotes, sendEmailWithPDF } from '../utils/api';
+import { summarizeNotes, sendEmailWithPDF, generateIndividualReport, submitIndividualReport } from '../utils/api';
 import { exportProjectToPDF, generateProjectPDF } from '../utils/export';
 import { updateNoteLabel } from '../utils/api';
 
@@ -35,6 +35,15 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const [isAddingTextNote, setIsAddingTextNote] = useState(false);
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
   const [editingLabelValue, setEditingLabelValue] = useState('');
+  const [generatingReportForNote, setGeneratingReportForNote] = useState<string | null>(null);
+  const [showIndividualReportModal, setShowIndividualReportModal] = useState(false);
+  const [selectedNoteForReport, setSelectedNoteForReport] = useState<Note | null>(null);
+  const [individualReportContent, setIndividualReportContent] = useState('');
+  const [showIndividualEmailModal, setShowIndividualEmailModal] = useState(false);
+  const [individualEmailAddress, setIndividualEmailAddress] = useState('');
+  const [individualEmailSubject, setIndividualEmailSubject] = useState('');
+  const [individualEmailMessage, setIndividualEmailMessage] = useState('');
+  const [isSendingIndividualEmail, setIsSendingIndividualEmail] = useState(false);
 
   const handleCameraCapture = (note: Omit<Note, 'id'>) => {
     console.log('Camera capture completed, adding note:', note);
@@ -254,6 +263,98 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
     setEditingLabelValue('');
   };
 
+  const handleGenerateIndividualReport = async (note: Note) => {
+    setGeneratingReportForNote(note.id);
+    try {
+      const response = await generateIndividualReport(note.id);
+      
+      // Update the note with the generated report
+      const updatedNotes = project.notes.map(n => 
+        n.id === note.id 
+          ? { ...n, individualReport: response.report }
+          : n
+      );
+      
+      const updatedProject = {
+        ...project,
+        notes: updatedNotes,
+        updatedAt: new Date()
+      };
+      
+      onProjectUpdate(updatedProject);
+      
+      // Show the report modal
+      setSelectedNoteForReport({ ...note, individualReport: response.report });
+      setIndividualReportContent(response.report);
+      setShowIndividualReportModal(true);
+      
+    } catch (error) {
+      console.error('Error generating individual report:', error);
+      alert('Kunde inte skapa rapport för denna post. Försök igen.');
+    } finally {
+      setGeneratingReportForNote(null);
+    }
+  };
+
+  const handleViewIndividualReport = (note: Note) => {
+    setSelectedNoteForReport(note);
+    setIndividualReportContent(note.individualReport || '');
+    setShowIndividualReportModal(true);
+  };
+
+  const handleSendIndividualReport = () => {
+    if (!selectedNoteForReport) return;
+    
+    setIndividualEmailSubject(`Inspektionsrapport - ${project.name} - ${selectedNoteForReport.imageLabel || 'Enskild post'}`);
+    setShowIndividualReportModal(false);
+    setShowIndividualEmailModal(true);
+  };
+
+  const handleSubmitIndividualReport = async () => {
+    if (!selectedNoteForReport || !individualEmailAddress.trim() || !individualEmailSubject.trim()) {
+      alert('Ange både e-postadress och ämnesrad');
+      return;
+    }
+
+    setIsSendingIndividualEmail(true);
+    try {
+      await submitIndividualReport(
+        selectedNoteForReport.id,
+        individualEmailAddress,
+        individualEmailSubject,
+        individualEmailMessage
+      );
+      
+      // Mark the note as submitted
+      const updatedNotes = project.notes.map(n => 
+        n.id === selectedNoteForReport.id 
+          ? { ...n, submitted: true, submittedAt: new Date() }
+          : n
+      );
+      
+      const updatedProject = {
+        ...project,
+        notes: updatedNotes,
+        updatedAt: new Date()
+      };
+      
+      onProjectUpdate(updatedProject);
+      
+      alert('Rapporten har skickats!');
+      setShowIndividualEmailModal(false);
+      setIndividualEmailAddress('');
+      setIndividualEmailSubject('');
+      setIndividualEmailMessage('');
+      setSelectedNoteForReport(null);
+      
+    } catch (error) {
+      console.error('Error submitting individual report:', error);
+      alert('Kunde inte skicka rapporten. Försök igen.');
+    } finally {
+      setIsSendingIndividualEmail(false);
+    }
+  };
+
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('sv-SE', { 
       year: 'numeric', 
@@ -419,7 +520,21 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
           {/* Notes List */}
           <div className="space-y-4">
             {project.notes.map((note) => (
-              <div key={note.id} className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+              <div key={note.id} className={`bg-white rounded-xl p-4 shadow-sm border-2 transition-colors ${
+                note.submitted 
+                  ? 'border-green-200 bg-green-50' 
+                  : 'border-gray-200'
+              }`}>
+                {/* Submission Status Badge */}
+                {note.submitted && (
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
+                      <div className="w-2 h-2 bg-green-600 rounded-full mr-2" />
+                      Skickad {note.submittedAt ? formatDate(note.submittedAt) : ''}
+                    </div>
+                  </div>
+                )}
+                
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center mr-3 ${
@@ -449,6 +564,43 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                         {formatDate(note.timestamp)}
                       </span>
                     </div>
+                  </div>
+                  
+                  {/* Individual Report Actions */}
+                  <div className="flex items-center space-x-2 ml-3">
+                    {note.individualReport ? (
+                      <>
+                        <button
+                          onClick={() => handleViewIndividualReport(note)}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Visa rapport"
+                        >
+                          <Search className="w-4 h-4" />
+                        </button>
+                        {!note.submitted && (
+                          <button
+                            onClick={handleSendIndividualReport}
+                            className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                            title="Skicka rapport"
+                          >
+                            <Mail className="w-4 h-4" />
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => handleGenerateIndividualReport(note)}
+                        disabled={generatingReportForNote === note.id}
+                        className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors disabled:opacity-50"
+                        title="Skapa rapport för denna post"
+                      >
+                        {generatingReportForNote === note.id ? (
+                          <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Sparkles className="w-4 h-4" />
+                        )}
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -705,6 +857,129 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
               >
                 {isSendingEmail ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  'Skicka'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Individual Report Preview Modal */}
+      {showIndividualReportModal && selectedNoteForReport && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Rapport - {selectedNoteForReport.imageLabel || 'Enskild post'}
+              </h3>
+              <div className="flex space-x-2">
+                {!selectedNoteForReport.submitted && (
+                  <button
+                    onClick={handleSendIndividualReport}
+                    className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    title="Skicka via e-post"
+                  >
+                    <Mail className="w-4 h-4" />
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowIndividualReportModal(false)}
+                  className="p-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            
+            {selectedNoteForReport.submitted && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+                <div className="flex items-center text-green-800">
+                  <div className="w-2 h-2 bg-green-600 rounded-full mr-2" />
+                  <span className="text-sm font-medium">
+                    Denna rapport har redan skickats {selectedNoteForReport.submittedAt ? formatDate(selectedNoteForReport.submittedAt) : ''}
+                  </span>
+                </div>
+              </div>
+            )}
+            
+            <div className="prose prose-sm max-w-none">
+              <div className="whitespace-pre-wrap text-gray-700">{individualReportContent}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Individual Email Modal */}
+      {showIndividualEmailModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Skicka enskild rapport</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="individualEmailSubject" className="block text-sm font-medium text-gray-700 mb-2">
+                  Ämnesrad
+                </label>
+                <input
+                  type="text"
+                  id="individualEmailSubject"
+                  value={individualEmailSubject}
+                  onChange={(e) => setIndividualEmailSubject(e.target.value)}
+                  placeholder="Ämnesrad för e-posten"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="individualEmailAddress" className="block text-sm font-medium text-gray-700 mb-2">
+                  E-postadress
+                </label>
+                <input
+                  type="email"
+                  id="individualEmailAddress"
+                  value={individualEmailAddress}
+                  onChange={(e) => setIndividualEmailAddress(e.target.value)}
+                  placeholder="mottagare@email.se"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="individualEmailMessage" className="block text-sm font-medium text-gray-700 mb-2">
+                  Meddelande (valfritt)
+                </label>
+                <textarea
+                  id="individualEmailMessage"
+                  value={individualEmailMessage}
+                  onChange={(e) => setIndividualEmailMessage(e.target.value)}
+                  placeholder="Lägg till ett personligt meddelande..."
+                  rows={3}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                />
+              </div>
+            </div>
+            
+            <div className="flex space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowIndividualEmailModal(false);
+                  setIndividualEmailAddress('');
+                  setIndividualEmailSubject('');
+                  setIndividualEmailMessage('');
+                }}
+                className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                Avbryt
+              </button>
+              <button
+                onClick={handleSubmitIndividualReport}
+                disabled={isSendingIndividualEmail || !individualEmailAddress.trim() || !individualEmailSubject.trim()}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+              >
+                {isSendingIndividualEmail ? (
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 ) : (
                   'Skicka'

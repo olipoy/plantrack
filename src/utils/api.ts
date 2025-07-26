@@ -219,6 +219,62 @@ export const updateNoteLabel = async (
   return response.json();
 };
 
+export const generateIndividualReport = async (
+  noteId: string
+): Promise<{ report: string }> => {
+  const token = getToken();
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/notes/${noteId}/generate-report`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || `Failed to generate individual report: ${response.statusText}`);
+  }
+
+  return response.json();
+};
+
+export const submitIndividualReport = async (
+  noteId: string,
+  to: string,
+  subject: string,
+  customMessage?: string
+): Promise<{ success: boolean; message: string }> => {
+  const token = getToken();
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/notes/${noteId}/submit`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      to,
+      subject,
+      customMessage
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || `Failed to submit individual report: ${response.statusText}`);
+  }
+
+  return response.json();
+};
+
 export const sendEmailWithPDF = async (
   to: string,
   subject: string,

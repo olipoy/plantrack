@@ -21,6 +21,9 @@ export interface Note {
   fileUrl?: string;
   fileName?: string;
   fileSize?: number;
+  submitted?: boolean;
+  submittedAt?: Date;
+  individualReport?: string;
 }
 
 export interface ChatMessage {
