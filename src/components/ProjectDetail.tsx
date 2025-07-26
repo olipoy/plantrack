@@ -25,7 +25,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const [cameraMode, setCameraMode] = useState<'photo' | 'video'>('photo');
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [autoOpenIndividualReport, setAutoOpenIndividualReport] = useState<string | null>(null);
-  const [autoOpenIndividualReport, setAutoOpenIndividualReport] = useState<string | null>(null);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -118,15 +117,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
     
     return () => clearTimeout(timeoutId);
   }, [project.notes, project.id, onProjectUpdate]);
-
-  // Auto-open individual report modal when a note is added from camera
-  useEffect(() => {
-    if (autoOpenIndividualReport) {
-      console.log('🔍 DEBUG: Auto-opening individual report modal for note:', autoOpenIndividualReport);
-      setShowIndividualReportModal(autoOpenIndividualReport);
-      setAutoOpenIndividualReport(null); // Clear the auto-open state
-    }
-  }, [autoOpenIndividualReport]);
 
   const handleCameraCapture = (note: Omit<Note, 'id'>) => {
     console.log('Camera capture completed, adding note:', note);
@@ -225,7 +215,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
       setCurrentView('detail');
     }
   };
-
   const handleDeleteNote = (noteId: string) => {
     const updatedProjects = deleteNoteFromProject(project.id, noteId);
     const updatedProject = updatedProjects.find(p => p.id === project.id);
