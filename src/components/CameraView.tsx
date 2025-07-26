@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Check, X, Send, Mail } from 'lucide-react';
+import { ArrowLeft, Check, X, Edit3 } from 'lucide-react';
 import { Note } from '../types';
-import { uploadFile, generateIndividualReport, submitIndividualReport } from '../utils/api';
+import { uploadFile } from '../utils/api';
 import { ensureSizeLimit, formatFileSize, getVideoDuration } from '../utils/videoCompression';
 import { IndividualReportModal } from './IndividualReportModal';
 
@@ -13,7 +13,7 @@ interface CameraViewProps {
 }
 
 export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack, onSave }) => {
-  const [currentMode, setCurrentMode] = useState<'camera' | 'preview'>('camera');
+  const [currentMode, setCurrentMode] = useState<'camera' | 'preview' | 'edit'>('camera');
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [capturedMedia, setCapturedMedia] = useState<Blob | null>(null);
@@ -22,11 +22,15 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
   const [transcription, setTranscription] = useState('');
+  const [imageLabel, setImageLabel] = useState('');
+  const [editableContent, setEditableContent] = useState('');
+  const [isEditingContent, setIsEditingContent] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
   const [compressionProgress, setCompressionProgress] = useState('');
   const [showIndividualModal, setShowIndividualModal] = useState(false);
   const [savedNoteId, setSavedNoteId] = useState<string | null>(null);
   const [savedNote, setSavedNote] = useState<Note | null>(null);
+  const [uploadResponse, setUploadResponse] = useState<any>(null);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -250,46 +254,54 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
 
       console.log('Upload response:', response);
 
-      if (response.transcription) {
-        setTranscription(response.transcription);
-      }
+      // Store the upload response and set up edit mode
+      setUploadResponse(response);
+      setTranscription(response.transcription || '');
+      setImageLabel(response.imageLabel || '');
+      setEditableContent(response.transcription || response.imageLabel || (mode === 'photo' ? 'Foto taget' : 'Videoinspelning'));
+      setCurrentMode('edit');
 
-      // Create note object
-      const note: Omit<Note, 'id'> = {
-        type: mode,
-        content: response.transcription || (mode === 'photo' ? (response.imageLabel || 'Foto taget') : 'Videoinspelning'),
-        transcription: response.transcription,
-        imageLabel: response.imageLabel,
-        timestamp: new Date(),
-        fileUrl: response.fileUrl,
-        fileName: response.originalName,
-        fileSize: response.size
-      };
-
-      console.log('Saving note:', note);
-      
-      // Save the note first
-      onSave(note);
-      
-      // Then immediately open the individual report modal if we have a note ID
-      if (response.noteId) {
-        const noteWithId: Note = {
-          ...note,
-          id: response.noteId
-        };
-        
-        setSavedNote(noteWithId);
-        setSavedNoteId(response.noteId);
-        setShowIndividualModal(true);
-      } else {
-        // If no note ID, just go back
-        onBack();
-      }
     } catch (error) {
       console.error('Upload failed:', error);
       setError(error instanceof Error ? error.message : 'Uppladdning misslyckades');
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const handleSaveAndSend = () => {
+    if (!uploadResponse) return;
+
+    // Create note object with edited content
+    const note: Omit<Note, 'id'> = {
+      type: mode,
+      content: editableContent,
+      transcription: mode === 'video' ? editableContent : transcription,
+      imageLabel: mode === 'photo' ? editableContent : imageLabel,
+      timestamp: new Date(),
+      fileUrl: uploadResponse.fileUrl,
+      fileName: uploadResponse.originalName,
+      fileSize: uploadResponse.size
+    };
+
+    console.log('Saving note with edited content:', note);
+    
+    // Save the note first
+    onSave(note);
+    
+    // Then immediately open the individual report modal if we have a note ID
+    if (uploadResponse.noteId) {
+      const noteWithId: Note = {
+        ...note,
+        id: uploadResponse.noteId
+      };
+      
+      setSavedNote(noteWithId);
+      setSavedNoteId(uploadResponse.noteId);
+      setShowIndividualModal(true);
+    } else {
+      // If no note ID, just go back
+      onBack();
     }
   };
 
@@ -299,12 +311,17 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
     setSavedNote(null);
     onBack(); // Go back to project view after modal closes
   };
+
   const handleDiscard = () => {
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
     }
     setCapturedMedia(null);
     setPreviewUrl(null);
+    setEditableContent('');
+    setTranscription('');
+    setImageLabel('');
+    setUploadResponse(null);
     setCurrentMode('camera');
     setError('');
     setRecordingTime(0);
@@ -451,12 +468,6 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
 
           {/* Preview Controls */}
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-8">
-            {transcription && (
-              <div className="bg-black/70 rounded-lg p-4 mb-6">
-                <p className="text-white text-sm">{transcription}</p>
-              </div>
-            )}
-            
             {/* Show file size info */}
             {capturedMedia && (
               <div className="bg-black/70 rounded-lg p-3 mb-4">
@@ -492,6 +503,89 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
                 : 'Ta om • Spara'
               }
             </p>
+          </div>
+        </>
+      )}
+
+      {/* Edit Mode - Preview with editable content */}
+      {currentMode === 'edit' && previewUrl && (
+        <>
+          <div className="flex-1 flex flex-col">
+            {/* Media Preview */}
+            <div className="flex-1 flex items-center justify-center bg-black p-4">
+              {mode === 'photo' ? (
+                <img 
+                  src={previewUrl} 
+                  alt="Preview" 
+                  className="max-w-full max-h-full object-contain rounded-lg"
+                />
+              ) : (
+                <video 
+                  src={previewUrl} 
+                  controls 
+                  className="max-w-full max-h-full object-contain rounded-lg"
+                />
+              )}
+            </div>
+
+            {/* Content Editor */}
+            <div className="bg-white p-6 border-t border-gray-200">
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {mode === 'photo' ? 'Bildtext' : 'Transkription'}
+                  </h3>
+                  <button
+                    onClick={() => setIsEditingContent(!isEditingContent)}
+                    className="flex items-center text-blue-600 hover:text-blue-700 text-sm font-medium"
+                  >
+                    <Edit3 className="w-4 h-4 mr-1" />
+                    {isEditingContent ? 'Spara' : 'Redigera'}
+                  </button>
+                </div>
+
+                {isEditingContent ? (
+                  <textarea
+                    value={editableContent}
+                    onChange={(e) => setEditableContent(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    rows={4}
+                    placeholder={mode === 'photo' ? 'Beskriv vad som syns på bilden...' : 'Redigera transkriptionen...'}
+                  />
+                ) : (
+                  <div className="bg-gray-50 rounded-lg p-3 min-h-[100px] border border-gray-200">
+                    <p className="text-gray-800 whitespace-pre-wrap">
+                      {editableContent || (mode === 'photo' ? 'Ingen bildtext genererad' : 'Ingen transkription tillgänglig')}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* File info */}
+              {capturedMedia && (
+                <div className="bg-blue-50 rounded-lg p-3 mb-4">
+                  <p className="text-blue-800 text-sm">
+                    📁 Filstorlek: {formatFileSize(capturedMedia.size)}
+                  </p>
+                </div>
+              )}
+
+              {/* Action buttons */}
+              <div className="flex space-x-3">
+                <button
+                  onClick={handleDiscard}
+                  className="flex-1 px-6 py-3 text-gray-600 hover:text-gray-800 transition-colors"
+                >
+                  Ta om
+                </button>
+                <button
+                  onClick={handleSaveAndSend}
+                  className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 transition-colors"
+                >
+                  Skicka rapport
+                </button>
+              </div>
+            </div>
           </div>
         </>
       )}
