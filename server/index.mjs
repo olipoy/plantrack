@@ -336,7 +336,7 @@ if (NODE_ENV === 'production') {
   }));
   
   // Handle client-side routing - serve index.html for all non-API routes
-  app.get('*', (req, res, next) => {
+  app.get('/*', (req, res, next) => {
     // Skip API routes
     if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/') || req.path.startsWith('/assets/')) {
       return next();
