@@ -1,5 +1,4 @@
 // API configuration for different environments
-import { getToken } from './auth';
 
 const getApiBaseUrl = () => {
   // In development, use local server
