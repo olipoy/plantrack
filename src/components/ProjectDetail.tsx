@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Project, Note } from '../types';
-import { ArrowLeft, Camera, Video, FileText, Mail, Edit3, Check, X, Sparkles, RotateCcw, Upload, Search } from 'lucide-react';
+import { ArrowLeft, Camera, Video, FileText, Mail, Edit3, Check, X, Sparkles, RotateCcw, Upload, Search, MoreVertical, Settings } from 'lucide-react';
 import { CameraView } from './CameraView';
 import { addNoteToProject, deleteNoteFromProject } from '../utils/storage';
 import { summarizeNotes, sendEmailWithPDF, generateIndividualReport, submitIndividualReport } from '../utils/api';
@@ -21,6 +21,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   onProjectDelete
 }) => {
   const [currentView, setCurrentView] = useState<'detail' | 'camera'>('detail');
+  const [showProjectSettings, setShowProjectSettings] = useState(false);
   const [cameraMode, setCameraMode] = useState<'photo' | 'video'>('photo');
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
@@ -216,6 +217,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
       
       const updatedProject = { ...project, aiSummary: response.summary };
       onProjectUpdate(updatedProject);
+      setShowProjectSettings(false); // Close settings after generating
     } catch (error) {
       console.error('Error generating summary:', error);
       alert('Kunde inte skapa rapport. Kontrollera internetanslutningen och försök igen.');
@@ -227,7 +229,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const handleEditReport = () => {
     setEditedReportText(project.aiSummary || '');
     setShowEditModal(true);
-    setShowReportModal(false);
+    setShowProjectSettings(false);
   };
 
   const handleSaveReport = () => {
@@ -238,6 +240,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
 
   const handlePreviewReport = () => {
     setShowReportModal(true);
+    setShowProjectSettings(false);
   };
 
   const handleCancelEditReport = () => {
@@ -301,6 +304,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
       setShowEmailModal(false);
       setEmailAddress('');
       setEmailSubject('');
+      setShowProjectSettings(false);
     } catch (error) {
       console.error('Error sending email:', error);
       alert('Kunde inte skicka e-post. Försök igen.');
@@ -514,6 +518,117 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
     );
   }
 
+  if (showProjectSettings) {
+    return (
+      <div className="flex flex-col h-full">
+        {/* Settings Header */}
+        <div className="bg-white border-b border-gray-200 px-4 py-3">
+          <div className="flex items-center">
+            <button
+              onClick={() => setShowProjectSettings(false)}
+              className="mr-3 p-2 -ml-2 text-gray-600 hover:text-gray-900 active:bg-gray-100 rounded-lg transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <h1 className="text-lg font-semibold text-gray-900">Hantera Projekt</h1>
+          </div>
+        </div>
+
+        {/* Settings Content */}
+        <div className="flex-1 p-4">
+          <div className="space-y-3">
+            {/* Preview Report */}
+            <button
+              onClick={handlePreviewReport}
+              disabled={!project.aiSummary}
+              className="w-full flex items-center justify-between p-4 bg-white rounded-xl border border-gray-200 hover:bg-gray-50 disabled:bg-gray-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <div className="flex items-center">
+                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center mr-3">
+                  <Search className="w-5 h-5 text-blue-600" />
+                </div>
+                <div className="text-left">
+                  <h3 className="font-medium text-gray-900">Granska Projektrapport</h3>
+                  <p className="text-sm text-gray-500">
+                    {project.aiSummary ? 'Förhandsgranska och ladda ner PDF' : 'Ingen rapport skapad ännu'}
+                  </p>
+                </div>
+              </div>
+              <ArrowLeft className="w-5 h-5 text-gray-400 rotate-180" />
+            </button>
+
+            {/* Edit Report */}
+            <button
+              onClick={handleEditReport}
+              disabled={!project.aiSummary}
+              className="w-full flex items-center justify-between p-4 bg-white rounded-xl border border-gray-200 hover:bg-gray-50 disabled:bg-gray-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <div className="flex items-center">
+                <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center mr-3">
+                  <Edit3 className="w-5 h-5 text-gray-600" />
+                </div>
+                <div className="text-left">
+                  <h3 className="font-medium text-gray-900">Redigera Projektrapport</h3>
+                  <p className="text-sm text-gray-500">
+                    {project.aiSummary ? 'Anpassa rapportinnehållet' : 'Ingen rapport att redigera'}
+                  </p>
+                </div>
+              </div>
+              <ArrowLeft className="w-5 h-5 text-gray-400 rotate-180" />
+            </button>
+
+            {/* Send Report */}
+            <button
+              onClick={() => setShowEmailModal(true)}
+              disabled={!project.aiSummary}
+              className="w-full flex items-center justify-between p-4 bg-white rounded-xl border border-gray-200 hover:bg-gray-50 disabled:bg-gray-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <div className="flex items-center">
+                <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center mr-3">
+                  <Mail className="w-5 h-5 text-green-600" />
+                </div>
+                <div className="text-left">
+                  <h3 className="font-medium text-gray-900">Skicka Projektrapport</h3>
+                  <p className="text-sm text-gray-500">
+                    {project.aiSummary ? 'Skicka rapport via e-post' : 'Ingen rapport att skicka'}
+                  </p>
+                </div>
+              </div>
+              <ArrowLeft className="w-5 h-5 text-gray-400 rotate-180" />
+            </button>
+
+            {/* Generate Report (if no report exists) */}
+            {!project.aiSummary && project.notes.length > 0 && (
+              <button
+                onClick={handleGenerateSummary}
+                disabled={isGeneratingSummary}
+                className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl hover:from-green-100 hover:to-emerald-100 disabled:opacity-50 transition-colors"
+              >
+                <div className="flex items-center">
+                  <div className="w-10 h-10 bg-green-600 rounded-xl flex items-center justify-center mr-3">
+                    {isGeneratingSummary ? (
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Sparkles className="w-5 h-5 text-white" />
+                    )}
+                  </div>
+                  <div className="text-left">
+                    <h3 className="font-medium text-gray-900">
+                      {isGeneratingSummary ? 'Skapar rapport...' : 'Skapa Projektrapport'}
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      Generera AI-rapport från {project.notes.length} anteckningar
+                    </p>
+                  </div>
+                </div>
+                <ArrowLeft className="w-5 h-5 text-gray-400 rotate-180" />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -528,78 +643,15 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
             </button>
             <h1 className="text-lg font-semibold text-gray-900 truncate">{project.name}</h1>
           </div>
+          <button
+            onClick={() => setShowProjectSettings(true)}
+            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <MoreVertical className="w-5 h-5" />
+          </button>
         </div>
       </div>
 
-      {/* AI Summary Section - Only action buttons, no content */}
-      {project.aiSummary && (
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200">
-          <div className="p-4 pb-3">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center">
-                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mr-3">
-                  <Sparkles className="w-4 h-4 text-white" />
-                </div>
-                <h3 className="font-semibold text-gray-900">AI-Rapport</h3>
-              </div>
-              <div className="flex space-x-2">
-                <button
-                  onClick={handleEditReport}
-                  className="p-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center"
-                  title="Redigera rapport"
-                >
-                  <Edit3 className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={handleGenerateSummary}
-                  disabled={isGeneratingSummary || project.notes.length === 0}
-                  className="p-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center"
-                  title="Uppdatera rapport"
-                >
-                  {isGeneratingSummary ? (
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <RotateCcw className="w-4 h-4" />
-                  )}
-                </button>
-                <button
-                  onClick={handlePreviewReport}
-                  className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
-                  title="Förhandsgranska PDF"
-                >
-                  <Search className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setShowEmailModal(true)}
-                  className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center"
-                  title="Skicka via e-post"
-                >
-                  <Mail className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {!project.aiSummary && project.notes.length > 0 && (
-        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-b border-gray-200">
-          <div className="p-4">
-            <button
-              onClick={handleGenerateSummary}
-              disabled={isGeneratingSummary}
-              className="w-full bg-green-600 text-white py-3 px-4 rounded-xl font-medium hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-200 flex items-center justify-center"
-            >
-              {isGeneratingSummary ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-              ) : (
-                <Sparkles className="w-5 h-5 mr-2" />
-              )}
-              {isGeneratingSummary ? 'Skapar rapport...' : 'Skapa Rapport'}
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto pb-24">
