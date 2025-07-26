@@ -4,7 +4,8 @@ import { Project, Note } from '../types';
 import { CameraView } from './CameraView';
 import { MediaRecorder } from './MediaRecorder';
 import { updateNoteLabel, summarizeNotes, generateIndividualReport, submitIndividualReport } from '../utils/api';
-import { exportProjectToPDF, generateProjectPDF, sendEmailWithPDF } from '../utils/export';
+import { exportProjectToPDF, generateProjectPDF } from '../utils/export';
+import { sendEmailWithPDF } from '../utils/api';
 import { IndividualReportModal } from './IndividualReportModal';
 
 interface ProjectDetailProps {
