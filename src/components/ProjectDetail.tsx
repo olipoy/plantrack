@@ -556,6 +556,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
         onBack={() => setCurrentView('detail')}
         onSave={handleCameraCapture}
         onDirectSend={handleDirectSend}
+        // Direct send functionality for camera workflow
       />
     );
   }
@@ -800,6 +801,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-4 py-3">
         <div className="flex items-center justify-between">
+          {/* Project header with back button and settings menu */}
           <div className="flex items-center min-w-0 flex-1">
             <button
               onClick={onBack}
