@@ -1024,6 +1024,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                   setShowEmailModal(false);
                   setEmailAddress('');
                   setEmailSubject('');
+                  setShowProjectSettings(false);
                 }}
                 className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
               >
