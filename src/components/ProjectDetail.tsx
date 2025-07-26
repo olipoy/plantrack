@@ -122,6 +122,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
     console.log('Camera capture completed, adding note:', note);
     
     // Create a note with proper ID from backend response
+    const newNote: Note = {
       id: note.id || `temp-${Date.now()}`,
       ...note
     };
@@ -210,21 +211,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
       setCurrentView('detail');
     }
   };
-
-  const handleTextNoteSubmit = (content: string) => {
-    const note: Omit<Note, 'id'> = {
-      type: 'text',
-      content,
-      timestamp: new Date()
-    };
-    
-    const updatedProjects = addNoteToProject(project.id, note);
-    const updatedProject = updatedProjects.find(p => p.id === project.id);
-    if (updatedProject) {
-      onProjectUpdate(updatedProject);
-    }
-  };
-
   const handleDeleteNote = (noteId: string) => {
     const updatedProjects = deleteNoteFromProject(project.id, noteId);
     const updatedProject = updatedProjects.find(p => p.id === project.id);
