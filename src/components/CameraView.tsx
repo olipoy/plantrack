@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Check, X, Mail } from 'lucide-react';
+import { ArrowLeft, Check, X } from 'lucide-react';
 import { Note } from '../types';
 import { uploadFile } from '../utils/api';
 import { ensureSizeLimit, formatFileSize, getVideoDuration } from '../utils/videoCompression';
@@ -9,10 +9,9 @@ interface CameraViewProps {
   mode: 'photo' | 'video';
   onBack: () => void;
   onSave: (note: Omit<Note, 'id'>) => void;
-}
 
 export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack, onSave }) => {
-  const [currentMode, setCurrentMode] = useState<'camera' | 'preview'>('camera');
+export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack, onSave }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [capturedMedia, setCapturedMedia] = useState<Blob | null>(null);
@@ -22,7 +21,6 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
   const [error, setError] = useState('');
   const [transcription, setTranscription] = useState('');
   const [isCompressing, setIsCompressing] = useState(false);
-  const [compressionProgress, setCompressionProgress] = useState('');
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -242,50 +240,6 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
         name: fileName,
         type: file.type,
         size: file.size,
-        projectId,
-        mode
-      });
-
-
-      const uploadResponse = await uploadFile(
-        file,
-        projectId,
-        mode,
-        (progress) => setUploadProgress(progress)
-      );
-
-      console.log('Upload response:', uploadResponse);
-
-      if (uploadResponse.success) {
-        setTranscription(uploadResponse.transcription || '');
-        
-        console.log('Upload successful, creating note object');
-        const note: Omit<Note, 'id'> = {
-          type: mode,
-          content: mode === 'photo' ? 'Foto taget' : 'Videoinspelning',
-          transcription: uploadResponse.transcription,
-          imageLabel: uploadResponse.imageLabel,
-          isLabelLoading: mode === 'photo' && !uploadResponse.imageLabel,
-          timestamp: new Date(),
-          fileUrl: uploadResponse.fileUrl, // Use actual uploaded file URL
-          fileName: uploadResponse.originalName,
-          fileSize: uploadResponse.size
-        };
-        
-        console.log('Calling onSave with note:', note);
-        onSave(note);
-      } else {
-        throw new Error('Upload failed');
-      }
-    } catch (error) {
-      console.error('Error saving media:', error);
-      setError(error instanceof Error ? error.message : 'Uppladdning misslyckades. Kontrollera internetanslutningen och försök igen.');
-      setIsUploading(false); // Reset loading state on error
-    } finally {
-      // Don't reset here since we want to close the camera view on success
-    }
-  };
-
   const handleDiscard = () => {
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
@@ -360,9 +314,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
           {currentMode === 'camera' && (
             <div className="text-white text-center">
               <p className="text-sm opacity-80">
-                {mode === 'photo' ? 'Tryck för att ta foto' : 
-                 isRecording ? 'Tryck för att stoppa inspelning' : 'Tryck för att börja spela in'}
-              </p>
+              <p className="text-xs text-gray-500 mt-2">Transkriberar ljud...</p>
             </div>
           )}
           
@@ -460,24 +412,6 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
             <div className="flex items-center justify-center space-x-8">
               <button
                 onClick={handleDiscard}
-                className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center hover:bg-red-700 transition-colors"
-              >
-                <X className="w-8 h-8 text-white" />
-              </button>
-              
-              <button
-                onClick={handleConfirm}
-                disabled={capturedMedia && capturedMedia.size > 25 * 1024 * 1024}
-                className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors ${
-                  capturedMedia && capturedMedia.size > 25 * 1024 * 1024
-                    ? 'bg-gray-500 cursor-not-allowed'
-                    : 'bg-green-600 hover:bg-green-700'
-                }`}
-              >
-                <Check className="w-8 h-8 text-white" />
-              </button>
-            </div>
-            
             <p className="text-white text-center text-sm mt-4 opacity-80">
               {capturedMedia && capturedMedia.size > 25 * 1024 * 1024
                 ? 'Filen är för stor - ta om med kortare inspelning'
