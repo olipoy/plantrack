@@ -9,9 +9,10 @@ interface CameraViewProps {
   mode: 'photo' | 'video';
   onBack: () => void;
   onSave: (note: Omit<Note, 'id'>) => void;
+}
 
 export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack, onSave }) => {
-export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack, onSave }) => {
+  const [currentMode, setCurrentMode] = useState<'camera' | 'preview'>('camera');
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [capturedMedia, setCapturedMedia] = useState<Blob | null>(null);
@@ -21,6 +22,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
   const [error, setError] = useState('');
   const [transcription, setTranscription] = useState('');
   const [isCompressing, setIsCompressing] = useState(false);
+  const [compressionProgress, setCompressionProgress] = useState('');
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -240,6 +242,45 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
         name: fileName,
         type: file.type,
         size: file.size,
+        projectId
+      });
+
+      const response = await uploadFile(
+        file,
+        projectId,
+        mode,
+        (progress) => setUploadProgress(progress)
+      );
+
+      console.log('Upload response:', response);
+
+      if (response.transcription) {
+        setTranscription(response.transcription);
+      }
+
+      // Create note object
+      const note: Omit<Note, 'id'> = {
+        type: mode,
+        content: response.transcription || (mode === 'photo' ? (response.imageLabel || 'Foto taget') : 'Videoinspelning'),
+        transcription: response.transcription,
+        imageLabel: response.imageLabel,
+        timestamp: new Date(),
+        fileUrl: response.fileUrl,
+        fileName: response.originalName,
+        fileSize: response.size
+      };
+
+      console.log('Saving note:', note);
+      onSave(note);
+      
+    } catch (error) {
+      console.error('Upload failed:', error);
+      setError(error instanceof Error ? error.message : 'Uppladdning misslyckades');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const handleDiscard = () => {
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
@@ -314,7 +355,8 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
           {currentMode === 'camera' && (
             <div className="text-white text-center">
               <p className="text-sm opacity-80">
-              <p className="text-xs text-gray-500 mt-2">Transkriberar ljud...</p>
+                {mode === 'photo' ? 'Foto' : 'Video'}
+              </p>
             </div>
           )}
           
@@ -412,6 +454,20 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
             <div className="flex items-center justify-center space-x-8">
               <button
                 onClick={handleDiscard}
+                className="w-16 h-16 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-colors"
+              >
+                <X className="w-8 h-8 text-white" />
+              </button>
+              
+              <button
+                onClick={handleConfirm}
+                disabled={capturedMedia && capturedMedia.size > 25 * 1024 * 1024}
+                className="w-16 h-16 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-full flex items-center justify-center transition-colors"
+              >
+                <Check className="w-8 h-8 text-white" />
+              </button>
+            </div>
+            
             <p className="text-white text-center text-sm mt-4 opacity-80">
               {capturedMedia && capturedMedia.size > 25 * 1024 * 1024
                 ? 'Filen är för stor - ta om med kortare inspelning'
