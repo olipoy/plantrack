@@ -123,7 +123,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
     // Create a note with proper ID from backend response
     const newNote: Note = {
       id: note.id || `temp-${Date.now()}`,
-      ...note
+      ...note,
     };
     
     // Immediately update the project state to show the new note
