@@ -1,524 +1,536 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Check, X, Send, Mail } from 'lucide-react';
-import { Note } from '../types';
-import { uploadFile, generateIndividualReport, submitIndividualReport } from '../utils/api';
-import { ensureSizeLimit, formatFileSize, getVideoDuration } from '../utils/videoCompression';
+import React, { useState } from 'react';
+import { Project, Note } from '../types';
+import { ArrowLeft, Camera, Video, Type, Sparkles, FileText, Download, Mail, MoreVertical, Edit3, Send, CheckCircle } from 'lucide-react';
+import { CameraView } from './CameraView';
+import { MediaRecorder } from './MediaRecorder';
+import { summarizeNotes, updateNoteLabel, sendEmailWithPDF } from '../utils/api';
+import { exportProjectToPDF, generateProjectPDF } from '../utils/export';
 import { IndividualReportModal } from './IndividualReportModal';
 
-interface CameraViewProps {
-  projectId: string;
-  mode: 'photo' | 'video';
+interface ProjectDetailProps {
+  project: Project;
   onBack: () => void;
-  onSave: (note: Omit<Note, 'id'>) => void;
+  onProjectUpdate: (project: Project) => void;
+  onProjectDelete: () => void;
 }
 
-export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack, onSave }) => {
-  const [currentMode, setCurrentMode] = useState<'camera' | 'preview'>('camera');
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingTime, setRecordingTime] = useState(0);
-  const [capturedMedia, setCapturedMedia] = useState<Blob | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [error, setError] = useState('');
-  const [transcription, setTranscription] = useState('');
-  const [isCompressing, setIsCompressing] = useState(false);
-  const [compressionProgress, setCompressionProgress] = useState('');
+type View = 'main' | 'camera-photo' | 'camera-video' | 'text-note';
+
+export const ProjectDetail: React.FC<ProjectDetailProps> = ({ 
+  project, 
+  onBack, 
+  onProjectUpdate,
+  onProjectDelete 
+}) => {
+  const [currentView, setCurrentView] = useState<View>('main');
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailForm, setEmailForm] = useState({ to: '', subject: '', message: '' });
+  const [isEmailSending, setIsEmailSending] = useState(false);
+  const [emailSuccess, setEmailSuccess] = useState(false);
   const [showIndividualModal, setShowIndividualModal] = useState(false);
-  const [savedNoteId, setSavedNoteId] = useState<string | null>(null);
-  const [savedNote, setSavedNote] = useState<Note | null>(null);
-  
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
 
-  // Initialize camera on mount
-  useEffect(() => {
-    initializeCamera();
-    return () => {
-      cleanup();
+  // Text note state
+  const [textNoteContent, setTextNoteContent] = useState('');
+  const [isSavingTextNote, setIsSavingTextNote] = useState(false);
+
+  const handleAddNote = (note: Omit<Note, 'id'>) => {
+    console.log('Adding note to project:', note);
+    const newNote: Note = {
+      ...note,
+      id: Date.now().toString() // Temporary ID, will be replaced by backend
     };
-  }, []);
-
-  // Reset loading state when component unmounts or view changes
-  useEffect(() => {
-    return () => {
-      setIsUploading(false);
-      setUploadProgress(0);
+    
+    const updatedProject = {
+      ...project,
+      notes: [...project.notes, newNote],
+      updatedAt: new Date()
     };
-  }, []);
-
-  const initializeCamera = async () => {
-    try {
-      setError('');
-      
-      // Optimized constraints for smaller file sizes
-      const constraints = {
-        video: { 
-          facingMode: 'environment',
-          width: { ideal: 640, max: 854 },
-          height: { ideal: 480, max: 480 },
-          frameRate: { ideal: 15, max: 24 }
-        },
-        audio: mode === 'video' // Only request audio for video mode
-      };
-      
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      streamRef.current = stream;
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-    } catch (error) {
-      console.error('Camera initialization failed:', error);
-      setError('Kunde inte komma åt kameran. Kontrollera att du har gett tillåtelse till kamera' + (mode === 'video' ? ' och mikrofon' : '') + '.');
-    }
-  };
-
-  const cleanup = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-    }
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-    }
-  };
-
-  const startRecordingTimer = () => {
-    setRecordingTime(0);
-    intervalRef.current = setInterval(() => {
-      setRecordingTime(prev => prev + 1);
-    }, 1000);
-  };
-
-  const stopRecordingTimer = () => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-  };
-
-  const takePhoto = () => {
-    if (!videoRef.current || !canvasRef.current || !streamRef.current) return;
-
-    const canvas = canvasRef.current;
-    const video = videoRef.current;
-    const context = canvas.getContext('2d');
     
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    
-    if (context) {
-      context.drawImage(video, 0, 0);
-      canvas.toBlob((blob) => {
-        if (blob) {
-          setCapturedMedia(blob);
-          const url = URL.createObjectURL(blob);
-          setPreviewUrl(url);
-          setCurrentMode('preview');
-        }
-      }, 'image/jpeg', 0.9);
-    }
+    console.log('Updated project with new note:', updatedProject);
+    onProjectUpdate(updatedProject);
+    setCurrentView('main');
   };
 
-  const startVideoRecording = () => {
-    if (!streamRef.current || isRecording) return;
+  const handleGenerateSummary = async () => {
+    if (project.notes.length === 0) {
+      alert('Inga anteckningar att sammanfatta');
+      return;
+    }
 
+    setIsGeneratingSummary(true);
     try {
-      // Use more efficient codec settings for smaller files
-      let mimeType = 'video/webm;codecs=vp8,opus'; // VP8 is more efficient than VP9
-      
-      // Fallback options if VP8 is not supported
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'video/webm;codecs=vp9,opus';
-      }
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'video/webm';
-      }
-      
-      const recorder = new MediaRecorder(streamRef.current, {
-        mimeType,
-        videoBitsPerSecond: 500000, // 500 kbps - much lower than default
-        audioBitsPerSecond: 64000   // 64 kbps audio
-      });
-      
-      mediaRecorderRef.current = recorder;
-      const chunks: BlobPart[] = [];
-      
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          chunks.push(e.data);
-        }
+      const response = await summarizeNotes(project.id);
+      const updatedProject = {
+        ...project,
+        aiSummary: response.summary,
+        updatedAt: new Date()
       };
-      
-      recorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'video/webm' });
-        
-        // Compress video before preview
-        compressAndSetMedia(blob);
-      };
-      
-      recorder.start();
-      setIsRecording(true);
-      startRecordingTimer();
+      onProjectUpdate(updatedProject);
     } catch (error) {
-      console.error('Video recording failed:', error);
-      setError('Videoinspelning misslyckades. Försök igen.');
-    }
-  };
-
-  const stopVideoRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      stopRecordingTimer();
-    }
-  };
-
-  const compressAndSetMedia = async (originalBlob: Blob) => {
-    setIsCompressing(true);
-    setCompressionProgress('Komprimerar video...');
-    
-    try {
-      // Get original video info
-      const originalSize = originalBlob.size;
-      const duration = await getVideoDuration(originalBlob);
-      
-      console.log(`Original video: ${formatFileSize(originalSize)}, ${duration.toFixed(1)}s`);
-      setCompressionProgress(`Original: ${formatFileSize(originalSize)} (${duration.toFixed(1)}s)`);
-      
-      // Compress to ensure it's under 20MB (buffer for 25MB limit)
-      const compressedBlob = await ensureSizeLimit(originalBlob, 20);
-      
-      const compressionRatio = ((originalSize - compressedBlob.size) / originalSize * 100);
-      console.log(`Compressed: ${formatFileSize(compressedBlob.size)} (${compressionRatio.toFixed(1)}% reduction)`);
-      
-      setCapturedMedia(compressedBlob);
-      const url = URL.createObjectURL(compressedBlob);
-      setPreviewUrl(url);
-      setCurrentMode('preview');
-      
-    } catch (error) {
-      console.error('Compression failed:', error);
-      // Fall back to original if compression fails
-      setCapturedMedia(originalBlob);
-      const url = URL.createObjectURL(originalBlob);
-      setPreviewUrl(url);
-      setCurrentMode('preview');
-      setError('Video compression failed, using original file');
+      console.error('Summarization failed:', error);
+      alert('Kunde inte generera sammanfattning. Försök igen.');
     } finally {
-      setIsCompressing(false);
-      setCompressionProgress('');
+      setIsGeneratingSummary(false);
     }
   };
 
-  const handleCameraAction = () => {
-    if (mode === 'photo') {
-      takePhoto();
-    } else {
-      if (isRecording) {
-        stopVideoRecording();
-      } else {
-        startVideoRecording();
-      }
-    }
-  };
+  const handleSaveTextNote = async () => {
+    if (!textNoteContent.trim()) return;
 
-  const handleConfirm = async () => {
-    if (!capturedMedia) return;
-    
-    setIsUploading(true);
-    setError('');
-    
+    setIsSavingTextNote(true);
     try {
-      const fileExtension = mode === 'photo' ? 'jpg' : 'webm';
-      const fileName = `${mode}_${Date.now()}.${fileExtension}`;
-      const file = new File([capturedMedia], fileName, { 
-        type: mode === 'photo' ? 'image/jpeg' : 'video/webm'
+      // For text notes, we create them directly without file upload
+      const response = await fetch('/api/notes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('inspection_auth_token')}`,
+        },
+        body: JSON.stringify({
+          projectId: project.id,
+          type: 'text',
+          content: textNoteContent.trim()
+        }),
       });
 
-      console.log('Uploading file:', {
-        name: fileName,
-        type: file.type,
-        size: file.size,
-        projectId
-      });
+      if (!response.ok) {
+        throw new Error('Failed to save text note');
+      }
 
-      const response = await uploadFile(
-        file,
-        projectId,
-        mode,
-        (progress) => setUploadProgress(progress)
+      const savedNote = await response.json();
+      
+      const note: Note = {
+        id: savedNote.id,
+        type: 'text',
+        content: textNoteContent.trim(),
+        timestamp: new Date(),
+      };
+
+      handleAddNote(note);
+      setTextNoteContent('');
+    } catch (error) {
+      console.error('Failed to save text note:', error);
+      alert('Kunde inte spara anteckning. Försök igen.');
+    } finally {
+      setIsSavingTextNote(false);
+    }
+  };
+
+  const handleEmailProject = async () => {
+    if (!emailForm.to.trim() || !emailForm.subject.trim()) {
+      alert('E-postadress och ämne är obligatoriska');
+      return;
+    }
+
+    setIsEmailSending(true);
+    try {
+      const { pdfBuffer, fileName } = await generateProjectPDF(project);
+      
+      await sendEmailWithPDF(
+        emailForm.to.trim(),
+        emailForm.subject.trim(),
+        pdfBuffer,
+        fileName,
+        emailForm.message.trim() || undefined,
+        project.id
       );
 
-      console.log('Upload response:', response);
-
-      if (response.transcription) {
-        setTranscription(response.transcription);
-      }
-
-      // Create note object
-      const note: Omit<Note, 'id'> = {
-        type: mode,
-        content: response.transcription || (mode === 'photo' ? (response.imageLabel || 'Foto taget') : 'Videoinspelning'),
-        transcription: response.transcription,
-        imageLabel: response.imageLabel,
-        timestamp: new Date(),
-        fileUrl: response.fileUrl,
-        fileName: response.originalName,
-        fileSize: response.size
-      };
-
-      console.log('Saving note:', note);
-      
-      // Save the note first
-      onSave(note);
-      
-      // Then immediately open the individual report modal if we have a note ID
-      if (response.noteId) {
-        const noteWithId: Note = {
-          ...note,
-          id: response.noteId
-        };
-        
-        setSavedNote(noteWithId);
-        setSavedNoteId(response.noteId);
-        setShowIndividualModal(true);
-      } else {
-        // If no note ID, just go back
-        onBack();
-      }
+      setEmailSuccess(true);
+      setTimeout(() => {
+        setShowEmailModal(false);
+        setEmailSuccess(false);
+        setEmailForm({ to: '', subject: '', message: '' });
+      }, 2000);
     } catch (error) {
-      console.error('Upload failed:', error);
-      setError(error instanceof Error ? error.message : 'Uppladdning misslyckades');
+      console.error('Email sending failed:', error);
+      alert('Kunde inte skicka e-post. Försök igen.');
     } finally {
-      setIsUploading(false);
+      setIsEmailSending(false);
     }
   };
 
-  const handleIndividualModalClose = () => {
-    setShowIndividualModal(false);
-    setSavedNoteId(null);
-    setSavedNote(null);
-    onBack(); // Go back to project view after modal closes
-  };
-  const handleDiscard = () => {
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-    }
-    setCapturedMedia(null);
-    setPreviewUrl(null);
-    setCurrentMode('camera');
-    setError('');
-    setRecordingTime(0);
+  const handleNoteAction = (noteId: string, note: Note) => {
+    setSelectedNoteId(noteId);
+    setSelectedNote(note);
+    setShowIndividualModal(true);
   };
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  const formatFileSize = (bytes?: number) => {
+    if (!bytes) return '';
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
-  if (isUploading) {
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('sv-SE', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  if (currentView === 'camera-photo') {
     return (
-      <div className="fixed inset-0 bg-black flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6 max-w-sm mx-4">
-          <div className="text-center">
-            <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Laddar upp...
-            </h3>
-            <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
-              <div 
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${uploadProgress}%` }}
-              />
-            </div>
-            <p className="text-sm text-gray-600">{Math.round(uploadProgress)}% slutfört</p>
-            {mode === 'video' && (
-              <p className="text-xs text-gray-500 mt-2">Transkriberar ljud...</p>
-            )}
-          </div>
-        </div>
-      </div>
+      <CameraView
+        projectId={project.id}
+        mode="photo"
+        onBack={() => setCurrentView('main')}
+        onSave={handleAddNote}
+      />
     );
   }
 
-  if (isCompressing) {
+  if (currentView === 'camera-video') {
     return (
-      <div className="fixed inset-0 bg-black flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6 max-w-sm mx-4">
-          <div className="text-center">
-            <div className="w-12 h-12 border-4 border-green-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Komprimerar video</h3>
-            <p className="text-sm text-gray-600 mb-2">Optimerar filstorlek...</p>
-            {compressionProgress && (
-              <p className="text-xs text-gray-500">{compressionProgress}</p>
-            )}
+      <CameraView
+        projectId={project.id}
+        mode="video"
+        onBack={() => setCurrentView('main')}
+        onSave={handleAddNote}
+      />
+    );
+  }
+
+  if (currentView === 'text-note') {
+    return (
+      <div className="flex flex-col h-full">
+        <div className="bg-white border-b border-gray-200 px-4 py-3">
+          <div className="flex items-center">
+            <button
+              onClick={() => setCurrentView('main')}
+              className="mr-3 p-2 -ml-2 text-gray-600 hover:text-gray-900 active:bg-gray-100 rounded-lg transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <h1 className="text-lg font-semibold text-gray-900">Textanteckning</h1>
           </div>
+        </div>
+
+        <div className="flex-1 p-4">
+          <textarea
+            value={textNoteContent}
+            onChange={(e) => setTextNoteContent(e.target.value)}
+            placeholder="Skriv din anteckning här..."
+            className="w-full h-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-lg"
+          />
+        </div>
+
+        <div className="p-4 bg-white border-t border-gray-200">
+          <button
+            onClick={handleSaveTextNote}
+            disabled={!textNoteContent.trim() || isSavingTextNote}
+            className="w-full bg-blue-600 text-white py-3 px-4 rounded-xl font-medium hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+          >
+            {isSavingTextNote ? (
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              'Spara anteckning'
+            )}
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 bg-black z-50 flex flex-col">
+    <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/50 to-transparent">
-        <div className="flex items-center justify-between p-4 pt-12">
-          <button
-            onClick={onBack}
-            className="p-2 text-white hover:bg-white/20 rounded-full transition-colors"
-          >
-            <ArrowLeft className="w-6 h-6" />
-          </button>
-          
-          {currentMode === 'camera' && (
-            <div className="text-white text-center">
-              <p className="text-sm opacity-80">
-                {mode === 'photo' ? 'Foto' : 'Video'}
-              </p>
+      <div className="bg-white border-b border-gray-200 px-4 py-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center min-w-0 flex-1">
+            <button
+              onClick={onBack}
+              className="mr-3 p-2 -ml-2 text-gray-600 hover:text-gray-900 active:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-lg font-semibold text-gray-900 truncate">{project.name}</h1>
+              <p className="text-sm text-gray-500 truncate">{project.location}</p>
             </div>
-          )}
-          
-          <div className="w-10" />
+          </div>
+          <div className="flex items-center space-x-2 flex-shrink-0">
+            <button
+              onClick={() => setShowEmailModal(true)}
+              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <Mail className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => exportProjectToPDF(project)}
+              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <Download className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Camera View */}
-      {currentMode === 'camera' && (
-        <>
-          <video
-            ref={videoRef}
-            autoPlay
-            muted
-            playsInline
-            className="w-full h-full object-cover"
-          />
-          
-          {/* Recording indicator */}
-          {isRecording && (
-            <div className="absolute top-20 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-4 py-2 rounded-full flex items-center">
-              <div className="w-3 h-3 bg-white rounded-full mr-2 animate-pulse" />
-              {formatTime(recordingTime)}
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto pb-20">
+        {/* AI Summary Section */}
+        {project.aiSummary && (
+          <div className="bg-gradient-to-r from-purple-50 to-blue-50 border-b border-gray-200 p-4">
+            <div className="flex items-start">
+              <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center mr-3 flex-shrink-0">
+                <Sparkles className="w-4 h-4 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-medium text-gray-900 mb-2">AI-Sammanfattning</h3>
+                <div className="text-sm text-gray-700 whitespace-pre-wrap">
+                  {project.aiSummary}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Generate Summary Button */}
+        {project.notes.length > 0 && !project.aiSummary && (
+          <div className="p-4 border-b border-gray-200">
+            <button
+              onClick={handleGenerateSummary}
+              disabled={isGeneratingSummary}
+              className="w-full bg-purple-600 text-white py-3 px-4 rounded-xl font-medium hover:bg-purple-700 disabled:bg-purple-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+            >
+              {isGeneratingSummary ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  Genererar sammanfattning...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Generera AI-sammanfattning
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* Notes List */}
+        <div className="p-4">
+          {project.notes.length === 0 ? (
+            <div className="text-center py-12">
+              <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Inga anteckningar än</h3>
+              <p className="text-gray-500">Lägg till foton, videor eller textanteckningar för att komma igång.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {project.notes.map((note) => (
+                <div
+                  key={note.id}
+                  className="bg-white rounded-xl p-4 shadow-sm border border-gray-200"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start flex-1 min-w-0">
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center mr-3 flex-shrink-0 ${
+                        note.type === 'photo' ? 'bg-green-100' :
+                        note.type === 'video' ? 'bg-red-100' : 'bg-blue-100'
+                      }`}>
+                        {note.type === 'photo' ? (
+                          <Camera className={`w-5 h-5 ${note.type === 'photo' ? 'text-green-600' : ''}`} />
+                        ) : note.type === 'video' ? (
+                          <Video className={`w-5 h-5 ${note.type === 'video' ? 'text-red-600' : ''}`} />
+                        ) : (
+                          <Type className={`w-5 h-5 ${note.type === 'text' ? 'text-blue-600' : ''}`} />
+                        )}
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium text-gray-900 capitalize">
+                            {note.type === 'photo' ? 'Foto' : 
+                             note.type === 'video' ? 'Video' : 'Text'}
+                            {note.fileSize && (
+                              <span className="text-gray-500 font-normal ml-2">
+                                ({formatFileSize(note.fileSize)})
+                              </span>
+                            )}
+                          </span>
+                          <div className="flex items-center space-x-2">
+                            {note.submitted && (
+                              <CheckCircle className="w-4 h-4 text-green-600" title="Skickad" />
+                            )}
+                            <button
+                              onClick={() => handleNoteAction(note.id, note)}
+                              className="p-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors"
+                              title="Skicka enskild rapport"
+                            >
+                              <Send className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                        
+                        <p className="text-sm text-gray-700 mb-2 line-clamp-3">
+                          {note.transcription || note.content}
+                        </p>
+                        
+                        {note.fileUrl && (
+                          <div className="mt-3">
+                            {note.type === 'photo' ? (
+                              <img 
+                                src={note.fileUrl} 
+                                alt="Note attachment" 
+                                className="w-full max-w-xs h-32 object-cover rounded-lg border border-gray-200"
+                              />
+                            ) : note.type === 'video' ? (
+                              <video 
+                                src={note.fileUrl} 
+                                className="w-full max-w-xs h-32 object-cover rounded-lg border border-gray-200"
+                                controls
+                              />
+                            ) : null}
+                          </div>
+                        )}
+                        
+                        <p className="text-xs text-gray-500 mt-2">
+                          {formatDate(note.timestamp)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
+        </div>
+      </div>
 
-          {/* Camera Controls */}
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-8">
-            <div className="flex items-center justify-center">
+      {/* Fixed Action Buttons */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 safe-area-pb">
+        <div className="grid grid-cols-3 gap-3">
+          <button
+            onClick={() => setCurrentView('camera-photo')}
+            className="flex flex-col items-center justify-center py-3 px-4 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors"
+          >
+            <Camera className="w-6 h-6 mb-1" />
+            <span className="text-xs font-medium">Foto</span>
+          </button>
+          
+          <button
+            onClick={() => setCurrentView('camera-video')}
+            className="flex flex-col items-center justify-center py-3 px-4 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors"
+          >
+            <Video className="w-6 h-6 mb-1" />
+            <span className="text-xs font-medium">Video</span>
+          </button>
+          
+          <button
+            onClick={() => setCurrentView('text-note')}
+            className="flex flex-col items-center justify-center py-3 px-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"
+          >
+            <Type className="w-6 h-6 mb-1" />
+            <span className="text-xs font-medium">Text</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Email Modal */}
+      {showEmailModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-900">Skicka rapport</h2>
               <button
-                onClick={handleCameraAction}
-                className={`w-20 h-20 rounded-full border-4 border-white flex items-center justify-center transition-all duration-200 ${
-                  isRecording 
-                    ? 'bg-red-600 scale-110' 
-                    : 'bg-white/20 hover:bg-white/30 active:scale-95'
-                }`}
+                onClick={() => setShowEmailModal(false)}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                <div className={`rounded-full transition-all duration-200 ${
-                  isRecording 
-                    ? 'w-6 h-6 bg-white' 
-                    : mode === 'photo'
-                    ? 'w-16 h-16 bg-white'
-                    : 'w-6 h-6 bg-red-600'
-                }`} />
+                ×
               </button>
             </div>
-            
-            <p className="text-white text-center text-sm mt-4 opacity-80">
-              {mode === 'photo' ? 'Tryck för att ta foto' :
-               isRecording ? 'Tryck för att stoppa' : 'Tryck för att börja spela in'}
-            </p>
-          </div>
-        </>
-      )}
 
-      {/* Preview Mode */}
-      {currentMode === 'preview' && previewUrl && (
-        <>
-          <div className="flex-1 flex items-center justify-center">
-            {mode === 'photo' ? (
-              <img 
-                src={previewUrl} 
-                alt="Preview" 
-                className="max-w-full max-h-full object-contain"
-              />
+            {emailSuccess ? (
+              <div className="p-6 text-center">
+                <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Rapport skickad!</h3>
+                <p className="text-gray-600">E-posten har skickats till {emailForm.to}</p>
+              </div>
             ) : (
-              <video 
-                src={previewUrl} 
-                controls 
-                className="max-w-full max-h-full object-contain"
-              />
-            )}
-          </div>
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    E-postadress
+                  </label>
+                  <input
+                    type="email"
+                    value={emailForm.to}
+                    onChange={(e) => setEmailForm(prev => ({ ...prev, to: e.target.value }))}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="mottagare@email.se"
+                  />
+                </div>
 
-          {/* Preview Controls */}
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-8">
-            {transcription && (
-              <div className="bg-black/70 rounded-lg p-4 mb-6">
-                <p className="text-white text-sm">{transcription}</p>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Ämne
+                  </label>
+                  <input
+                    type="text"
+                    value={emailForm.subject}
+                    onChange={(e) => setEmailForm(prev => ({ ...prev, subject: e.target.value }))}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Inspektionsrapport"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Meddelande (valfritt)
+                  </label>
+                  <textarea
+                    value={emailForm.message}
+                    onChange={(e) => setEmailForm(prev => ({ ...prev, message: e.target.value }))}
+                    rows={3}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    placeholder="Lägg till ett meddelande..."
+                  />
+                </div>
+
+                <div className="flex space-x-3 pt-4">
+                  <button
+                    onClick={() => setShowEmailModal(false)}
+                    className="flex-1 px-6 py-3 text-gray-600 hover:text-gray-800 transition-colors"
+                  >
+                    Avbryt
+                  </button>
+                  <button
+                    onClick={handleEmailProject}
+                    disabled={isEmailSending || !emailForm.to.trim() || !emailForm.subject.trim()}
+                    className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                  >
+                    {isEmailSending ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      'Skicka'
+                    )}
+                  </button>
+                </div>
               </div>
             )}
-            
-            {/* Show file size info */}
-            {capturedMedia && (
-              <div className="bg-black/70 rounded-lg p-3 mb-4">
-                <p className="text-white text-xs text-center">
-                  Filstorlek: {formatFileSize(capturedMedia.size)}
-                  {capturedMedia.size > 20 * 1024 * 1024 && (
-                    <span className="text-yellow-300 ml-2">⚠️ Stor fil</span>
-                  )}
-                </p>
-              </div>
-            )}
-            
-            <div className="flex items-center justify-center space-x-8">
-              <button
-                onClick={handleDiscard}
-                className="w-16 h-16 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-colors"
-              >
-                <X className="w-8 h-8 text-white" />
-              </button>
-              
-              <button
-                onClick={handleConfirm}
-                disabled={capturedMedia && capturedMedia.size > 25 * 1024 * 1024}
-                className="w-16 h-16 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-full flex items-center justify-center transition-colors"
-              >
-                <Check className="w-8 h-8 text-white" />
-              </button>
-            </div>
-            
-            <p className="text-white text-center text-sm mt-4 opacity-80">
-              {capturedMedia && capturedMedia.size > 25 * 1024 * 1024
-                ? 'Filen är för stor - ta om med kortare inspelning'
-                : 'Ta om • Spara'
-              }
-            </p>
           </div>
-        </>
-      )}
-
-      {/* Error Message */}
-      {error && (
-        <div className="absolute bottom-20 left-4 right-4 bg-red-600 text-white p-4 rounded-lg">
-          <p className="text-sm">{error}</p>
         </div>
       )}
 
-      <canvas ref={canvasRef} className="hidden" />
-      
       {/* Individual Report Modal */}
-      {showIndividualModal && savedNoteId && savedNote && (
+      {showIndividualModal && selectedNoteId && selectedNote && (
         <IndividualReportModal
-          noteId={savedNoteId}
-          note={savedNote}
-          onClose={handleIndividualModalClose}
+          noteId={selectedNoteId}
+          note={selectedNote}
+          onClose={() => {
+            setShowIndividualModal(false);
+            setSelectedNoteId(null);
+            setSelectedNote(null);
+          }}
         />
       )}
     </div>
