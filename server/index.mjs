@@ -311,6 +311,22 @@ app.delete('/api/projects/:id', authenticateToken, async (req, res) => {
 // Serve static files from the built frontend in production
 if (NODE_ENV === 'production') {
   const distPath = join(__dirname, '../dist');
+  
+  console.log('Production mode: serving static files from', distPath);
+  
+  // Serve static assets with proper MIME types and caching
+  app.use('/assets', express.static(join(distPath, 'assets'), {
+    maxAge: '1y',
+    setHeaders: (res, path) => {
+      if (path.endsWith('.css')) {
+        res.setHeader('Content-Type', 'text/css');
+      } else if (path.endsWith('.js')) {
+        res.setHeader('Content-Type', 'application/javascript');
+      }
+    }
+  }));
+  
+  // Serve other static files
   app.use(express.static(distPath));
   
   // Serve uploaded files with proper error handling
@@ -320,9 +336,9 @@ if (NODE_ENV === 'production') {
   }));
   
   // Handle client-side routing - serve index.html for all non-API routes
-  app.use((req, res, next) => {
+  app.get('*', (req, res, next) => {
     // Skip API routes
-    if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) {
+    if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/') || req.path.startsWith('/assets/')) {
       return next();
     }
     res.sendFile(join(distPath, 'index.html'));
