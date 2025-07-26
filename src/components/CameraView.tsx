@@ -275,17 +275,24 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
       };
 
       console.log('Saving note:', note);
+      
+      // Save the note first
       onSave(note);
       
-      // Create a temporary note with ID for the modal
-      const noteWithId: Note = {
-        ...note,
-        id: response.noteId || 'temp-' + Date.now()
-      };
-      
-      setSavedNote(noteWithId);
-      setSavedNoteId(noteWithId.id);
-      setShowIndividualModal(true);
+      // Then immediately open the individual report modal if we have a note ID
+      if (response.noteId) {
+        const noteWithId: Note = {
+          ...note,
+          id: response.noteId
+        };
+        
+        setSavedNote(noteWithId);
+        setSavedNoteId(response.noteId);
+        setShowIndividualModal(true);
+      } else {
+        // If no note ID, just go back
+        onBack();
+      }
     } catch (error) {
       console.error('Upload failed:', error);
       setError(error instanceof Error ? error.message : 'Uppladdning misslyckades');
