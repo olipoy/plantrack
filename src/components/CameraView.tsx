@@ -38,6 +38,14 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
     };
   }, []);
 
+  // Reset loading state when component unmounts or view changes
+  useEffect(() => {
+    return () => {
+      setIsUploading(false);
+      setUploadProgress(0);
+    };
+  }, []);
+
   const initializeCamera = async () => {
     try {
       setError('');
@@ -238,8 +246,6 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
         mode
       });
 
-      // Create a temporary blob URL for immediate display
-      const tempFileUrl = URL.createObjectURL(capturedMedia);
 
       const uploadResponse = await uploadFile(
         file,
@@ -259,7 +265,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
           content: mode === 'photo' ? 'Foto taget' : 'Videoinspelning',
           transcription: uploadResponse.transcription,
           timestamp: new Date(),
-          fileUrl: tempFileUrl, // Use temp URL for immediate display
+          fileUrl: uploadResponse.fileUrl, // Use actual uploaded file URL
           fileName: uploadResponse.originalName,
           fileSize: uploadResponse.size
         };
@@ -272,8 +278,9 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
     } catch (error) {
       console.error('Error saving media:', error);
       setError(error instanceof Error ? error.message : 'Uppladdning misslyckades. Kontrollera internetanslutningen och försök igen.');
+      setIsUploading(false); // Reset loading state on error
     } finally {
-      setIsUploading(false);
+      // Don't reset here since we want to close the camera view on success
     }
   };
 

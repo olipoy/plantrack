@@ -48,16 +48,16 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const handleCameraCapture = (note: Omit<Note, 'id'>) => {
     console.log('Camera capture completed, adding note:', note);
     
-    // Create a temporary note with a generated ID for immediate display
-    const tempNote: Note = {
-      id: `temp-${Date.now()}`,
+    // Create a note with proper ID from backend response
+    const newNote: Note = {
+      id: note.id || `temp-${Date.now()}`,
       ...note
     };
     
     // Immediately update the project state to show the new note
     const updatedProject = {
       ...project,
-      notes: [tempNote, ...project.notes],
+      notes: [newNote, ...project.notes],
       updatedAt: new Date()
     };
     
@@ -669,14 +669,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                           }}
                         />
                         {/* Show loading overlay for temporary notes */}
-                        {note.id.startsWith('temp-') && (
-                          <div className="absolute inset-0 bg-black bg-opacity-30 rounded-lg flex items-center justify-center">
-                            <div className="bg-white rounded-lg p-3 flex items-center">
-                              <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mr-2" />
-                              <span className="text-sm font-medium text-gray-700">Laddar upp...</span>
-                            </div>
-                          </div>
-                        )}
                       </div>
                     ) : note.type === 'video' ? (
                       <div className="relative">
@@ -692,15 +684,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                         >
                           Din webbläsare stöder inte videouppspelning.
                         </video>
-                        {/* Show loading overlay for temporary notes */}
-                        {note.id.startsWith('temp-') && (
-                          <div className="absolute inset-0 bg-black bg-opacity-30 rounded-lg flex items-center justify-center">
-                            <div className="bg-white rounded-lg p-3 flex items-center">
-                              <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mr-2" />
-                              <span className="text-sm font-medium text-gray-700">Laddar upp...</span>
-                            </div>
-                          </div>
-                        )}
                       </div>
                     ) : null}
                   </div>
