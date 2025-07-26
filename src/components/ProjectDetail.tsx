@@ -303,10 +303,11 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   };
 
   const handleSendIndividualReport = () => {
-    if (!selectedNoteForReport) return;
+  const handleSendIndividualReport = (note: Note) => {
+    setSelectedNoteForReport(note);
+    setIndividualReportContent(note.individualReport || '');
     
-    setIndividualEmailSubject(`Inspektionsrapport - ${project.name} - ${selectedNoteForReport.imageLabel || 'Enskild post'}`);
-    setShowIndividualReportModal(false);
+    setIndividualEmailSubject(`Inspektionsrapport - ${project.name} - ${note.imageLabel || 'Enskild post'}`);
     setShowIndividualEmailModal(true);
   };
 
@@ -623,7 +624,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                           autoFocus
                         />
                         <button
-                          onClick={() => handleSaveLabel(note.id)}
+                          onClick={() => handleSendIndividualReport(note)}
                           className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                         >
                           <Check className="w-4 h-4" />
