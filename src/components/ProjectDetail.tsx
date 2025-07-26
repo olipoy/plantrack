@@ -530,7 +530,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
                       <div className="w-2 h-2 bg-green-600 rounded-full mr-2" />
-                      Skickad {note.submittedAt ? formatDate(note.submittedAt) : ''}
+                      Skickad {note.submittedAt ? formatDate(new Date(note.submittedAt)) : ''}
                     </div>
                   </div>
                 )}

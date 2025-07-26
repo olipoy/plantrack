@@ -153,7 +153,10 @@ const noteDb = {
       id: n.id, 
       type: n.type, 
       content: n.content?.substring(0, 30),
-      hasFiles: n.files && n.files.length > 0 
+      hasFiles: n.files && n.files.length > 0,
+      submitted: n.submitted,
+      submittedAt: n.submitted_at,
+      hasIndividualReport: !!n.individual_report
     })));
     return result.rows;
   },

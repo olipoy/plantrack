@@ -179,6 +179,9 @@ function App() {
             transcription: note.transcription,
             imageLabel: note.image_label,
             timestamp: new Date(note.created_at),
+            submitted: note.submitted || false,
+            submittedAt: note.submitted_at ? new Date(note.submitted_at) : undefined,
+            individualReport: note.individual_report,
             fileUrl: note.files && note.files.length > 0 ? note.files[0].file_url : undefined,
             fileName: note.files && note.files.length > 0 ? note.files[0].file_name : undefined,
             fileSize: note.files && note.files.length > 0 ? note.files[0].file_size : undefined
