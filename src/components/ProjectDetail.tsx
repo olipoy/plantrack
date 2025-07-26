@@ -302,7 +302,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
     setShowIndividualReportModal(true);
   };
 
-  const handleSendIndividualReport = () => {
   const handleSendIndividualReport = (note: Note) => {
     setSelectedNoteForReport(note);
     setIndividualReportContent(note.individualReport || '');
@@ -580,7 +579,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                         </button>
                         {!note.submitted && (
                           <button
-                            onClick={handleSendIndividualReport}
+                            onClick={() => handleSendIndividualReport(note)}
                             className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                             title="Skicka rapport"
                           >
@@ -624,7 +623,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                           autoFocus
                         />
                         <button
-                          onClick={() => handleSendIndividualReport(note)}
+                          onClick={() => handleSaveLabel(note.id)}
                           className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                         >
                           <Check className="w-4 h-4" />
@@ -879,7 +878,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
               <div className="flex space-x-2">
                 {!selectedNoteForReport.submitted && (
                   <button
-                    onClick={handleSendIndividualReport}
+                    onClick={() => handleSendIndividualReport(selectedNoteForReport)}
                     className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                     title="Skicka via e-post"
                   >
