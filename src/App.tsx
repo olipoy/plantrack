@@ -178,6 +178,7 @@ function App() {
             content: note.content,
             transcription: note.transcription,
             imageLabel: note.image_label,
+            isLabelLoading: note.type === 'photo' && !note.image_label,
             timestamp: new Date(note.created_at),
             submitted: note.submitted || false,
             submittedAt: note.submitted_at ? new Date(note.submitted_at) : undefined,

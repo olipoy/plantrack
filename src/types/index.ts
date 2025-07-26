@@ -17,6 +17,7 @@ export interface Note {
   content: string;
   transcription?: string;
   imageLabel?: string;
+  isLabelLoading?: boolean;
   timestamp: Date;
   fileUrl?: string;
   fileName?: string;

@@ -264,6 +264,8 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
           type: mode,
           content: mode === 'photo' ? 'Foto taget' : 'Videoinspelning',
           transcription: uploadResponse.transcription,
+          imageLabel: uploadResponse.imageLabel,
+          isLabelLoading: mode === 'photo' && !uploadResponse.imageLabel,
           timestamp: new Date(),
           fileUrl: uploadResponse.fileUrl, // Use actual uploaded file URL
           fileName: uploadResponse.originalName,

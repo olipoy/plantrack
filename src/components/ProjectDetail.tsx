@@ -45,6 +45,67 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const [individualEmailMessage, setIndividualEmailMessage] = useState('');
   const [isSendingIndividualEmail, setIsSendingIndividualEmail] = useState(false);
 
+  // Polling for image labels that are still loading
+  useEffect(() => {
+    const notesWithLoadingLabels = project.notes.filter(note => 
+      note.type === 'photo' && note.isLabelLoading
+    );
+    
+    if (notesWithLoadingLabels.length === 0) return;
+    
+    const pollForLabels = async () => {
+      try {
+        // Reload project to get updated labels
+        const updatedProject = await getProjectById(project.id);
+        
+        // Convert backend project to frontend format
+        const formattedProject: Project = {
+          id: updatedProject.id,
+          name: updatedProject.name,
+          location: updatedProject.location || '',
+          date: new Date(updatedProject.project_date || updatedProject.created_at),
+          inspector: updatedProject.inspector || '',
+          createdAt: new Date(updatedProject.created_at),
+          updatedAt: new Date(updatedProject.updated_at || updatedProject.created_at),
+          notes: (updatedProject.notes || []).map((note: any) => ({
+            id: note.id,
+            type: note.type,
+            content: note.content,
+            transcription: note.transcription,
+            imageLabel: note.image_label,
+            isLabelLoading: note.type === 'photo' && !note.image_label,
+            timestamp: new Date(note.created_at),
+            submitted: note.submitted || false,
+            submittedAt: note.submitted_at ? new Date(note.submitted_at) : undefined,
+            individualReport: note.individual_report,
+            fileUrl: note.files && note.files.length > 0 ? note.files[0].file_url : undefined,
+            fileName: note.files && note.files.length > 0 ? note.files[0].file_name : undefined,
+            fileSize: note.files && note.files.length > 0 ? note.files[0].file_size : undefined
+          })),
+          aiSummary: updatedProject.ai_summary,
+          noteCount: (updatedProject.notes || []).length
+        };
+        
+        // Check if any labels are still loading
+        const stillLoading = formattedProject.notes.some(note => note.isLabelLoading);
+        
+        onProjectUpdate(formattedProject);
+        
+        // Continue polling if labels are still loading
+        if (stillLoading) {
+          setTimeout(pollForLabels, 3000); // Poll every 3 seconds
+        }
+      } catch (error) {
+        console.error('Error polling for image labels:', error);
+      }
+    };
+    
+    // Start polling after 2 seconds (give backend time to process)
+    const timeoutId = setTimeout(pollForLabels, 2000);
+    
+    return () => clearTimeout(timeoutId);
+  }, [project.notes, project.id, onProjectUpdate]);
+
   const handleCameraCapture = (note: Omit<Note, 'id'>) => {
     console.log('Camera capture completed, adding note:', note);
     
@@ -646,6 +707,19 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                         </button>
                       </div>
                     )}
+                  </div>
+                ) : note.type === 'photo' && note.isLabelLoading ? (
+                  <div className="mb-3">
+                    <div className="flex items-center bg-blue-50 rounded-lg p-3">
+                      <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mr-3" />
+                      <span className="text-blue-800 text-sm font-medium">Analyserar bild...</span>
+                    </div>
+                  </div>
+                ) : note.type === 'photo' ? (
+                  <div className="mb-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-lg font-medium text-gray-500">Foto</h4>
+                    </div>
                   </div>
                 ) : note.type !== 'photo' && (
                   <div className="mb-3">

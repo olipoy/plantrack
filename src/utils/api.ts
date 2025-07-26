@@ -22,6 +22,7 @@ export interface UploadResponse {
   success: boolean;
   fileUrl: string;
   transcription?: string;
+  imageLabel?: string;
   filename: string;
   originalName: string;
   mimeType: string;

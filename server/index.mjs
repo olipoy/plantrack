@@ -771,6 +771,7 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
       noteId: note.id,
       fileUrl,
       transcription,
+      imageLabel,
       filename: req.file.filename,
       originalName: req.file.originalname,
       mimeType: req.file.mimetype,
