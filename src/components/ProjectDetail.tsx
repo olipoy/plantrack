@@ -611,4 +611,137 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
   );
 };
 
-export { ProjectDetail };
+interface ProjectDetailProps {
+  project: any;
+  onBack: () => void;
+  onProjectUpdate: (project: any) => void;
+  onProjectDelete: () => void;
+}
+
+export const ProjectDetail: React.FC<ProjectDetailProps> = ({ 
+  project, 
+  onBack, 
+  onProjectUpdate, 
+  onProjectDelete 
+}) => {
+  const [currentView, setCurrentView] = useState<'detail' | 'camera-photo' | 'camera-video'>('detail');
+
+  const handleCameraBack = () => {
+    setCurrentView('detail');
+  };
+
+  const handleNoteSave = (note: Omit<Note, 'id'>) => {
+    // Add the note to the project and update
+    const updatedProject = {
+      ...project,
+      notes: [...(project.notes || []), { ...note, id: Date.now().toString() }],
+      updatedAt: new Date()
+    };
+    onProjectUpdate(updatedProject);
+    setCurrentView('detail');
+  };
+
+  if (currentView === 'camera-photo') {
+    return (
+      <CameraView
+        projectId={project.id}
+        mode="photo"
+        onBack={handleCameraBack}
+        onSave={handleNoteSave}
+      />
+    );
+  }
+
+  if (currentView === 'camera-video') {
+    return (
+      <CameraView
+        projectId={project.id}
+        mode="video"
+        onBack={handleCameraBack}
+        onSave={handleNoteSave}
+      />
+    );
+  }
+
+  return (
+    <div className="h-full bg-gray-50 flex flex-col">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 px-4 py-6">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={onBack}
+            className="p-2 text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            <ArrowLeft className="w-6 h-6" />
+          </button>
+          <h1 className="text-xl font-bold text-gray-900">{project.name}</h1>
+          <div className="w-10" />
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto p-4">
+        <div className="space-y-4">
+          {/* Project Info */}
+          <div className="bg-white rounded-lg p-4 shadow-sm">
+            <h2 className="text-lg font-semibold text-gray-900 mb-3">Projektinformation</h2>
+            <div className="space-y-2">
+              <p className="text-sm text-gray-600">
+                <span className="font-medium">Plats:</span> {project.location}
+              </p>
+              <p className="text-sm text-gray-600">
+                <span className="font-medium">Datum:</span> {project.date?.toLocaleDateString()}
+              </p>
+              <p className="text-sm text-gray-600">
+                <span className="font-medium">Inspektör:</span> {project.inspector}
+              </p>
+            </div>
+          </div>
+
+          {/* Camera Actions */}
+          <div className="bg-white rounded-lg p-4 shadow-sm">
+            <h2 className="text-lg font-semibold text-gray-900 mb-3">Lägg till dokumentation</h2>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setCurrentView('camera-photo')}
+                className="flex flex-col items-center p-4 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+              >
+                <div className="w-8 h-8 mb-2">📷</div>
+                <span className="text-sm font-medium">Ta foto</span>
+              </button>
+              <button
+                onClick={() => setCurrentView('camera-video')}
+                className="flex flex-col items-center p-4 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-colors"
+              >
+                <div className="w-8 h-8 mb-2">🎥</div>
+                <span className="text-sm font-medium">Spela in video</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Notes */}
+          {project.notes && project.notes.length > 0 && (
+            <div className="bg-white rounded-lg p-4 shadow-sm">
+              <h2 className="text-lg font-semibold text-gray-900 mb-3">Anteckningar</h2>
+              <div className="space-y-3">
+                {project.notes.map((note: Note) => (
+                  <div key={note.id} className="border border-gray-200 rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs text-gray-500">
+                        {note.type === 'photo' ? '📷 Foto' : '🎥 Video'}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {note.timestamp.toLocaleString()}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-800">{note.content}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
