@@ -139,6 +139,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   };
 
   const handleDirectSend = async (note: Omit<Note, 'id'>) => {
+    console.log('🔍 DEBUG: handleDirectSend called with note:', note);
     console.log('Direct send initiated from camera:', note);
     
     try {
@@ -183,9 +184,11 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
       
       // Go back to detail view and show email modal
       setCurrentView('detail');
+      console.log('🔍 DEBUG: Setting direct send note and showing email modal');
       setShowIndividualEmailModal(true);
       
     } catch (error) {
+      console.error('🔍 DEBUG: Error in handleDirectSend:', error);
       console.error('Error in direct send:', error);
       alert('Kunde inte förbereda rapporten för skickning. Försök igen.');
       
