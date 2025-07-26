@@ -25,7 +25,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const [cameraMode, setCameraMode] = useState<'photo' | 'video'>('photo');
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [autoOpenIndividualReport, setAutoOpenIndividualReport] = useState<string | null>(null);
-  const [autoOpenIndividualReport, setAutoOpenIndividualReport] = useState<string | null>(null);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
