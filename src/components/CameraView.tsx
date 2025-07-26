@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Check, X } from 'lucide-react';
+import { ArrowLeft, Check, X, Mail } from 'lucide-react';
 import { Note } from '../types';
 import { uploadFile } from '../utils/api';
 import { ensureSizeLimit, formatFileSize, getVideoDuration } from '../utils/videoCompression';
@@ -9,6 +9,7 @@ interface CameraViewProps {
   mode: 'photo' | 'video';
   onBack: () => void;
   onSave: (note: Omit<Note, 'id'>) => void;
+  onDirectSend?: (note: Omit<Note, 'id'>) => void;
 }
 
 export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack, onSave }) => {
@@ -23,6 +24,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
   const [transcription, setTranscription] = useState('');
   const [isCompressing, setIsCompressing] = useState(false);
   const [compressionProgress, setCompressionProgress] = useState('');
+  const [isDirectSending, setIsDirectSending] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -286,6 +288,62 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
     }
   };
 
+  const handleDirectSend = async () => {
+    if (!capturedMedia) return;
+    
+    setIsDirectSending(true);
+    setError('');
+    
+    try {
+      const fileExtension = mode === 'photo' ? 'jpg' : 'webm';
+      const fileName = `${mode}_${Date.now()}.${fileExtension}`;
+      const file = new File([capturedMedia], fileName, { 
+        type: mode === 'photo' ? 'image/jpeg' : 'video/webm'
+      });
+
+      console.log('Direct send - uploading file:', {
+        name: fileName,
+        type: file.type,
+        size: file.size,
+        projectId,
+        mode
+      });
+
+      const uploadResponse = await uploadFile(
+        file,
+        projectId,
+        mode,
+        (progress) => setUploadProgress(progress)
+      );
+
+      console.log('Direct send - upload response:', uploadResponse);
+
+      if (uploadResponse.success) {
+        const note: Omit<Note, 'id'> = {
+          type: mode,
+          content: mode === 'photo' ? 'Foto taget' : 'Videoinspelning',
+          transcription: uploadResponse.transcription,
+          imageLabel: uploadResponse.imageLabel,
+          isLabelLoading: mode === 'photo' && !uploadResponse.imageLabel,
+          timestamp: new Date(),
+          fileUrl: uploadResponse.fileUrl,
+          fileName: uploadResponse.originalName,
+          fileSize: uploadResponse.size
+        };
+        
+        console.log('Direct send - calling onDirectSend with note:', note);
+        if (onDirectSend) {
+          onDirectSend(note);
+        }
+      } else {
+        throw new Error('Upload failed');
+      }
+    } catch (error) {
+      console.error('Error in direct send:', error);
+      setError(error instanceof Error ? error.message : 'Uppladdning misslyckades. Kontrollera internetanslutningen och försök igen.');
+      setIsDirectSending(false);
+    }
+  };
   const handleDiscard = () => {
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
@@ -309,7 +367,9 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
         <div className="bg-white rounded-lg p-6 max-w-sm mx-4">
           <div className="text-center">
             <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Laddar upp...</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              {isDirectSending ? 'Förbereder för skickning...' : 'Laddar upp...'}
+            </h3>
             <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
               <div 
                 className="bg-blue-600 h-2 rounded-full transition-all duration-300"
@@ -319,6 +379,9 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
             <p className="text-sm text-gray-600">{Math.round(uploadProgress)}% slutfört</p>
             {mode === 'video' && (
               <p className="text-xs text-gray-500 mt-2">Transkriberar ljud...</p>
+            )}
+            {isDirectSending && (
+              <p className="text-xs text-gray-500 mt-2">Förbereder rapport för skickning...</p>
             )}
           </div>
         </div>
@@ -464,6 +527,19 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
               </button>
               
               <button
+                onClick={handleDirectSend}
+                disabled={capturedMedia && capturedMedia.size > 25 * 1024 * 1024}
+                className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors ${
+                  capturedMedia && capturedMedia.size > 25 * 1024 * 1024
+                    ? 'bg-gray-500 cursor-not-allowed'
+                    : 'bg-purple-600 hover:bg-purple-700'
+                }`}
+                title="Skicka rapport direkt"
+              >
+                <Mail className="w-8 h-8 text-white" />
+              </button>
+              
+              <button
                 onClick={handleConfirm}
                 disabled={capturedMedia && capturedMedia.size > 25 * 1024 * 1024}
                 className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors ${
@@ -479,7 +555,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
             <p className="text-white text-center text-sm mt-4 opacity-80">
               {capturedMedia && capturedMedia.size > 25 * 1024 * 1024
                 ? 'Filen är för stor - ta om med kortare inspelning'
-                : 'Behåll eller ta om'
+                : 'Ta om • Skicka rapport • Spara'
               }
             </p>
           </div>

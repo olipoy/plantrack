@@ -44,6 +44,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const [individualEmailSubject, setIndividualEmailSubject] = useState('');
   const [individualEmailMessage, setIndividualEmailMessage] = useState('');
   const [isSendingIndividualEmail, setIsSendingIndividualEmail] = useState(false);
+  const [directSendNote, setDirectSendNote] = useState<Note | null>(null);
 
   // Polling for image labels that are still loading
   useEffect(() => {
@@ -127,6 +128,72 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
     setCurrentView('detail');
   };
 
+  const handleDirectSend = async (note: Omit<Note, 'id'>) => {
+    console.log('Direct send initiated from camera:', note);
+    
+    try {
+      // First, add the note to the project (same as regular capture)
+      const newNote: Note = {
+        id: note.id || `temp-${Date.now()}`,
+        ...note
+      };
+      
+      // Update project state
+      const updatedProject = {
+        ...project,
+        notes: [newNote, ...project.notes],
+        updatedAt: new Date()
+      };
+      onProjectUpdate(updatedProject);
+      
+      // Generate individual report for this note
+      console.log('Generating individual report for direct send...');
+      const response = await generateIndividualReport(newNote.id);
+      
+      // Update the note with the generated report
+      const notesWithReport = updatedProject.notes.map(n => 
+        n.id === newNote.id 
+          ? { ...n, individualReport: response.report }
+          : n
+      );
+      
+      const projectWithReport = {
+        ...updatedProject,
+        notes: notesWithReport,
+        updatedAt: new Date()
+      };
+      onProjectUpdate(projectWithReport);
+      
+      // Set up for direct email sending
+      const noteWithReport = { ...newNote, individualReport: response.report };
+      setDirectSendNote(noteWithReport);
+      setSelectedNoteForReport(noteWithReport);
+      setIndividualReportContent(response.report);
+      setIndividualEmailSubject(`Inspektionsrapport - ${project.name} - ${noteWithReport.imageLabel || 'Enskild post'}`);
+      
+      // Go back to detail view and show email modal
+      setCurrentView('detail');
+      setShowIndividualEmailModal(true);
+      
+    } catch (error) {
+      console.error('Error in direct send:', error);
+      alert('Kunde inte förbereda rapporten för skickning. Försök igen.');
+      
+      // Still add the note to project even if report generation fails
+      const newNote: Note = {
+        id: note.id || `temp-${Date.now()}`,
+        ...note
+      };
+      
+      const updatedProject = {
+        ...project,
+        notes: [newNote, ...project.notes],
+        updatedAt: new Date()
+      };
+      onProjectUpdate(updatedProject);
+      setCurrentView('detail');
+    }
+  };
   const handleDeleteNote = (noteId: string) => {
     const updatedProjects = deleteNoteFromProject(project.id, noteId);
     const updatedProject = updatedProjects.find(p => p.id === project.id);
@@ -407,6 +474,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
       setIndividualEmailSubject('');
       setIndividualEmailMessage('');
       setSelectedNoteForReport(null);
+      setDirectSendNote(null);
       
     } catch (error) {
       console.error('Error submitting individual report:', error);
@@ -441,6 +509,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
         mode={cameraMode}
         onBack={() => setCurrentView('detail')}
         onSave={handleCameraCapture}
+        onDirectSend={handleDirectSend}
       />
     );
   }
@@ -973,7 +1042,18 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
       {showIndividualEmailModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 max-w-md w-full">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Skicka enskild rapport</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              {directSendNote ? 'Skicka rapport direkt' : 'Skicka enskild rapport'}
+            </h3>
+            
+            {directSendNote && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                <p className="text-blue-800 text-sm">
+                  📸 Rapporten har genererats för din nya {directSendNote.type === 'photo' ? 'bild' : 'video'}. 
+                  Fyll i e-postadress för att skicka direkt.
+                </p>
+              </div>
+            )}
             
             <div className="space-y-4">
               <div>
@@ -1001,6 +1081,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                   onChange={(e) => setIndividualEmailAddress(e.target.value)}
                   placeholder="mottagare@email.se"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  autoFocus={!!directSendNote}
                 />
               </div>
               
@@ -1026,6 +1107,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                   setIndividualEmailAddress('');
                   setIndividualEmailSubject('');
                   setIndividualEmailMessage('');
+                  setDirectSendNote(null);
                 }}
                 className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
               >
@@ -1034,12 +1116,14 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
               <button
                 onClick={handleSubmitIndividualReport}
                 disabled={isSendingIndividualEmail || !individualEmailAddress.trim() || !individualEmailSubject.trim()}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                className={`flex-1 px-4 py-2 text-white rounded-lg disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center ${
+                  directSendNote ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'
+                }`}
               >
                 {isSendingIndividualEmail ? (
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 ) : (
-                  'Skicka'
+                  directSendNote ? 'Skicka direkt' : 'Skicka'
                 )}
               </button>
             </div>
