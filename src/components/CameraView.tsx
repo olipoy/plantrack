@@ -3,13 +3,12 @@ import { ArrowLeft, Check, X, Edit3 } from 'lucide-react';
 import { Note } from '../types';
 import { uploadFile } from '../utils/api';
 import { ensureSizeLimit, formatFileSize, getVideoDuration } from '../utils/videoCompression';
-import { EmailModal } from './EmailModal';
 
 interface CameraViewProps {
   projectId: string;
   mode: 'photo' | 'video';
   onBack: () => void;
-  onSave: (note: Omit<Note, 'id'>) => void;
+  onSave: (note: Omit<Note, 'id'>, emailData?: any) => void;
 }
 
 export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack, onSave }) => {
@@ -27,9 +26,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
   const [isEditingContent, setIsEditingContent] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
   const [compressionProgress, setCompressionProgress] = useState('');
-  const [showEmailModal, setShowEmailModal] = useState(false);
   const [uploadResponse, setUploadResponse] = useState<any>(null);
-  const [projectName, setProjectName] = useState('');
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -285,16 +282,21 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
 
     console.log('Saving note with edited content:', note);
     
-    // Save the note first
-    onSave(note);
+    // Create email data to pass back
+    const emailData = {
+      projectName: 'Inspektionsrapport',
+      content: editableContent,
+      fileUrl: uploadResponse.fileUrl,
+      fileName: uploadResponse.originalName,
+      fileType: uploadResponse.mimeType,
+      fileSize: uploadResponse.size
+    };
     
-    // Show email modal
-    setShowEmailModal(true);
-  };
-
-  const handleEmailModalClose = () => {
-    setShowEmailModal(false);
-    onBack(); // Go back to project view after modal closes
+    // Save the note and pass email data
+    onSave(note, emailData);
+    
+    // Navigate back to project view
+    onBack();
   };
 
   const handleDiscard = () => {
@@ -583,20 +585,6 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
       )}
 
       <canvas ref={canvasRef} className="hidden" />
-      
-      {/* Email Modal */}
-      {showEmailModal && uploadResponse && (
-        <EmailModal
-          isOpen={showEmailModal}
-          onClose={handleEmailModalClose}
-          projectName={projectName || 'Inspektionsrapport'}
-          imageCaption={editableContent}
-          fileUrl={uploadResponse.fileUrl}
-          fileName={uploadResponse.originalName}
-          fileType={uploadResponse.mimeType}
-          fileSize={uploadResponse.size}
-        />
-      )}
     </div>
   );
 };

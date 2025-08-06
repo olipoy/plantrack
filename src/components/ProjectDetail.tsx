@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, X } from 'lucide-react';
+import { ArrowLeft, X, Send, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { Note } from '../types';
-import { sendEmailWithPDF } from '../utils/api';
+import { sendEmailWithPDF, sendEmailWithAttachment } from '../utils/api';
 import { CameraView } from './CameraView';
 
 interface ProjectDetailProps {
@@ -27,6 +27,8 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const [emailSubject, setEmailSubject] = useState('');
   const [emailMessage, setEmailMessage] = useState('');
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [emailData, setEmailData] = useState<any>(null);
+  const [emailSuccess, setEmailSuccess] = useState(false);
 
   // Show modal when pendingEmailData is available
   useEffect(() => {
@@ -48,7 +50,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
     setCurrentView('detail');
   };
 
-  const handleNoteSave = (note: Omit<Note, 'id'>) => {
+  const handleNoteSave = (note: Omit<Note, 'id'>, emailData?: any) => {
     // Add the note to the project and update
     const updatedProject = {
       ...project,
@@ -56,6 +58,14 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
       updatedAt: new Date()
     };
     onProjectUpdate(updatedProject);
+    
+    // If email data is provided, set it up for the modal
+    if (emailData) {
+      setEmailData(emailData);
+      setEmailSubject(emailData.projectName || project.name);
+      setEmailMessage(emailData.content || '');
+      setShowModal(true);
+    }
   };
 
   if (currentView === 'camera-photo') {
@@ -96,31 +106,51 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
     setIsSendingEmail(true);
     
     try {
-      // Generate PDF from the current content
-      const { generateProjectPDF } = await import('../utils/export');
-      const mockProject = {
-        name: emailSubject,
-        location: 'Inspektionsplats',
-        createdAt: new Date(),
-        notes: [{
-          type: 'photo',
-          content: emailMessage,
-          timestamp: new Date()
-        }]
-      };
+      if (emailData) {
+        // Send email with file attachment
+        await sendEmailWithAttachment(
+          emailRecipient.trim(),
+          emailSubject.trim(),
+          emailMessage.trim(),
+          emailData.fileUrl,
+          emailData.fileName,
+          emailData.fileType,
+          emailData.fileSize
+        );
+      } else {
+        // Fallback to PDF generation for other cases
+        const { generateProjectPDF } = await import('../utils/export');
+        const mockProject = {
+          name: emailSubject,
+          location: 'Inspektionsplats',
+          createdAt: new Date(),
+          notes: [{
+            type: 'photo',
+            content: emailMessage,
+            timestamp: new Date()
+          }]
+        };
+        
+        const { pdfBuffer, fileName } = await generateProjectPDF(mockProject);
+        
+        await sendEmailWithPDF(
+          emailRecipient.trim(),
+          emailSubject.trim(),
+          pdfBuffer,
+          fileName,
+          emailMessage.trim()
+        );
+      }
       
-      const { pdfBuffer, fileName } = await generateProjectPDF(mockProject);
+      setEmailSuccess(true);
       
-      await sendEmailWithPDF(
-        emailRecipient.trim(),
-        emailSubject.trim(),
-        pdfBuffer,
-        fileName,
-        emailMessage.trim()
-      );
+      // Auto-close after success
+      setTimeout(() => {
+        setShowModal(false);
+        setEmailSuccess(false);
+        setEmailData(null);
+      }, 2000);
       
-      alert('E-post skickad!');
-      setShowModal(false);
       setEmailRecipient('');
       setEmailSubject('');
       setEmailMessage('');
