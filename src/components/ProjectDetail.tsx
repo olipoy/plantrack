@@ -597,8 +597,6 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
           fileSize={uploadResponse.size}
         />
       )}
-        />
-      )}
     </div>
   );
 };
