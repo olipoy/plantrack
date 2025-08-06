@@ -10,9 +10,10 @@ interface CameraViewProps {
   mode: 'photo' | 'video';
   onBack: () => void;
   onSave: (note: Omit<Note, 'id'>) => void;
+  projectName?: string;
 }
 
-export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack, onSave }) => {
+export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack, onSave, projectName = '' }) => {
   const [currentMode, setCurrentMode] = useState<'camera' | 'preview' | 'edit'>('camera');
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -29,7 +30,6 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
   const [compressionProgress, setCompressionProgress] = useState('');
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [uploadResponse, setUploadResponse] = useState<any>(null);
-  const [projectName, setProjectName] = useState('');
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -638,6 +638,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
         mode="photo"
         onBack={handleCameraBack}
         onSave={handleNoteSave}
+        projectName={project.name}
       />
     );
   }
@@ -649,6 +650,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
         mode="video"
         onBack={handleCameraBack}
         onSave={handleNoteSave}
+        projectName={project.name}
       />
     );
   }
