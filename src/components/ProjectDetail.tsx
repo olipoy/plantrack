@@ -604,7 +604,10 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
                 <X className="w-8 h-8 text-white" />
               </button>
               
-              <button
+                onClick={() => {
+                  handleSaveAndSend();
+                  setShowModal(true);
+                }}
                 onClick={handleConfirm}
                 disabled={capturedMedia && capturedMedia.size > 25 * 1024 * 1024}
                 className="w-16 h-16 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-full flex items-center justify-center transition-colors"
@@ -715,8 +718,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
 
       <canvas ref={canvasRef} className="hidden" />
       
-      {/* Email Modal */}
-      {showEmailModal && (
+      {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-hidden">
             {/* Header */}
