@@ -4,6 +4,7 @@ import { Note } from '../types';
 import { uploadFile } from '../utils/api';
 import { ensureSizeLimit, formatFileSize, getVideoDuration } from '../utils/videoCompression';
 import { EmailModal } from './EmailModal';
+import { EmailModal } from './EmailModal';
 
 interface CameraViewProps {
   projectId: string;
@@ -657,16 +658,16 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
       <canvas ref={canvasRef} className="hidden" />
       
       {/* Email Modal */}
-      {showEmailModal && uploadResponse && (
+      {showEmailModal && (
         <EmailModal
           isOpen={showEmailModal}
           onClose={handleEmailModalClose}
-          projectName={projectName || 'Inspektionsrapport'}
-          imageCaption={editableContent}
-          fileUrl={uploadResponse.fileUrl}
-          fileName={uploadResponse.originalName}
-          fileType={uploadResponse.mimeType}
-          fileSize={uploadResponse.size}
+          projectName={projectName || 'Inspektionsrapport'} 
+          imageCaption={editableContent || 'Inspektionsrapport'}
+          fileUrl={uploadResponse?.fileUrl || ''}
+          fileName={uploadResponse?.originalName || 'file'}
+          fileType={uploadResponse?.mimeType || 'application/octet-stream'}
+          fileSize={uploadResponse?.size || 0}
         />
       )}
     </div>
