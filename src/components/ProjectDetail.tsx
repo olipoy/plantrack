@@ -29,6 +29,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [emailData, setEmailData] = useState<any>(null);
   const [emailSuccess, setEmailSuccess] = useState(false);
+  const [emailCallCount, setEmailCallCount] = useState(0);
 
   // Show modal when pendingEmailData is available
   useEffect(() => {
@@ -96,21 +97,40 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   }
 
   const handleSendEmail = async () => {
+    // Hard limit to prevent infinite recursion
+    const currentCallCount = emailCallCount + 1;
+    setEmailCallCount(currentCallCount);
+    
+    if (currentCallCount > 3) {
+      console.error('Email sending called too many times, aborting to prevent infinite loop');
+      alert('Fel: För många försök att skicka e-post. Försök igen senare.');
+      setIsSendingEmail(false);
+      setEmailCallCount(0);
+      return;
+    }
+    
     if (!emailRecipient.trim() || !emailSubject.trim()) {
       alert('E-postadress och ämne är obligatoriska');
+      setEmailCallCount(0);
       return;
     }
 
     if (isSendingEmail) {
       console.log('Already sending email, preventing duplicate call');
+      setEmailCallCount(0);
       return;
     }
 
     setIsSendingEmail(true);
+    console.log(`=== EMAIL SEND ATTEMPT ${currentCallCount} ===`);
     
     try {
       if (emailData) {
-        console.log('Sending email with attachment:', emailData);
+        console.log('Sending email with attachment (attempt', currentCallCount, '):', {
+          fileName: emailData.fileName,
+          fileType: emailData.fileType,
+          fileSize: emailData.fileSize
+        });
         // Send email with file attachment
         await sendEmailWithAttachment(
           emailRecipient.trim(),
@@ -121,15 +141,23 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
           emailData.fileType,
           emailData.fileSize
         );
+        console.log('Email with attachment sent successfully');
       } else {
-        console.log('No email data, generating PDF fallback');
-        // Fallback to PDF generation for other cases
+        console.log('No email data, generating PDF fallback (attempt', currentCallCount, ')');
+        
+        // Prevent PDF generation for video files to avoid potential loops
+        if (emailSubject.toLowerCase().includes('video') || emailMessage.toLowerCase().includes('video')) {
+          throw new Error('PDF generation not supported for video content. Please try again with the video attachment.');
+        }
+        
         const { generateProjectPDF } = await import('../utils/export');
         const mockProject: any = {
           name: emailSubject,
           location: 'Inspektionsplats',
           createdAt: new Date(),
+          aiSummary: emailMessage,
           notes: [{
+            id: 'mock-note-1',
             type: 'text',
             content: emailMessage,
             transcription: emailMessage,
@@ -137,7 +165,9 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
           }]
         };
         
+        console.log('Generating PDF for mock project...');
         const { pdfBuffer, fileName } = await generateProjectPDF(mockProject);
+        console.log('PDF generated successfully, sending email...');
         
         await sendEmailWithPDF(
           emailRecipient.trim(),
@@ -146,9 +176,11 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
           fileName,
           emailMessage.trim()
         );
+        console.log('Email with PDF sent successfully');
       }
       
       setEmailSuccess(true);
+      setEmailCallCount(0); // Reset counter on success
       
       // Auto-close after success
       setTimeout(() => {
@@ -162,7 +194,14 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
       
     } catch (error) {
       console.error('Failed to send email:', error);
-      alert('Kunde inte skicka e-post: ' + (error instanceof Error ? error.message : 'Okänt fel'));
+      
+      // Don't show alert for first few attempts, but do show for final attempt
+      if (currentCallCount >= 3) {
+        alert('Kunde inte skicka e-post efter flera försök: ' + (error instanceof Error ? error.message : 'Okänt fel'));
+        setEmailCallCount(0);
+      } else {
+        console.log('Email attempt failed, will retry if user clicks again');
+      }
     } finally {
       setIsSendingEmail(false);
     }
