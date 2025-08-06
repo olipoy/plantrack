@@ -289,7 +289,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                   >
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium text-gray-700">
-                      <span className="text-sm font-medium text-gray-700">
                         {note.type === 'photo' ? '📷 Foto' : '🎥 Video'}
                       </span>
                       <span className="text-xs text-gray-500">
@@ -342,52 +341,52 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
               {/* Form - only show if not in success state */}
               {!emailSuccess && (
                 <>
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                  E-postadress
-                </label>
-                <input
-                  type="email"
-                  id="email"
-                  value={emailRecipient}
-                  onChange={(e) => setEmailRecipient(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="mottagare@email.se"
-                  required
-                  disabled={isSendingEmail}
-                />
-              </div>
+                  <div>
+                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                      E-postadress
+                    </label>
+                    <input
+                      type="email"
+                      id="email"
+                      value={emailRecipient}
+                      onChange={(e) => setEmailRecipient(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="mottagare@email.se"
+                      required
+                      disabled={isSendingEmail}
+                    />
+                  </div>
 
-              <div>
-                <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-2">
-                  Ämnesrad
-                </label>
-                <input
-                  type="text"
-                  id="subject"
-                  value={emailSubject}
-                  onChange={(e) => setEmailSubject(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Ämne för e-posten"
-                  required
-                  disabled={isSendingEmail}
-                />
-              </div>
+                  <div>
+                    <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-2">
+                      Ämnesrad
+                    </label>
+                    <input
+                      type="text"
+                      id="subject"
+                      value={emailSubject}
+                      onChange={(e) => setEmailSubject(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Ämne för e-posten"
+                      required
+                      disabled={isSendingEmail}
+                    />
+                  </div>
 
-              <div>
-                <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-2">
-                  Meddelande
-                </label>
-                <textarea
-                  id="message"
-                  value={emailMessage}
-                  onChange={(e) => setEmailMessage(e.target.value)}
-                  rows={4}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                  placeholder="Meddelande..."
-                  disabled={isSendingEmail}
-                />
-              </div>
+                  <div>
+                    <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-2">
+                      Meddelande
+                    </label>
+                    <textarea
+                      id="message"
+                      value={emailMessage}
+                      onChange={(e) => setEmailMessage(e.target.value)}
+                      rows={4}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                      placeholder="Meddelande..."
+                      disabled={isSendingEmail}
+                    />
+                  </div>
 
                   {/* File info - show if emailData exists */}
                   {emailData && (
@@ -401,37 +400,37 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                     </div>
                   )}
 
-              <div className="flex space-x-3 pt-4">
-                <button
-                  type="button"
+                  <div className="flex space-x-3 pt-4">
+                    <button
+                      type="button"
                       onClick={() => {
                         setShowModal(false);
                         setEmailData(null);
                         setEmailSuccess(false);
                       }}
-                  disabled={isSendingEmail}
-                  className="flex-1 px-6 py-3 text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50"
-                >
-                  Avbryt
-                </button>
-                <button
-                  onClick={handleSendEmail}
-                  disabled={isSendingEmail || !emailRecipient.trim() || !emailSubject.trim()}
-                  className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
-                >
-                  {isSendingEmail ? (
-                    <>
+                      disabled={isSendingEmail}
+                      className="flex-1 px-6 py-3 text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50"
+                    >
+                      Avbryt
+                    </button>
+                    <button
+                      onClick={handleSendEmail}
+                      disabled={isSendingEmail || !emailRecipient.trim() || !emailSubject.trim()}
+                      className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                    >
+                      {isSendingEmail ? (
+                        <>
                           <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      Skickar...
-                    </>
-                  ) : (
+                          Skickar...
+                        </>
+                      ) : (
                         <>
                           <Send className="w-4 h-4 mr-2" />
                           Skicka
                         </>
-                  )}
-                </button>
-              </div>
+                      )}
+                    </button>
+                  </div>
                 </>
               )}
             </div>
