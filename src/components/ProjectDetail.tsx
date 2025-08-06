@@ -36,6 +36,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
   const [emailSubject, setEmailSubject] = useState('');
   const [emailMessage, setEmailMessage] = useState('');
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [pendingEmailData, setPendingEmailData] = useState<any>(null);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -275,103 +276,64 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
   };
 
   const handleSaveAndSend = async () => {
-    // This will show in browser console, but let's also make API calls that will log to Railway
-    console.log('=== FRONTEND DEBUG: handleSaveAndSend called ===');
-    console.log('uploadResponse exists:', !!uploadResponse);
-    console.log('capturedMedia exists:', !!capturedMedia);
-    console.log('showEmailModal before:', showEmailModal);
+    if (!capturedMedia) return;
     
-    console.log('handleSaveAndSend called');
-    console.log('uploadResponse:', uploadResponse);
-    console.log('showEmailModal before:', showEmailModal);
-
-    if (!uploadResponse) {
-      console.log('No uploadResponse, uploading first...');
-      if (!capturedMedia) {
-        console.log('No capturedMedia, returning');
-        return;
-      }
+    setIsUploading(true);
+    setError('');
+    
+    try {
+      let response = uploadResponse;
       
-      setIsUploading(true);
-      setError('');
-      
-      try {
+      // Upload if not already uploaded
+      if (!response) {
         const fileExtension = mode === 'photo' ? 'jpg' : 'webm';
         const fileName = `${mode}_${Date.now()}.${fileExtension}`;
         const file = new File([capturedMedia], fileName, { 
           type: mode === 'photo' ? 'image/jpeg' : 'video/webm'
         });
 
-        console.log('Starting upload...');
-        const response = await uploadFile(
+        response = await uploadFile(
           file,
           projectId,
           mode,
           (progress) => setUploadProgress(progress)
         );
-
-        console.log('Upload response received:', response);
-        
-        // Store the upload response
-        setUploadResponse(response);
-        setTranscription(response.transcription || '');
-        setImageLabel(response.imageLabel || '');
-        setEditableContent(response.transcription || response.imageLabel || (mode === 'photo' ? 'Foto taget' : 'Videoinspelning'));
-        
-        // Create note object with uploaded content
-        const note: Omit<Note, 'id'> = {
-          type: mode,
-          content: response.transcription || response.imageLabel || (mode === 'photo' ? 'Foto taget' : 'Videoinspelning'),
-          transcription: mode === 'video' ? response.transcription : undefined,
-          imageLabel: mode === 'photo' ? response.imageLabel : undefined,
-          timestamp: new Date(),
-          fileUrl: response.fileUrl,
-          fileName: response.originalName,
-          fileSize: response.size
-        };
-        
-        console.log('Saving note...');
-        // Save the note first
-        onSave(note);
-        
-        console.log('Setting showEmailModal to true with response:', response);
-        // Show email modal
-        setShowEmailModal(true);
-        
-      } catch (error) {
-        console.error('Upload failed for email:', error);
-        setError(error instanceof Error ? error.message : 'Uppladdning misslyckades');
-      } finally {
-        setIsUploading(false);
       }
-      return;
+      
+      // Create note object
+      const note: Omit<Note, 'id'> = {
+        type: mode,
+        content: editableContent || response.transcription || response.imageLabel || (mode === 'photo' ? 'Foto taget' : 'Videoinspelning'),
+        transcription: mode === 'video' ? (editableContent || response.transcription) : response.transcription,
+        imageLabel: mode === 'photo' ? (editableContent || response.imageLabel) : response.imageLabel,
+        timestamp: new Date(),
+        fileUrl: response.fileUrl,
+        fileName: response.originalName,
+        fileSize: response.size
+      };
+      
+      // Save the note first
+      onSave(note);
+      
+      // Store email data for later use
+      setPendingEmailData({
+        projectName: projectName || 'Inspektionsrapport',
+        content: editableContent || response.transcription || response.imageLabel || (mode === 'photo' ? 'Foto taget' : 'Videoinspelning'),
+        fileUrl: response.fileUrl,
+        fileName: response.originalName,
+        fileType: response.mimeType,
+        fileSize: response.size
+      });
+      
+      // Navigate back to project view - this will trigger the modal
+      onBack();
+      
+    } catch (error) {
+      console.error('Upload failed:', error);
+      setError(error instanceof Error ? error.message : 'Uppladdning misslyckades');
+    } finally {
+      setIsUploading(false);
     }
-
-    console.log('Using existing uploadResponse');
-    // Create note object with edited content
-    const note: Omit<Note, 'id'> = {
-      type: mode,
-      content: editableContent,
-      transcription: mode === 'video' ? editableContent : transcription,
-      imageLabel: mode === 'photo' ? editableContent : imageLabel,
-      timestamp: new Date(),
-      fileUrl: uploadResponse.fileUrl,
-      fileName: uploadResponse.originalName,
-      fileSize: uploadResponse.size
-    };
-
-    console.log('Saving note with edited content:', note);
-    
-    // Save the note first
-    onSave(note);
-    
-    console.log('Setting showEmailModal to true with existing uploadResponse:', uploadResponse);
-    // Show email modal
-    setShowEmailModal(true);
-    
-    // Pre-fill email form
-    setEmailSubject(projectName || 'Inspektionsrapport');
-    setEmailMessage(editableContent || 'Se bifogad fil från inspektion.');
   };
 
   const handleEmailModalClose = () => {
@@ -819,15 +781,37 @@ interface ProjectDetailProps {
   onBack: () => void;
   onProjectUpdate: (project: any) => void;
   onProjectDelete: () => void;
+  pendingEmailData?: any;
+  onEmailDataProcessed?: () => void;
 }
 
 export const ProjectDetail: React.FC<ProjectDetailProps> = ({ 
   project, 
   onBack, 
   onProjectUpdate, 
-  onProjectDelete 
+  onProjectDelete,
+  pendingEmailData,
+  onEmailDataProcessed
 }) => {
   const [currentView, setCurrentView] = useState<'detail' | 'camera-photo' | 'camera-video'>('detail');
+  const [showModal, setShowModal] = useState(false);
+  const [emailRecipient, setEmailRecipient] = useState('');
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailMessage, setEmailMessage] = useState('');
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+
+  // Show modal when pendingEmailData is available
+  useEffect(() => {
+    if (pendingEmailData) {
+      setEmailSubject(pendingEmailData.projectName);
+      setEmailMessage(pendingEmailData.content);
+      setShowModal(true);
+      // Clear the pending data
+      if (onEmailDataProcessed) {
+        onEmailDataProcessed();
+      }
+    }
+  }, [pendingEmailData, onEmailDataProcessed]);
 
   const handleCameraBack = () => {
     setCurrentView('detail');
@@ -841,7 +825,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
       updatedAt: new Date()
     };
     onProjectUpdate(updatedProject);
-    setCurrentView('detail');
   };
 
   if (currentView === 'camera-photo') {
@@ -867,6 +850,52 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
       />
     );
   }
+
+  const handleSendEmail = async () => {
+    if (!emailRecipient.trim() || !emailSubject.trim()) {
+      alert('E-postadress och ämne är obligatoriska');
+      return;
+    }
+
+    setIsSendingEmail(true);
+    
+    try {
+      // Generate PDF from the current content
+      const { generateProjectPDF } = await import('../utils/export');
+      const mockProject = {
+        name: emailSubject,
+        location: 'Inspektionsplats',
+        createdAt: new Date(),
+        notes: [{
+          type: 'photo',
+          content: emailMessage,
+          timestamp: new Date()
+        }]
+      };
+      
+      const { pdfBuffer, fileName } = await generateProjectPDF(mockProject);
+      
+      await sendEmailWithPDF(
+        emailRecipient.trim(),
+        emailSubject.trim(),
+        pdfBuffer,
+        fileName,
+        emailMessage.trim()
+      );
+      
+      alert('E-post skickad!');
+      setShowModal(false);
+      setEmailRecipient('');
+      setEmailSubject('');
+      setEmailMessage('');
+      
+    } catch (error) {
+      console.error('Failed to send email:', error);
+      alert('Kunde inte skicka e-post: ' + (error instanceof Error ? error.message : 'Okänt fel'));
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
 
   return (
     <div className="h-full bg-gray-50 flex flex-col">
@@ -947,6 +976,100 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
           )}
         </div>
       </div>
+
+      {/* Email Modal */}
+      {showModal && (
+        <div className="fixed inset-0 top-0 left-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-900">Skicka rapport</h2>
+              <button
+                onClick={() => setShowModal(false)}
+                disabled={isSendingEmail}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Form */}
+            <div className="p-6 space-y-4">
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                  E-postadress
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  value={emailRecipient}
+                  onChange={(e) => setEmailRecipient(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="mottagare@email.se"
+                  required
+                  disabled={isSendingEmail}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-2">
+                  Ämnesrad
+                </label>
+                <input
+                  type="text"
+                  id="subject"
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Ämne för e-posten"
+                  required
+                  disabled={isSendingEmail}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-2">
+                  Meddelande
+                </label>
+                <textarea
+                  id="message"
+                  value={emailMessage}
+                  onChange={(e) => setEmailMessage(e.target.value)}
+                  rows={4}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  placeholder="Meddelande..."
+                  disabled={isSendingEmail}
+                />
+              </div>
+
+              <div className="flex space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  disabled={isSendingEmail}
+                  className="flex-1 px-6 py-3 text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50"
+                >
+                  Avbryt
+                </button>
+                <button
+                  onClick={handleSendEmail}
+                  disabled={isSendingEmail || !emailRecipient.trim() || !emailSubject.trim()}
+                  className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                >
+                  {isSendingEmail ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                      Skickar...
+                    </>
+                  ) : (
+                    'Skicka'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

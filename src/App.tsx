@@ -21,6 +21,7 @@ function App() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [pendingEmailData, setPendingEmailData] = useState<any>(null);
 
   useEffect(() => {
     // Check authentication status
@@ -325,6 +326,8 @@ function App() {
                 onBack={handleBackToList}
                 onProjectUpdate={handleProjectUpdate}
                 onProjectDelete={handleProjectDelete}
+                pendingEmailData={pendingEmailData}
+                onEmailDataProcessed={() => setPendingEmailData(null)}
               />
             )}
           </>
