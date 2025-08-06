@@ -269,71 +269,57 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
   };
 
   const handleSaveAndSend = async () => {
-    if (!capturedMedia) return;
-    
-    setIsUploading(true);
-    setError('');
-    
-    try {
-      const fileExtension = mode === 'photo' ? 'jpg' : 'webm';
-      const fileName = `${mode}_${Date.now()}.${fileExtension}`;
-      const file = new File([capturedMedia], fileName, { 
-        type: mode === 'photo' ? 'image/jpeg' : 'video/webm'
-      });
-
-      console.log('Uploading file for email:', {
-        name: fileName,
-        type: file.type,
-        size: file.size,
-        projectId
-      });
-
-      const response = await uploadFile(
-        file,
-        projectId,
-        mode,
-        (progress) => setUploadProgress(progress)
-      );
-
-      console.log('Upload response for email:', response);
-
-      // Create note object with uploaded content
-      const note: Omit<Note, 'id'> = {
-        type: mode,
-        content: response.transcription || response.imageLabel || (mode === 'photo' ? 'Foto taget' : 'Videoinspelning'),
-        transcription: mode === 'video' ? response.transcription : undefined,
-        imageLabel: mode === 'photo' ? response.imageLabel : undefined,
-        timestamp: new Date(),
-        fileUrl: response.fileUrl,
-        fileName: response.originalName,
-        fileSize: response.size
-      };
-
-      console.log('Saving note for email:', note);
-      
-      // Save the note first
-      onSave(note);
-      
-      // Store the upload response BEFORE showing modal
-      setUploadResponse(response);
-      setTranscription(response.transcription || '');
-      setImageLabel(response.imageLabel || '');
-      setEditableContent(response.transcription || response.imageLabel || (mode === 'photo' ? 'Foto taget' : 'Videoinspelning'));
-      
-      // Show email modal
-      setShowEmailModal(true);
-
-    } catch (error) {
-      console.error('Upload failed for email:', error);
-      setError(error instanceof Error ? error.message : 'Uppladdning misslyckades');
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleSaveAndSend = () => {
     if (!uploadResponse) {
-      console.log('No uploadResponse available');
+      // If no uploadResponse, we need to upload first
+      if (!capturedMedia) return;
+      
+      setIsUploading(true);
+      setError('');
+      
+      try {
+        const fileExtension = mode === 'photo' ? 'jpg' : 'webm';
+        const fileName = `${mode}_${Date.now()}.${fileExtension}`;
+        const file = new File([capturedMedia], fileName, { 
+          type: mode === 'photo' ? 'image/jpeg' : 'video/webm'
+        });
+
+        const response = await uploadFile(
+          file,
+          projectId,
+          mode,
+          (progress) => setUploadProgress(progress)
+        );
+
+        // Store the upload response
+        setUploadResponse(response);
+        setTranscription(response.transcription || '');
+        setImageLabel(response.imageLabel || '');
+        setEditableContent(response.transcription || response.imageLabel || (mode === 'photo' ? 'Foto taget' : 'Videoinspelning'));
+        
+        // Create note object with uploaded content
+        const note: Omit<Note, 'id'> = {
+          type: mode,
+          content: response.transcription || response.imageLabel || (mode === 'photo' ? 'Foto taget' : 'Videoinspelning'),
+          transcription: mode === 'video' ? response.transcription : undefined,
+          imageLabel: mode === 'photo' ? response.imageLabel : undefined,
+          timestamp: new Date(),
+          fileUrl: response.fileUrl,
+          fileName: response.originalName,
+          fileSize: response.size
+        };
+        
+        // Save the note first
+        onSave(note);
+        
+        // Show email modal
+        setShowEmailModal(true);
+        
+      } catch (error) {
+        console.error('Upload failed for email:', error);
+        setError(error instanceof Error ? error.message : 'Uppladdning misslyckades');
+      } finally {
+        setIsUploading(false);
+      }
       return;
     }
 
