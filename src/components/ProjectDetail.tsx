@@ -1,9 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Check, X, Edit3 } from 'lucide-react';
 import { Note } from '../types';
-import { uploadFile } from '../utils/api';
+import { uploadFile, sendEmailWithPDF } from '../utils/api';
 import { ensureSizeLimit, formatFileSize, getVideoDuration } from '../utils/videoCompression';
-import { EmailModal } from './EmailModal';
 import { EmailModal } from './EmailModal';
 
 interface CameraViewProps {
@@ -31,6 +30,12 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
   const [compressionProgress, setCompressionProgress] = useState('');
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [uploadResponse, setUploadResponse] = useState<any>(null);
+  
+  // Email modal state
+  const [emailRecipient, setEmailRecipient] = useState('');
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailMessage, setEmailMessage] = useState('');
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -363,10 +368,18 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
     console.log('Setting showEmailModal to true with existing uploadResponse:', uploadResponse);
     // Show email modal
     setShowEmailModal(true);
+    
+    // Pre-fill email form
+    setEmailSubject(projectName || 'Inspektionsrapport');
+    setEmailMessage(editableContent || 'Se bifogad fil från inspektion.');
   };
 
   const handleEmailModalClose = () => {
     setShowEmailModal(false);
+    setEmailRecipient('');
+    setEmailSubject('');
+    setEmailMessage('');
+    setIsSendingEmail(false);
     onBack(); // Go back to project view after modal closes
   };
 
@@ -389,6 +402,51 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleSendEmail = async () => {
+    if (!emailRecipient.trim() || !emailSubject.trim()) {
+      alert('E-postadress och ämne är obligatoriska');
+      return;
+    }
+
+    setIsSendingEmail(true);
+    
+    try {
+      // Generate PDF from the current content
+      const { generateProjectPDF } = await import('../utils/export');
+      const mockProject = {
+        name: emailSubject,
+        location: 'Inspektionsplats',
+        createdAt: new Date(),
+        notes: [{
+          type: mode,
+          content: emailMessage,
+          transcription: mode === 'video' ? emailMessage : undefined,
+          imageLabel: mode === 'photo' ? emailMessage : undefined,
+          timestamp: new Date()
+        }]
+      };
+      
+      const { pdfBuffer, fileName } = await generateProjectPDF(mockProject);
+      
+      await sendEmailWithPDF(
+        emailRecipient.trim(),
+        emailSubject.trim(),
+        pdfBuffer,
+        fileName,
+        emailMessage.trim()
+      );
+      
+      alert('E-post skickad!');
+      handleEmailModalClose();
+      
+    } catch (error) {
+      console.error('Failed to send email:', error);
+      alert('Kunde inte skicka e-post: ' + (error instanceof Error ? error.message : 'Okänt fel'));
+    } finally {
+      setIsSendingEmail(false);
+    }
   };
 
   if (isUploading) {
