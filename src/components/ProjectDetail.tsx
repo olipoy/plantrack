@@ -331,6 +331,34 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
     }
   };
 
+  const handleSaveAndSend = () => {
+    if (!uploadResponse) {
+      console.log('No uploadResponse available');
+      return;
+    }
+
+    // Create note object with edited content
+    const note: Omit<Note, 'id'> = {
+      type: mode,
+      content: editableContent,
+      transcription: mode === 'video' ? editableContent : transcription,
+      imageLabel: mode === 'photo' ? editableContent : imageLabel,
+      timestamp: new Date(),
+      fileUrl: uploadResponse.fileUrl,
+      fileName: uploadResponse.originalName,
+      fileSize: uploadResponse.size
+    };
+
+    console.log('Saving note with edited content:', note);
+    
+    // Save the note first
+    onSave(note);
+    
+    console.log('About to show email modal, uploadResponse:', uploadResponse);
+    // Show email modal
+    setShowEmailModal(true);
+  };
+
   const handleEmailModalClose = () => {
     setShowEmailModal(false);
     onBack(); // Go back to project view after modal closes
