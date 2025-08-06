@@ -3,6 +3,7 @@ import { ArrowLeft, X, Send, Loader2, CheckCircle, AlertCircle } from 'lucide-re
 import { Note } from '../types';
 import { sendEmailWithPDF, sendEmailWithAttachment } from '../utils/api';
 import { CameraView } from './CameraView';
+import { NoteModal } from './NoteModal';
 
 interface ProjectDetailProps {
   project: { id: string; name: string; [key: string]: any };
@@ -30,6 +31,8 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const [emailData, setEmailData] = useState<any>(null);
   const [emailSuccess, setEmailSuccess] = useState(false);
   const [emailCallCount, setEmailCallCount] = useState(0);
+  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
+  const [showNoteModal, setShowNoteModal] = useState(false);
 
   // Show modal when pendingEmailData is available
   useEffect(() => {
@@ -70,6 +73,16 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
       setEmailMessage(emailData.content || '');
       setShowModal(true);
     }
+  };
+
+  const handleNoteClick = (note: Note) => {
+    setSelectedNote(note);
+    setShowNoteModal(true);
+  };
+
+  const handleCloseNoteModal = () => {
+    setShowNoteModal(false);
+    setSelectedNote(null);
   };
 
   if (currentView === 'camera-photo') {
@@ -271,7 +284,8 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                 {project.notes.map((note: Note) => (
                   <div key={note.id} className="border border-gray-200 rounded-lg p-3">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs text-gray-500">
+                    onClick={() => handleNoteClick(note)}
+                    className="border border-gray-200 rounded-lg p-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-colors"
                         {note.type === 'photo' ? '📷 Foto' : '🎥 Video'}
                       </span>
                       <span className="text-xs text-gray-500">
@@ -279,6 +293,13 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                       </span>
                     </div>
                     <p className="text-sm text-gray-800">{note.content}</p>
+                    {note.submitted && (
+                      <div className="mt-2">
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
+                          ✓ Skickad
+                        </span>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -412,6 +433,16 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Note Modal */}
+      {selectedNote && (
+        <NoteModal
+          note={selectedNote}
+          projectName={project.name}
+          isOpen={showNoteModal}
+          onClose={handleCloseNoteModal}
+        />
       )}
     </div>
   );
