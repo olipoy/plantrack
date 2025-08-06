@@ -297,12 +297,6 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
 
       console.log('Upload response for email:', response);
 
-      // Store the upload response
-      setUploadResponse(response);
-      setTranscription(response.transcription || '');
-      setImageLabel(response.imageLabel || '');
-      setEditableContent(response.transcription || response.imageLabel || (mode === 'photo' ? 'Foto taget' : 'Videoinspelning'));
-
       // Create note object with uploaded content
       const note: Omit<Note, 'id'> = {
         type: mode,
@@ -319,6 +313,12 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
       
       // Save the note first
       onSave(note);
+      
+      // Store the upload response BEFORE showing modal
+      setUploadResponse(response);
+      setTranscription(response.transcription || '');
+      setImageLabel(response.imageLabel || '');
+      setEditableContent(response.transcription || response.imageLabel || (mode === 'photo' ? 'Foto taget' : 'Videoinspelning'));
       
       // Show email modal
       setShowEmailModal(true);
