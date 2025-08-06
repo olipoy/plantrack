@@ -268,7 +268,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
     }
   };
 
-  const handleSaveAndSend = () => {
+  const handleSaveAndSend = async () => {
     if (!capturedMedia) return;
     
     setIsUploading(true);
