@@ -809,8 +809,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   onProjectDelete,
   pendingEmailData,
   onEmailDataProcessed
-  pendingEmailData,
-  onEmailDataProcessed
 }) => {
   const [currentView, setCurrentView] = useState<'detail' | 'camera-photo' | 'camera-video'>('detail');
   const [showModal, setShowModal] = useState(false);
