@@ -75,7 +75,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
         mode="photo"
         onBack={handleCameraBack}
         onSave={handleNoteSave}
-        projectName={project.name}
       />
     );
   }
@@ -106,51 +105,31 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
     setIsSendingEmail(true);
     
     try {
-      if (emailData) {
-        // Send email with file attachment
-        await sendEmailWithAttachment(
-          emailRecipient.trim(),
-          emailSubject.trim(),
-          emailMessage.trim(),
-          emailData.fileUrl,
-          emailData.fileName,
-          emailData.fileType,
-          emailData.fileSize
-        );
-      } else {
-        // Fallback to PDF generation for other cases
-        const { generateProjectPDF } = await import('../utils/export');
-        const mockProject = {
-          name: emailSubject,
-          location: 'Inspektionsplats',
-          createdAt: new Date(),
-          notes: [{
-            type: 'photo',
-            content: emailMessage,
-            timestamp: new Date()
-          }]
-        };
-        
-        const { pdfBuffer, fileName } = await generateProjectPDF(mockProject);
-        
-        await sendEmailWithPDF(
-          emailRecipient.trim(),
-          emailSubject.trim(),
-          pdfBuffer,
-          fileName,
-          emailMessage.trim()
-        );
-      }
+      // Generate PDF from the current content
+      const { generateProjectPDF } = await import('../utils/export');
+      const mockProject = {
+        name: emailSubject,
+        location: 'Inspektionsplats',
+        createdAt: new Date(),
+        notes: [{
+          type: 'photo',
+          content: emailMessage,
+          timestamp: new Date()
+        }]
+      };
       
-      setEmailSuccess(true);
+      const { pdfBuffer, fileName } = await generateProjectPDF(mockProject);
       
-      // Auto-close after success
-      setTimeout(() => {
-        setShowModal(false);
-        setEmailSuccess(false);
-        setEmailData(null);
-      }, 2000);
+      await sendEmailWithPDF(
+        emailRecipient.trim(),
+        emailSubject.trim(),
+        pdfBuffer,
+        fileName,
+        emailMessage.trim()
+      );
       
+      alert('E-post skickad!');
+      setShowModal(false);
       setEmailRecipient('');
       setEmailSubject('');
       setEmailMessage('');
