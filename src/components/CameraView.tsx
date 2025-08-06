@@ -3,7 +3,7 @@ import { ArrowLeft, Check, X, Edit3 } from 'lucide-react';
 import { Note } from '../types';
 import { uploadFile } from '../utils/api';
 import { ensureSizeLimit, formatFileSize, getVideoDuration } from '../utils/videoCompression';
-import { IndividualReportModal } from './IndividualReportModal';
+import { EmailModal } from './EmailModal';
 
 interface CameraViewProps {
   projectId: string;
@@ -27,10 +27,9 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
   const [isEditingContent, setIsEditingContent] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
   const [compressionProgress, setCompressionProgress] = useState('');
-  const [showIndividualModal, setShowIndividualModal] = useState(false);
-  const [savedNoteId, setSavedNoteId] = useState<string | null>(null);
-  const [savedNote, setSavedNote] = useState<Note | null>(null);
+  const [showEmailModal, setShowEmailModal] = useState(false);
   const [uploadResponse, setUploadResponse] = useState<any>(null);
+  const [projectName, setProjectName] = useState('');
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -289,26 +288,12 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
     // Save the note first
     onSave(note);
     
-    // Then immediately open the individual report modal if we have a note ID
-    if (uploadResponse.noteId) {
-      const noteWithId: Note = {
-        ...note,
-        id: uploadResponse.noteId
-      };
-      
-      setSavedNote(noteWithId);
-      setSavedNoteId(uploadResponse.noteId);
-      setShowIndividualModal(true);
-    } else {
-      // If no note ID, just go back
-      onBack();
-    }
+    // Show email modal
+    setShowEmailModal(true);
   };
 
-  const handleIndividualModalClose = () => {
-    setShowIndividualModal(false);
-    setSavedNoteId(null);
-    setSavedNote(null);
+  const handleEmailModalClose = () => {
+    setShowEmailModal(false);
     onBack(); // Go back to project view after modal closes
   };
 
@@ -599,12 +584,17 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
 
       <canvas ref={canvasRef} className="hidden" />
       
-      {/* Individual Report Modal */}
-      {showIndividualModal && savedNoteId && savedNote && (
-        <IndividualReportModal
-          noteId={savedNoteId}
-          note={savedNote}
-          onClose={handleIndividualModalClose}
+      {/* Email Modal */}
+      {showEmailModal && uploadResponse && (
+        <EmailModal
+          isOpen={showEmailModal}
+          onClose={handleEmailModalClose}
+          projectName={projectName || 'Inspektionsrapport'}
+          imageCaption={editableContent}
+          fileUrl={uploadResponse.fileUrl}
+          fileName={uploadResponse.originalName}
+          fileType={uploadResponse.mimeType}
+          fileSize={uploadResponse.size}
         />
       )}
     </div>

@@ -1337,6 +1337,82 @@ app.post('/api/send-email', authenticateToken, async (req, res) => {
   }
 });
 
+// Email with attachment endpoint
+app.post('/api/send-email-attachment', authenticateToken, async (req, res) => {
+  try {
+    console.log('=== EMAIL WITH ATTACHMENT ENDPOINT HIT ===');
+    console.log('User ID:', req.user.id);
+    console.log('Request body keys:', Object.keys(req.body));
+    
+    const { to, subject, message, attachment } = req.body;
+
+    if (!process.env.SENDGRID_API_KEY) {
+      console.log('SendGrid API key not configured');
+      return res.status(500).json({ error: 'SendGrid API key not configured' });
+    }
+
+    if (!to || !subject || !attachment) {
+      console.log('Missing required fields:', { to: !!to, subject: !!subject, attachment: !!attachment });
+      return res.status(400).json({ error: 'Missing required fields: to, subject, and attachment are required' });
+    }
+
+    console.log('Preparing email message with attachment...');
+    const msg = {
+      to,
+      from: process.env.FROM_EMAIL || 'noreply@inspektionsassistent.se',
+      subject,
+      text: message || 'Se bifogad fil från inspektionsassistenten.',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #2563EB;">Inspektionsrapport</h2>
+          <p>Hej,</p>
+          <p>${message ? message.replace(/\n/g, '<br>') : 'Bifogat finner du filen från inspektionen.'}</p>
+          <p>Rapporten har genererats automatiskt av Inspektionsassistenten.</p>
+          <br>
+          <p>Med vänliga hälsningar,<br>Inspektionsassistenten</p>
+        </div>
+      `,
+      attachments: [
+        {
+          content: attachment.content,
+          filename: attachment.filename,
+          type: attachment.type,
+          disposition: 'attachment'
+        }
+      ]
+    };
+
+    console.log('Sending email via SendGrid...');
+    console.log('Email details:', {
+      to: msg.to,
+      subject: msg.subject,
+      attachmentSize: attachment.content.length,
+      fileName: attachment.filename
+    });
+    
+    await sgMail.send(msg);
+    console.log('Email sent successfully');
+    res.json({ success: true, message: 'Email sent successfully' });
+
+  } catch (error) {
+    console.error('=== EMAIL WITH ATTACHMENT SENDING ERROR ===');
+    console.error('Error type:', error.constructor.name);
+    console.error('Error message:', error.message);
+    console.error('Full error:', error);
+    
+    // Check if it's a SendGrid specific error
+    if (error.response && error.response.body) {
+      console.error('SendGrid API error:', error.response.body);
+    }
+    
+    console.error('=== END EMAIL WITH ATTACHMENT ERROR ===');
+    res.status(500).json({ 
+      error: 'Failed to send email',
+      details: error.message 
+    });
+  }
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ 
