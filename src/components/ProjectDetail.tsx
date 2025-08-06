@@ -282,11 +282,14 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
               <h2 className="text-lg font-semibold text-gray-900 mb-3">Anteckningar</h2>
               <div className="space-y-3">
                 {project.notes.map((note: Note) => (
-                  <div key={note.id} className="border border-gray-200 rounded-lg p-3">
+                  <div 
+                    key={note.id} 
+                    onClick={() => handleNoteClick(note)}
+                    className="border border-gray-200 rounded-lg p-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                  >
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium text-gray-700">
-                        {note.type === 'photo' ? '📷 Foto' : '🎥 Video'}
-                    className="border border-gray-200 rounded-lg p-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                      <span className="text-sm font-medium text-gray-700">
                         {note.type === 'photo' ? '📷 Foto' : '🎥 Video'}
                       </span>
                       <span className="text-xs text-gray-500">
