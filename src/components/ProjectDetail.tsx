@@ -694,9 +694,13 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
                 >
                   Ta om
                 </button>
+                <button
+                  onClick={() => {
+                    handleSaveAndSend();
                     setShowModal(true);
-                  onClick={handleSaveAndSend}
-                  className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 transition-colors">
+                  }}
+                  className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 transition-colors"
+                >
                   Skicka rapport
                 </button>
               </div>
