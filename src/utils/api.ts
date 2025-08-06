@@ -298,7 +298,18 @@ export const sendEmailWithAttachment = async (
   
   const fileBlob = await fileResponse.blob();
   const arrayBuffer = await fileBlob.arrayBuffer();
-  const base64Content = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+  
+  // Convert ArrayBuffer to base64 in chunks to avoid call stack overflow for large files
+  const uint8Array = new Uint8Array(arrayBuffer);
+  const chunkSize = 8192; // Process 8KB at a time
+  let binaryString = '';
+  
+  for (let i = 0; i < uint8Array.length; i += chunkSize) {
+    const chunk = uint8Array.slice(i, i + chunkSize);
+    binaryString += String.fromCharCode.apply(null, Array.from(chunk));
+  }
+  
+  const base64Content = btoa(binaryString);
 
   const response = await fetch(`${API_BASE_URL}/send-email-attachment`, {
     method: 'POST',
