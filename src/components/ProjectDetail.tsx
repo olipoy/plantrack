@@ -59,6 +59,9 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
     };
     onProjectUpdate(updatedProject);
     
+    // Navigate back to project view first
+    setCurrentView('detail');
+    
     // If email data is provided, set it up for the modal
     if (emailData) {
       setEmailData(emailData);

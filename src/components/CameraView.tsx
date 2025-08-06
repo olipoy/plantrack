@@ -27,6 +27,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
   const [isCompressing, setIsCompressing] = useState(false);
   const [compressionProgress, setCompressionProgress] = useState('');
   const [uploadResponse, setUploadResponse] = useState<any>(null);
+  const [isSaving, setIsSaving] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -267,6 +268,9 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
 
   const handleSaveAndSend = () => {
     if (!uploadResponse) return;
+    if (isSaving) return; // Prevent multiple calls
+
+    setIsSaving(true);
 
     // Create note object with edited content
     const note: Omit<Note, 'id'> = {
@@ -294,9 +298,6 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
     
     // Save the note and pass email data
     onSave(note, emailData);
-    
-    // Navigate back to project view
-    onBack();
   };
 
   const handleDiscard = () => {
