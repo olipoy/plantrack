@@ -365,6 +365,8 @@ function App() {
             >
               <Bot className="w-6 h-6 mb-1" />
               <span className="text-xs font-medium">AI Assistent</span>
+              pendingEmailData={pendingEmailData}
+              onEmailDataProcessed={() => setPendingEmailData(null)}
             </button>
           </div>
         </div>

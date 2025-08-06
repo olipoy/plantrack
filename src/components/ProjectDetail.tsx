@@ -38,6 +38,21 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [pendingEmailData, setPendingEmailData] = useState<any>(null);
   
+  // Show modal when pendingEmailData is available
+  useEffect(() => {
+    console.log('ProjectDetail useEffect - pendingEmailData:', pendingEmailData);
+    if (pendingEmailData) {
+      console.log('Setting up modal with pending email data');
+      setEmailSubject(pendingEmailData.projectName || project.name);
+      setEmailMessage(pendingEmailData.content || '');
+      setShowModal(true);
+      // Clear the pending data
+      if (onEmailDataProcessed) {
+        onEmailDataProcessed();
+      }
+    }
+  }, [pendingEmailData, onEmailDataProcessed, project.name]);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -783,6 +798,8 @@ interface ProjectDetailProps {
   onProjectDelete: () => void;
   pendingEmailData?: any;
   onEmailDataProcessed?: () => void;
+  pendingEmailData?: any;
+  onEmailDataProcessed?: () => void;
 }
 
 export const ProjectDetail: React.FC<ProjectDetailProps> = ({ 
@@ -790,6 +807,8 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   onBack, 
   onProjectUpdate, 
   onProjectDelete,
+  pendingEmailData,
+  onEmailDataProcessed
   pendingEmailData,
   onEmailDataProcessed
 }) => {
