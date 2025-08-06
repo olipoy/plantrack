@@ -421,28 +421,38 @@ const chatHistory = new Map();
 // Upload and transcribe endpoint
 app.post('/api/upload', authenticateToken, upload.single('file'), async (req, res) => {
   try {
+    console.log('=== RAILWAY DEBUG: Upload endpoint hit ===');
+    console.log('User ID:', req.user?.id);
+    console.log('File present:', !!req.file);
+    console.log('Body:', req.body);
+    
     console.log('Upload endpoint hit');
     console.log('User:', req.user?.id);
     console.log('File:', req.file ? 'Present' : 'Missing');
     console.log('Body:', req.body);
     
     if (!req.file) {
+      console.log('=== RAILWAY DEBUG: No file uploaded ===');
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
     const { projectId, noteType, content } = req.body;
     if (!projectId) {
+      console.log('=== RAILWAY DEBUG: No project ID provided ===');
       return res.status(400).json({ error: 'Project ID is required' });
     }
 
+    console.log('=== RAILWAY DEBUG: Starting file processing ===');
     console.log('Verifying project ownership...');
     // Verify project belongs to user
     const project = await projectDb.getProjectById(projectId, req.user.id);
     if (!project) {
+      console.log('=== RAILWAY DEBUG: Project not found for user ===');
       console.log('Project not found for user');
       return res.status(404).json({ error: 'Project not found' });
     }
 
+    console.log('=== RAILWAY DEBUG: Project verified, processing file ===');
     console.log('Project verified, processing file...');
     let fileUrl = null;
     let transcription = null;
@@ -766,6 +776,15 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
     }
 
     console.log('Upload completed successfully');
+    console.log('=== RAILWAY DEBUG: Upload completed successfully ===');
+    console.log('Response data:', {
+      success: true,
+      noteId: note.id,
+      fileUrl,
+      hasTranscription: !!transcription,
+      hasImageLabel: !!imageLabel
+    });
+    
     res.json({
       success: true,
       noteId: note.id,
@@ -779,6 +798,7 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
     });
 
   } catch (error) {
+    console.log('=== RAILWAY DEBUG: Upload error ===');
     console.error('Upload error:', error);
     res.status(500).json({ 
       error: 'Upload failed', 
@@ -1340,6 +1360,10 @@ app.post('/api/send-email', authenticateToken, async (req, res) => {
 // Email with attachment endpoint
 app.post('/api/send-email-attachment', authenticateToken, async (req, res) => {
   try {
+    console.log('=== RAILWAY DEBUG: Email attachment endpoint hit ===');
+    console.log('User ID:', req.user?.id);
+    console.log('Request body keys:', Object.keys(req.body));
+    
     console.log('=== EMAIL WITH ATTACHMENT ENDPOINT HIT ===');
     console.log('User ID:', req.user.id);
     console.log('Request body keys:', Object.keys(req.body));
@@ -1347,15 +1371,18 @@ app.post('/api/send-email-attachment', authenticateToken, async (req, res) => {
     const { to, subject, message, attachment } = req.body;
 
     if (!process.env.SENDGRID_API_KEY) {
+      console.log('=== RAILWAY DEBUG: SendGrid API key not configured ===');
       console.log('SendGrid API key not configured');
       return res.status(500).json({ error: 'SendGrid API key not configured' });
     }
 
     if (!to || !subject || !attachment) {
+      console.log('=== RAILWAY DEBUG: Missing required fields ===', { to: !!to, subject: !!subject, attachment: !!attachment });
       console.log('Missing required fields:', { to: !!to, subject: !!subject, attachment: !!attachment });
       return res.status(400).json({ error: 'Missing required fields: to, subject, and attachment are required' });
     }
 
+    console.log('=== RAILWAY DEBUG: Preparing email message ===');
     console.log('Preparing email message with attachment...');
     const msg = {
       to,
@@ -1391,10 +1418,12 @@ app.post('/api/send-email-attachment', authenticateToken, async (req, res) => {
     });
     
     await sgMail.send(msg);
+    console.log('=== RAILWAY DEBUG: Email sent successfully ===');
     console.log('Email sent successfully');
     res.json({ success: true, message: 'Email sent successfully' });
 
   } catch (error) {
+    console.log('=== RAILWAY DEBUG: Email sending error ===');
     console.error('=== EMAIL WITH ATTACHMENT SENDING ERROR ===');
     console.error('Error type:', error.constructor.name);
     console.error('Error message:', error.message);

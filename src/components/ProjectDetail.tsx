@@ -269,6 +269,12 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
   };
 
   const handleSaveAndSend = async () => {
+    // This will show in browser console, but let's also make API calls that will log to Railway
+    console.log('=== FRONTEND DEBUG: handleSaveAndSend called ===');
+    console.log('uploadResponse exists:', !!uploadResponse);
+    console.log('capturedMedia exists:', !!capturedMedia);
+    console.log('showEmailModal before:', showEmailModal);
+    
     console.log('handleSaveAndSend called');
     console.log('uploadResponse:', uploadResponse);
     console.log('showEmailModal before:', showEmailModal);
