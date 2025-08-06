@@ -269,9 +269,16 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
   };
 
   const handleSaveAndSend = async () => {
+    console.log('handleSaveAndSend called');
+    console.log('uploadResponse:', uploadResponse);
+    console.log('showEmailModal before:', showEmailModal);
+
     if (!uploadResponse) {
-      // If no uploadResponse, we need to upload first
-      if (!capturedMedia) return;
+      console.log('No uploadResponse, uploading first...');
+      if (!capturedMedia) {
+        console.log('No capturedMedia, returning');
+        return;
+      }
       
       setIsUploading(true);
       setError('');
@@ -283,6 +290,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
           type: mode === 'photo' ? 'image/jpeg' : 'video/webm'
         });
 
+        console.log('Starting upload...');
         const response = await uploadFile(
           file,
           projectId,
@@ -290,6 +298,8 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
           (progress) => setUploadProgress(progress)
         );
 
+        console.log('Upload response received:', response);
+        
         // Store the upload response
         setUploadResponse(response);
         setTranscription(response.transcription || '');
@@ -308,9 +318,11 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
           fileSize: response.size
         };
         
+        console.log('Saving note...');
         // Save the note first
         onSave(note);
         
+        console.log('Setting showEmailModal to true with response:', response);
         // Show email modal
         setShowEmailModal(true);
         
@@ -323,6 +335,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
       return;
     }
 
+    console.log('Using existing uploadResponse');
     // Create note object with edited content
     const note: Omit<Note, 'id'> = {
       type: mode,
@@ -340,7 +353,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
     // Save the note first
     onSave(note);
     
-    console.log('About to show email modal, uploadResponse:', uploadResponse);
+    console.log('Setting showEmailModal to true with existing uploadResponse:', uploadResponse);
     // Show email modal
     setShowEmailModal(true);
   };
