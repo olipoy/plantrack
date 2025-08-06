@@ -28,8 +28,8 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
   const [isEditingContent, setIsEditingContent] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
   const [compressionProgress, setCompressionProgress] = useState('');
-  const [showEmailModal, setShowEmailModal] = useState(false);
   const [uploadResponse, setUploadResponse] = useState<any>(null);
+  const [showModal, setShowModal] = useState(false);
   
   // Email modal state
   const [emailRecipient, setEmailRecipient] = useState('');
@@ -694,7 +694,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
                 >
                   Ta om
                 </button>
-                <button
+                    setShowModal(true);
                   onClick={handleSaveAndSend}
                   className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 transition-colors">
                   Skicka rapport
@@ -714,14 +714,14 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
 
       <canvas ref={canvasRef} className="hidden" />
       
-      {showEmailModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      {showModal && (
+        <div className="fixed inset-0 top-0 left-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <h2 className="text-xl font-bold text-gray-900">Skicka rapport</h2>
               <button
-                onClick={handleEmailModalClose}
+                onClick={() => setShowModal(false)}
                 disabled={isSendingEmail}
                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
               >
@@ -781,7 +781,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
               <div className="flex space-x-3 pt-4">
                 <button
                   type="button"
-                  onClick={handleEmailModalClose}
+                  onClick={() => setShowModal(false)}
                   disabled={isSendingEmail}
                   className="flex-1 px-6 py-3 text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50"
                 >
