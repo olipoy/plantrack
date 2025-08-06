@@ -110,6 +110,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
     
     try {
       if (emailData) {
+        console.log('Sending email with attachment:', emailData);
         // Send email with file attachment
         await sendEmailWithAttachment(
           emailRecipient.trim(),
@@ -121,15 +122,17 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
           emailData.fileSize
         );
       } else {
+        console.log('No email data, generating PDF fallback');
         // Fallback to PDF generation for other cases
         const { generateProjectPDF } = await import('../utils/export');
-        const mockProject = {
+        const mockProject: any = {
           name: emailSubject,
           location: 'Inspektionsplats',
           createdAt: new Date(),
           notes: [{
-            type: 'photo',
+            type: 'text',
             content: emailMessage,
+            transcription: emailMessage,
             timestamp: new Date()
           }]
         };
@@ -152,11 +155,10 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
         setShowModal(false);
         setEmailSuccess(false);
         setEmailData(null);
+        setEmailRecipient('');
+        setEmailSubject('');
+        setEmailMessage('');
       }, 2000);
-      
-      setEmailRecipient('');
-      setEmailSubject('');
-      setEmailMessage('');
       
     } catch (error) {
       console.error('Failed to send email:', error);
