@@ -30,12 +30,15 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
 
   // Show modal when pendingEmailData is available
   useEffect(() => {
+    console.log('useEffect triggered with pendingEmailData:', pendingEmailData);
     if (pendingEmailData) {
+      console.log('Setting up email modal with data:', pendingEmailData);
       setEmailSubject(pendingEmailData.projectName);
       setEmailMessage(pendingEmailData.content);
       setShowModal(true);
       // Clear the pending data
       if (onEmailDataProcessed) {
+        console.log('Clearing pending email data');
         onEmailDataProcessed();
       }
     }
@@ -82,6 +85,11 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const handleSendEmail = async () => {
     if (!emailRecipient.trim() || !emailSubject.trim()) {
       alert('E-postadress och ämne är obligatoriska');
+      return;
+    }
+
+    if (isSendingEmail) {
+      console.log('Already sending email, preventing duplicate call');
       return;
     }
 

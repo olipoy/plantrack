@@ -90,6 +90,8 @@ function App() {
       p.id === updatedProject.id ? updatedProject : p
     ));
     setSelectedProject(updatedProject);
+    
+    // Don't clear pendingEmailData here to avoid interference
   };
 
   const handleProjectDelete = async () => {
