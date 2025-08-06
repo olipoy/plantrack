@@ -75,6 +75,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
         mode="photo"
         onBack={handleCameraBack}
         onSave={handleNoteSave}
+        projectName={project.name}
       />
     );
   }
@@ -105,31 +106,51 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
     setIsSendingEmail(true);
     
     try {
-      // Generate PDF from the current content
-      const { generateProjectPDF } = await import('../utils/export');
-      const mockProject = {
-        name: emailSubject,
-        location: 'Inspektionsplats',
-        createdAt: new Date(),
-        notes: [{
-          type: 'photo',
-          content: emailMessage,
-          timestamp: new Date()
-        }]
-      };
+      if (emailData) {
+        // Send email with file attachment
+        await sendEmailWithAttachment(
+          emailRecipient.trim(),
+          emailSubject.trim(),
+          emailMessage.trim(),
+          emailData.fileUrl,
+          emailData.fileName,
+          emailData.fileType,
+          emailData.fileSize
+        );
+      } else {
+        // Fallback to PDF generation for other cases
+        const { generateProjectPDF } = await import('../utils/export');
+        const mockProject = {
+          name: emailSubject,
+          location: 'Inspektionsplats',
+          createdAt: new Date(),
+          notes: [{
+            type: 'photo',
+            content: emailMessage,
+            timestamp: new Date()
+          }]
+        };
+        
+        const { pdfBuffer, fileName } = await generateProjectPDF(mockProject);
+        
+        await sendEmailWithPDF(
+          emailRecipient.trim(),
+          emailSubject.trim(),
+          pdfBuffer,
+          fileName,
+          emailMessage.trim()
+        );
+      }
       
-      const { pdfBuffer, fileName } = await generateProjectPDF(mockProject);
+      setEmailSuccess(true);
       
-      await sendEmailWithPDF(
-        emailRecipient.trim(),
-        emailSubject.trim(),
-        pdfBuffer,
-        fileName,
-        emailMessage.trim()
-      );
+      // Auto-close after success
+      setTimeout(() => {
+        setShowModal(false);
+        setEmailSuccess(false);
+        setEmailData(null);
+      }, 2000);
       
-      alert('E-post skickad!');
-      setShowModal(false);
       setEmailRecipient('');
       setEmailSubject('');
       setEmailMessage('');
@@ -240,6 +261,18 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
 
             {/* Form */}
             <div className="p-6 space-y-4">
+              {/* Success State */}
+              {emailSuccess && (
+                <div className="text-center">
+                  <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">E-post skickad!</h3>
+                  <p className="text-gray-600">Rapporten har skickats till {emailRecipient}</p>
+                </div>
+              )}
+
+              {/* Form - only show if not in success state */}
+              {!emailSuccess && (
+                <>
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                   E-postadress
@@ -287,10 +320,26 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                 />
               </div>
 
+                  {/* File info - show if emailData exists */}
+                  {emailData && (
+                    <div className="bg-blue-50 rounded-lg p-3">
+                      <p className="text-blue-800 text-sm">
+                        📎 Bifogad fil: {emailData.fileName}
+                      </p>
+                      <p className="text-blue-600 text-xs">
+                        {emailData.fileType} • {(emailData.fileSize / 1024 / 1024).toFixed(1)} MB
+                      </p>
+                    </div>
+                  )}
+
               <div className="flex space-x-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
+                      onClick={() => {
+                        setShowModal(false);
+                        setEmailData(null);
+                        setEmailSuccess(false);
+                      }}
                   disabled={isSendingEmail}
                   className="flex-1 px-6 py-3 text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50"
                 >
@@ -303,14 +352,19 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                 >
                   {isSendingEmail ? (
                     <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
                       Skickar...
                     </>
                   ) : (
-                    'Skicka'
+                        <>
+                          <Send className="w-4 h-4 mr-2" />
+                          Skicka
+                        </>
                   )}
                 </button>
               </div>
+                </>
+              )}
             </div>
           </div>
         </div>
