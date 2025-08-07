@@ -143,10 +143,11 @@ function App() {
   // Show loading while checking authentication
   if (isCheckingAuth) {
     return (
-      <div className="h-screen bg-gray-50 flex items-center justify-center">
+      <>
+        <div className="h-screen bg-gray-50 flex items-center justify-center">
           <p className="text-gray-600">Laddar...</p>
         </div>
-      </div>
+      </>
     );
   }
 
@@ -222,157 +223,156 @@ function App() {
   };
 
   return (
-    <div className="h-screen bg-gray-50 flex flex-col">
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-h-0">
-        {activeTab === 'projects' && (
-          <>
-            {currentView === 'list' && (
-              <>
-                <div className="bg-white border-b border-gray-200 px-4 py-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      {/* User Profile Icon */}
-                      <button
-                        onClick={() => setShowUserMenu(!showUserMenu)}
-                        className="w-10 h-10 bg-gray-600 rounded-full flex items-center justify-center mr-3 text-white text-sm font-medium hover:bg-gray-700 transition-colors"
-                      >
-                        {getUserInitials(getUser()?.name || '')}
-                      </button>
-                      <div>
-                        <h1 className="text-xl font-bold text-gray-900">Projekt</h1>
-                      </div>
-                    </div>
-                    <div className="flex items-center">
-                      {/* New Project Button */}
-                      <button
-                        onClick={() => setCurrentView('new')}
-                        className="w-10 h-10 bg-blue-600 text-white rounded-xl flex items-center justify-center hover:bg-blue-700 transition-colors shadow-lg"
-                      >
-                        <Plus className="w-5 h-5" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Full Screen Navigation Modal */}
-                {showUserMenu && (
-                  <div className="fixed inset-0 bg-white z-50 flex flex-col">
-                    {/* Modal Header */}
-                    <div className="bg-white border-b border-gray-200 px-4 py-6">
-                      <div className="flex items-center justify-between">
+    <>
+      <div className="h-screen bg-gray-50 flex flex-col">
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col min-h-0">
+          {activeTab === 'projects' && (
+            <>
+              {currentView === 'list' && (
+                <>
+                  <div className="bg-white border-b border-gray-200 px-4 py-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        {/* User Profile Icon */}
                         <button
-                          onClick={() => setShowUserMenu(false)}
-                          className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors"
+                          onClick={() => setShowUserMenu(!showUserMenu)}
+                          className="w-10 h-10 bg-gray-600 rounded-full flex items-center justify-center mr-3 text-white text-sm font-medium hover:bg-gray-700 transition-colors"
                         >
-                          <X className="w-5 h-5 text-gray-600" />
+                          {getUserInitials(getUser()?.name || '')}
                         </button>
                         <div>
-                          <h2 className="text-xl font-bold text-gray-900">Meny</h2>
+                          <h1 className="text-xl font-bold text-gray-900">Projekt</h1>
                         </div>
-                        <div className="w-10" />
+                      </div>
+                      <div className="flex items-center">
+                        {/* New Project Button */}
+                        <button
+                          onClick={() => setCurrentView('new')}
+                          className="w-10 h-10 bg-blue-600 text-white rounded-xl flex items-center justify-center hover:bg-blue-700 transition-colors shadow-lg"
+                        >
+                          <Plus className="w-5 h-5" />
+                        </button>
                       </div>
                     </div>
-                    
-                    {/* Modal Content */}
-                    <div className="flex-1 p-6">
-                      {/* User Info Section */}
-                      <div className="bg-gray-50 rounded-xl p-4 mb-6">
-                        <div className="flex items-center mb-3">
-                          <div className="w-10 h-10 bg-gray-600 rounded-full flex items-center justify-center mr-3 text-white text-sm font-medium">
-                            {getUserInitials(getUser()?.name || '')}
-                          </div>
+                  </div>
+                  
+                  {/* Full Screen Navigation Modal */}
+                  {showUserMenu && (
+                    <div className="fixed inset-0 bg-white z-50 flex flex-col">
+                      {/* Modal Header */}
+                      <div className="bg-white border-b border-gray-200 px-4 py-6">
+                        <div className="flex items-center justify-between">
+                          <button
+                            onClick={() => setShowUserMenu(false)}
+                            className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors"
+                          >
+                            <X className="w-5 h-5 text-gray-600" />
+                          </button>
                           <div>
-                            <h3 className="text-lg font-semibold text-gray-900">{getUser()?.name}</h3>
-                            <p className="text-sm text-gray-600">{getUser()?.email}</p>
+                            <h2 className="text-xl font-bold text-gray-900">Meny</h2>
                           </div>
+                          <div className="w-10" />
                         </div>
                       </div>
                       
-                        {/* Navigation Options */}
-                        <div className="space-y-2">
-                          <button
-                            onClick={() => {
-                              setShowUserMenu(false);
-                              handleLogout();
-                            }}
-                            className="w-full flex items-center p-4 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors"
-                          >
-                            <LogOut className="w-5 h-5 mr-3" />
-                            <span className="font-medium">Logga ut</span>
-                          </button>
+                      {/* Modal Content */}
+                      <div className="flex-1 p-6">
+                        {/* User Info Section */}
+                        <div className="bg-gray-50 rounded-xl p-4 mb-6">
+                          <div className="flex items-center mb-3">
+                            <div className="w-10 h-10 bg-gray-600 rounded-full flex items-center justify-center mr-3 text-white text-sm font-medium">
+                              {getUserInitials(getUser()?.name || '')}
+                            </div>
+                            <div>
+                              <h3 className="text-lg font-semibold text-gray-900">{getUser()?.name}</h3>
+                              <p className="text-sm text-gray-600">{getUser()?.email}</p>
+                            </div>
+                          </div>
                         </div>
-                      </div>
+                        
+                          {/* Navigation Options */}
+                          <div className="space-y-2">
+                            <button
+                              onClick={() => {
+                                setShowUserMenu(false);
+                                handleLogout();
+                              }}
+                              className="w-full flex items-center p-4 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors"
+                            >
+                              <LogOut className="w-5 h-5 mr-3" />
+                              <span className="font-medium">Logga ut</span>
+                            </button>
+                          </div>
+                        </div>
+                    </div>
+                  )}
+                  
+                  <div className="flex-1 overflow-y-auto">
+                    <ProjectList 
+                      projects={projects} 
+                      onSelectProject={handleSelectProject}
+                      onProjectDeleted={handleProjectDelete}
+                    />
                   </div>
-                )}
-                
-                <div className="flex-1 overflow-y-auto">
-                  <ProjectList 
-                    projects={projects} 
-                    onSelectProject={handleSelectProject}
-                    onProjectDeleted={handleProjectDelete}
-                  />
-                </div>
-              </>
-            )}
+                </>
+              )}
 
-            {currentView === 'new' && (
-              <NewProject onBack={handleBackToList} onProjectCreated={handleProjectCreated} />
-            )}
+              {currentView === 'new' && (
+                <NewProject onBack={handleBackToList} onProjectCreated={handleProjectCreated} />
+              )}
 
-            {currentView === 'detail' && selectedProject && (
-              <ProjectDetail
-                project={selectedProject}
-                onBack={handleBackToList}
-                onProjectUpdate={handleProjectUpdate}
-                onProjectDelete={handleProjectDelete}
-                pendingEmailData={pendingEmailData}
-                onEmailDataProcessed={() => setPendingEmailData(null)}
-              />
-            )}
-          </>
-        )}
+              {currentView === 'detail' && selectedProject && (
+                <ProjectDetail
+                  project={selectedProject}
+                  onBack={handleBackToList}
+                  onProjectUpdate={handleProjectUpdate}
+                  onProjectDelete={handleProjectDelete}
+                  pendingEmailData={pendingEmailData}
+                  onEmailDataProcessed={() => setPendingEmailData(null)}
+                />
+              )}
+            </>
+          )}
 
-        {activeTab === 'ai' && (
-          <div className="flex-1 flex flex-col min-h-0">
-            <GlobalAIChat projects={projects} />
+          {activeTab === 'ai' && (
+            <div className="flex-1 flex flex-col min-h-0">
+              <GlobalAIChat projects={projects} />
+            </div>
+          )}
+        </div>
+
+        {/* Footer Navigation - Only show when not in project detail */}
+        {!(activeTab === 'projects' && currentView === 'detail') && (
+          <div className="bg-white border-t border-gray-200 px-4 py-2 safe-area-pb flex-shrink-0">
+            <div className="flex">
+              <button
+                onClick={() => handleTabChange('projects')}
+                className={`flex-1 flex flex-col items-center py-2 px-3 rounded-lg transition-colors ${
+                  activeTab === 'projects'
+                    ? 'bg-blue-50 text-blue-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <FolderOpen className="w-6 h-6 mb-1" />
+                <span className="text-xs font-medium">Projekt</span>
+              </button>
+              <button
+                onClick={() => handleTabChange('ai')}
+                className={`flex-1 flex flex-col items-center py-2 px-3 rounded-lg transition-colors ${
+                  activeTab === 'ai'
+                    ? 'bg-blue-50 text-blue-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Bot className="w-6 h-6 mb-1" />
+                <span className="text-xs font-medium">AI Assistent</span>
+              </button>
+            </div>
           </div>
         )}
       </div>
-
-      {/* Footer Navigation - Only show when not in project detail */}
-      {!(activeTab === 'projects' && currentView === 'detail') && (
-        <div className="bg-white border-t border-gray-200 px-4 py-2 safe-area-pb flex-shrink-0">
-          <div className="flex">
-            <button
-              onClick={() => handleTabChange('projects')}
-              className={`flex-1 flex flex-col items-center py-2 px-3 rounded-lg transition-colors ${
-                activeTab === 'projects'
-                  ? 'bg-blue-50 text-blue-600'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              <FolderOpen className="w-6 h-6 mb-1" />
-              <span className="text-xs font-medium">Projekt</span>
-            </button>
-            <button
-              onClick={() => handleTabChange('ai')}
-              className={`flex-1 flex flex-col items-center py-2 px-3 rounded-lg transition-colors ${
-                activeTab === 'ai'
-                  ? 'bg-blue-50 text-blue-600'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              <Bot className="w-6 h-6 mb-1" />
-              <span className="text-xs font-medium">AI Assistent</span>
-              pendingEmailData={pendingEmailData}
-              onEmailDataProcessed={() => setPendingEmailData(null)}
-            </button>
-          </div>
-        </div>
-      )}
-      </>
-    </div>
+    </>
   );
 }
 
