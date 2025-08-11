@@ -932,6 +932,12 @@ app.post('/api/send-email-attachment', authenticateToken, async (req, res) => {
       console.warn('WARNING: noteId is missing in server request, proceeding anyway');
     }
 
+    // Instead of downloading the file, use the attachment content directly
+    console.log('Using attachment content directly from request body');
+    
+    if (!attachment.content) {
+      return res.status(400).json({ error: 'Attachment content is missing' });
+    }
     // Prepare email
     const msg = {
       to,
@@ -950,7 +956,7 @@ app.post('/api/send-email-attachment', authenticateToken, async (req, res) => {
       `,
       attachments: [
         {
-          content: attachment.content,
+          content: attachment.content, // This is already base64 from frontend
           filename: attachment.filename,
           type: attachment.type,
           disposition: 'attachment'
