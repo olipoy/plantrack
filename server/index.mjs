@@ -259,7 +259,7 @@ app.post('/api/invites/:token/accept', async (req, res) => {
     }
 
     // Check if user already exists
-    const existingUser = await organizationDb.getUserByEmail(invite.email);
+    const existingUser = await userDb.findUserByEmail(invite.email);
     if (existingUser) {
       return res.status(409).json({ error: 'User already exists with this email' });
     }

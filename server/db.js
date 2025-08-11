@@ -186,6 +186,12 @@ const organizationDb = {
       [userId]
     );
     return result.rows[0]?.organization_id || null;
+  },
+
+  // Get user by email (needed for invite acceptance)
+  async getUserByEmail(email) {
+    const result = await query('SELECT * FROM users WHERE email = $1', [email]);
+    return result.rows[0];
   }
 };
 
