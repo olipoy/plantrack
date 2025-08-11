@@ -65,11 +65,11 @@ const organizationDb = {
   // Get user's organizations
   async getUserOrganizations(userId) {
     const result = await query(
-      `SELECT o.*, ou.role, ou.joined_at
+      `SELECT o.*, ou.role
        FROM organizations o
        JOIN organization_users ou ON o.id = ou.organization_id
        WHERE ou.user_id = $1
-       ORDER BY ou.joined_at ASC`,
+       ORDER BY o.created_at ASC`,
       [userId]
     );
     return result.rows;
@@ -100,11 +100,11 @@ const organizationDb = {
     }
     
     const result = await query(
-      `SELECT u.id, u.name, u.email, ou.role, ou.joined_at
+      `SELECT u.id, u.name, u.email, ou.role
        FROM users u
        JOIN organization_users ou ON u.id = ou.user_id
        WHERE ou.organization_id = $1
-       ORDER BY ou.joined_at ASC`,
+       ORDER BY u.created_at ASC`,
       [organizationId]
     );
     return result.rows;
