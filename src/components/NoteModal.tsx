@@ -51,21 +51,21 @@ export const NoteModal: React.FC<NoteModalProps> = ({
         note.fileName,
         note.type === 'photo' ? 'image/jpeg' : 'video/webm',
         note.fileSize || 0,
-        note.id
+        note.id  // This should be the noteId
       );
 
       setEmailSuccess(true);
       
       // Notify parent that email was sent successfully
       if (onEmailSent) {
-        console.log('=== NoteModal calling onEmailSent ===');
-        console.log('Note ID being sent:', note.id);
+        console.log('=== NoteModal calling onEmailSent with noteId:', note.id);
         onEmailSent(note.id);
-        console.log('=== onEmailSent called ===');
       }
       
       // Auto-close after success
       setTimeout(() => {
+        setEmailSuccess(false);
+        setShowEmailForm(false);
         onClose();
       }, 2000);
 

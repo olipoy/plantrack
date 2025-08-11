@@ -321,9 +321,13 @@ export const sendEmailWithAttachment = async (
       filename: fileName,
       type: fileType,
       size: fileSize
-    },
-    noteId: noteId // Make sure noteId is at the top level
+    }
   };
+
+  // Add noteId at the top level if provided
+  if (noteId) {
+    requestBody.noteId = noteId;
+  }
 
   console.log('Sending email with noteId:', noteId); // Debug log
 

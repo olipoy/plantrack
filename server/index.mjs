@@ -518,7 +518,7 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
     );
 
     console.log('Upload completed successfully');
-    res.json({
+    return res.json({
       success: true,
       noteId: note.id,
       fileUrl,
@@ -530,6 +530,18 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
       size: file.size
     });
 
+  } catch (error) {
+    console.error('Upload failed:', error);
+    return res.status(500).json({ 
+      error: 'Upload failed', 
+      details: error.message 
+    });
+  }
+});
+
+// Chat endpoint
+app.post('/api/chat', authenticateToken, async (req, res) => {
+  try {
     const { message, projects } = req.body;
 
     if (!message) {
