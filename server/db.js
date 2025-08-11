@@ -65,11 +65,11 @@ const organizationDb = {
   // Get user's organizations
   async getUserOrganizations(userId) {
     const result = await query(
-      `SELECT o.*, ou.role, ou.created_at as joined_at
+      `SELECT o.*, ou.role, ou.joined_at
        FROM organizations o
-       JOIN organization_users ou ON o.id = ou.org_id
+       JOIN organization_users ou ON o.id = ou.organization_id
        WHERE ou.user_id = $1
-       ORDER BY ou.created_at ASC`,
+       ORDER BY ou.joined_at ASC`,
       [userId]
     );
     return result.rows;
@@ -80,7 +80,7 @@ const organizationDb = {
     const result = await query(
       `SELECT o.*, ou.role
        FROM organizations o
-       JOIN organization_users ou ON o.id = ou.org_id
+       JOIN organization_users ou ON o.id = ou.organization_id
        WHERE o.id = $1 AND ou.user_id = $2`,
       [organizationId, userId]
     );
@@ -91,7 +91,7 @@ const organizationDb = {
   async getOrganizationMembers(organizationId, userId) {
     // First check if user has access to this organization
     const accessCheck = await query(
-      'SELECT role FROM organization_users WHERE org_id = $1 AND user_id = $2',
+      'SELECT role FROM organization_users WHERE organization_id = $1 AND user_id = $2',
       [organizationId, userId]
     );
     
@@ -100,21 +100,21 @@ const organizationDb = {
     }
     
     const result = await query(
-      `SELECT u.id, u.name, u.email, ou.role, ou.created_at as joined_at
+      `SELECT u.id, u.name, u.email, ou.role, ou.joined_at
        FROM users u
        JOIN organization_users ou ON u.id = ou.user_id
-       WHERE ou.org_id = $1
-       ORDER BY ou.created_at ASC`,
+       WHERE ou.organization_id = $1
+       ORDER BY ou.joined_at ASC`,
       [organizationId]
     );
     return result.rows;
   },
 
   // Create organization invite
-  async createInvite(orgId, email, invitedBy, token, expiresAt) {
+  async createInvite(organizationId, email, invitedBy, token, expiresAt) {
     const result = await query(
-      'INSERT INTO organization_invites (org_id, email, invited_by, token, expires_at, role, status) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-      [orgId, email, invitedBy, token, expiresAt, 'member', 'pending']
+      'INSERT INTO organization_invites (organization_id, email, invited_by, token, expires_at) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [organizationId, email, invitedBy, token, expiresAt]
     );
     return result.rows[0];
   },
@@ -122,11 +122,11 @@ const organizationDb = {
   // Get invite by token
   async getInviteByToken(token) {
     const result = await query(
-      `SELECT oi.*, o.name as org_name, u.name as invited_by_name
+      `SELECT oi.*, o.name as organization_name, u.name as invited_by_name
        FROM organization_invites oi
-       JOIN organizations o ON oi.org_id = o.id
+       JOIN organizations o ON oi.organization_id = o.id
        LEFT JOIN users u ON oi.invited_by = u.id
-       WHERE oi.token = $1 AND (oi.expires_at IS NULL OR oi.expires_at > NOW()) AND oi.status = 'pending'`,
+       WHERE oi.token = $1 AND (oi.expires_at IS NULL OR oi.expires_at > NOW())`,
       [token]
     );
     return result.rows[0];
@@ -140,7 +140,7 @@ const organizationDb = {
       
       // Get invite details
       const inviteResult = await client.query(
-        'SELECT * FROM organization_invites WHERE token = $1 AND expires_at > NOW()',
+        'SELECT * FROM organization_invites WHERE token = $1 AND (expires_at IS NULL OR expires_at > NOW())',
         [token]
       );
       
@@ -152,8 +152,8 @@ const organizationDb = {
       
       // Check if user is already a member
       const memberCheck = await client.query(
-        'SELECT id FROM organization_users WHERE org_id = $1 AND user_id = $2',
-        [invite.org_id, userId]
+        'SELECT id FROM organization_users WHERE organization_id = $1 AND user_id = $2',
+        [invite.organization_id, userId]
       );
       
       if (memberCheck.rows.length > 0) {
@@ -162,15 +162,15 @@ const organizationDb = {
       
       // Add user to organization
       await client.query(
-        'INSERT INTO organization_users (org_id, user_id, role) VALUES ($1, $2, $3)',
-        [invite.org_id, userId, 'member']
+        'INSERT INTO organization_users (organization_id, user_id, role) VALUES ($1, $2, $3)',
+        [invite.organization_id, userId, 'member']
       );
       
       // Delete the invite
       await client.query('DELETE FROM organization_invites WHERE id = $1', [invite.id]);
       
       await client.query('COMMIT');
-      return invite.org_id;
+      return invite.organization_id;
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -191,10 +191,10 @@ const organizationDb = {
   // Get user's primary organization ID
   async getUserPrimaryOrganization(userId) {
     const result = await query(
-      'SELECT org_id FROM organization_users WHERE user_id = $1 ORDER BY created_at ASC LIMIT 1',
+      'SELECT organization_id FROM organization_users WHERE user_id = $1 ORDER BY joined_at ASC LIMIT 1',
       [userId]
     );
-    return result.rows[0]?.org_id || null;
+    return result.rows[0]?.organization_id || null;
   },
 
   // Get user by email (needed for invite acceptance)

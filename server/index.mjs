@@ -221,7 +221,7 @@ app.get('/api/invites/:token', async (req, res) => {
     }
 
     res.json({
-      organizationName: invite.org_name,
+      organizationName: invite.organization_name,
       invitedBy: invite.invited_by_name,
       email: invite.email
     });
