@@ -65,11 +65,11 @@ const organizationDb = {
   // Get user's organizations
   async getUserOrganizations(userId) {
     const result = await query(
-      `SELECT o.*, ou.role, ou.joined_at
+      `SELECT o.*, ou.role, ou.created_at as joined_at
        FROM organizations o
        JOIN organization_users ou ON o.id = ou.organization_id
        WHERE ou.user_id = $1
-       ORDER BY ou.joined_at ASC`,
+       ORDER BY ou.created_at ASC`,
       [userId]
     );
     return result.rows;
@@ -100,11 +100,11 @@ const organizationDb = {
     }
     
     const result = await query(
-      `SELECT u.id, u.name, u.email, ou.role, ou.joined_at
+      `SELECT u.id, u.name, u.email, ou.role, ou.created_at as joined_at
        FROM users u
        JOIN organization_users ou ON u.id = ou.user_id
        WHERE ou.organization_id = $1
-       ORDER BY ou.joined_at ASC`,
+       ORDER BY ou.created_at ASC`,
       [organizationId]
     );
     return result.rows;
@@ -182,7 +182,7 @@ const organizationDb = {
   // Get user's primary organization ID
   async getUserPrimaryOrganization(userId) {
     const result = await query(
-      'SELECT organization_id FROM organization_users WHERE user_id = $1 ORDER BY joined_at ASC LIMIT 1',
+      'SELECT organization_id FROM organization_users WHERE user_id = $1 ORDER BY created_at ASC LIMIT 1',
       [userId]
     );
     return result.rows[0]?.organization_id || null;
