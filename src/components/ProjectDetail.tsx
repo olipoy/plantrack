@@ -359,7 +359,9 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                         {note.submitted && (
                           <>
                             <Check className="w-4 h-4 text-green-600 ml-2" />
-                            <span className="text-xs text-green-600 ml-1">Skickad</span>
+              {project.notes
+                .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                .map((note: Note) => (
                           </>
                         )}
                         {/* Debug: Show submitted status for all notes */}
@@ -501,7 +503,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                     </button>
                   </div>
                 </>
-              )}
+              ))}
             </div>
           </div>
         </div>
