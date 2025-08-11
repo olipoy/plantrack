@@ -50,7 +50,8 @@ export const NoteModal: React.FC<NoteModalProps> = ({
         note.fileUrl,
         note.fileName,
         note.type === 'photo' ? 'image/jpeg' : 'video/webm',
-        note.fileSize || 0
+        note.fileSize || 0,
+        note.id
       );
 
       setEmailSuccess(true);

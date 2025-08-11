@@ -283,7 +283,8 @@ export const sendEmailWithAttachment = async (
   fileUrl: string,
   fileName: string,
   fileType: string,
-  fileSize: number
+  fileSize: number,
+  noteId?: string
 ): Promise<{ success: boolean; message: string }> => {
   const token = getToken();
   if (!token) {
@@ -311,23 +312,30 @@ export const sendEmailWithAttachment = async (
   
   const base64Content = btoa(binaryString);
 
+  const requestBody: any = {
+    to,
+    subject,
+    message,
+    attachment: {
+      content: base64Content,
+      filename: fileName,
+      type: fileType,
+      size: fileSize
+    }
+  };
+
+  // Add noteId if provided
+  if (noteId) {
+    requestBody.noteId = noteId;
+  }
+
   const response = await fetch(`${API_BASE_URL}/send-email-attachment`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
     },
-    body: JSON.stringify({
-      to,
-      subject,
-      message,
-      attachment: {
-        content: base64Content,
-        filename: fileName,
-        type: fileType,
-        size: fileSize
-      }
-    }),
+    body: JSON.stringify(requestBody),
   });
 
   if (!response.ok) {
