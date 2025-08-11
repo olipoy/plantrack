@@ -971,11 +971,12 @@ app.post('/api/send-email-attachment', authenticateToken, async (req, res) => {
     // Update note submitted status only if noteId is provided
     if (noteId && noteId !== `fallback-${noteId.split('-')[1]}`) {
       console.log('Updating note submitted status for noteId:', noteId);
-      const updatedNote = await noteDb.updateNoteSubmissionStatus(noteId, req.user.id, true);
-      console.log('Database update result:', updatedNote);
-      
-      if (!updatedNote) {
-        console.warn('Failed to update note submission status - note not found or access denied');
+      try {
+        const updatedNote = await noteDb.updateNoteSubmissionStatus(noteId, req.user.id, true);
+        console.log('✅ Database update successful:', updatedNote ? 'Note updated' : 'Note not found');
+        console.log('Updated note data:', updatedNote);
+      } catch (dbError) {
+        console.error('❌ Database update failed:', dbError);
       }
     } else {
       console.log('Skipping database update due to missing/fallback noteId');
