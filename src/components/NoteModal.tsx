@@ -29,11 +29,26 @@ export const NoteModal: React.FC<NoteModalProps> = ({
   if (!isOpen) return null;
 
   const handleSendEmail = async () => {
-    console.log('=== NoteModal handleSendEmail DEBUG ===');
-    console.log('Full note object:', JSON.stringify(note, null, 2));
-    console.log('note.id:', note.id);
-    console.log('typeof note.id:', typeof note.id);
-    console.log('All note properties:', Object.keys(note));
+    // Add server-visible logging by making a test API call
+    try {
+      console.log('=== FRONTEND: Sending debug info to server ===');
+      const debugResponse = await fetch('/api/debug-note', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('inspection_auth_token')}`,
+        },
+        body: JSON.stringify({
+          noteObject: note,
+          noteId: note.id,
+          noteIdType: typeof note.id,
+          allNoteKeys: Object.keys(note)
+        })
+      });
+      console.log('Debug info sent to server');
+    } catch (error) {
+      console.log('Debug API call failed, continuing with email send');
+    }
     
     if (!email.trim() || !subject.trim()) {
       setError('E-postadress och ämne är obligatoriska');

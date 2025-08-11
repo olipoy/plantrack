@@ -903,23 +903,25 @@ app.post('/api/send-email', authenticateToken, async (req, res) => {
 // Send email with attachment
 app.post('/api/send-email-attachment', authenticateToken, async (req, res) => {
   try {
+    console.log('=== SERVER: EMAIL WITH ATTACHMENT REQUEST ===');
+    console.log('Request headers:', {
+      'content-type': req.headers['content-type'],
+      'authorization': req.headers['authorization'] ? 'Bearer [TOKEN]' : 'Missing'
+    });
+    console.log('Request body keys:', Object.keys(req.body));
+    console.log('Request body structure:', {
+      to: req.body.to,
+      subject: req.body.subject,
+      message: req.body.message?.substring(0, 50),
+      noteId: req.body.noteId,
+      noteIdType: typeof req.body.noteId,
+      attachmentPresent: !!req.body.attachment,
+      attachmentKeys: req.body.attachment ? Object.keys(req.body.attachment) : 'none'
+    });
+    
     const { to, subject, message, attachment, noteId } = req.body;
     
-    console.log('=== EMAIL WITH ATTACHMENT DEBUG ===');
-    console.log('Raw request body keys:', Object.keys(req.body));
-    console.log('Raw request body noteId:', req.body.noteId);
-    console.log('Destructured noteId:', noteId);
-    console.log('noteId type:', typeof noteId);
-    console.log('noteId === undefined:', noteId === undefined);
-    console.log('noteId === null:', noteId === null);
-    console.log('Full request body (without attachment content):', {
-      to,
-      subject,
-      message: message?.substring(0, 50),
-      noteId,
-      attachmentPresent: !!attachment
-    });
-    console.log('User ID:', req.user.id);
+    console.log('After destructuring - noteId:', noteId, 'type:', typeof noteId);
 
     if (!to || !subject || !attachment) {
       return res.status(400).json({ error: 'Missing required fields' });
@@ -984,6 +986,23 @@ app.post('/api/send-email-attachment', authenticateToken, async (req, res) => {
       error: 'Failed to send email', 
       details: error.message 
     });
+  }
+});
+
+// Debug endpoint to capture frontend note data
+app.post('/api/debug-note', authenticateToken, async (req, res) => {
+  try {
+    console.log('=== FRONTEND DEBUG DATA ===');
+    console.log('Note object received from frontend:', JSON.stringify(req.body.noteObject, null, 2));
+    console.log('Note ID:', req.body.noteId);
+    console.log('Note ID type:', req.body.noteIdType);
+    console.log('All note keys:', req.body.allNoteKeys);
+    console.log('=== END FRONTEND DEBUG DATA ===');
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Debug endpoint error:', error);
+    res.status(500).json({ error: 'Debug failed' });
   }
 });
 
