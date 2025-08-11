@@ -109,43 +109,24 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
     setCurrentView('detail');
   };
 
-  const handleNoteSave = (note: Omit<Note, 'id'> | Note, emailData?: any) => {
+  const handleNoteSave = (note: Note) => {
     // Add the note to the project and update
     console.log('=== handleNoteSave DEBUG ===');
     console.log('Received note:', note);
-    console.log('Note has id property:', 'id' in note);
-    console.log('Note id value:', (note as any).id);
-    
-    // The note should already have an ID from upload, but check if it's valid
-    let noteWithId: Note;
-    if ('id' in note && (note as any).id) {
-      noteWithId = note as Note;
-      console.log('Using existing note ID:', noteWithId.id);
-    } else {
-      // Fallback to timestamp ID if no valid ID exists
-      noteWithId = { ...note, id: `fallback-${Date.now()}` };
-      console.log('Generated fallback ID:', noteWithId.id);
-    }
+    console.log('Note ID:', note.id);
+    console.log('Note ID type:', typeof note.id);
     
     const updatedProject = {
       ...project,
-      notes: [...(project.notes || []), noteWithId],
+      notes: [...(project.notes || []), note],
       updatedAt: new Date()
     };
     
-    console.log('Final note being added:', noteWithId);
+    console.log('Final note being added:', note);
     onProjectUpdate(updatedProject);
     
     // Navigate back to project view first
     setCurrentView('detail');
-    
-    // If email data is provided, set it up for the modal
-    if (emailData) {
-      setEmailData(emailData);
-      setEmailSubject(emailData.projectName || project.name);
-      setEmailMessage(emailData.content || '');
-      setShowModal(true);
-    }
   };
 
   const handleNoteClick = (note: Note) => {

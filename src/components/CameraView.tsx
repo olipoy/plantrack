@@ -273,7 +273,8 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
     setIsSaving(true);
 
     // Create note object with edited content
-    const note: Omit<Note, 'id'> = {
+    const note: Note = {
+      id: uploadResponse.noteId, // Use the ID from upload response
       type: mode,
       content: editableContent,
       transcription: mode === 'video' ? editableContent : transcription,
@@ -285,23 +286,10 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
     };
 
     console.log('Saving note with edited content:', note);
+    console.log('Note ID from upload response:', uploadResponse.noteId);
     
-    // Create email data to pass back
-    const emailData = {
-      projectName: 'Inspektionsrapport',
-      content: editableContent,
-      fileUrl: uploadResponse.fileUrl,
-      fileName: uploadResponse.originalName,
-      fileType: uploadResponse.mimeType,
-      fileSize: uploadResponse.size
-    };
-    
-    // Save the note with the ID from upload response and pass email data
-    const noteWithId = {
-      ...note,
-      id: uploadResponse.noteId || `temp-${Date.now()}`
-    };
-    onSave(noteWithId, emailData);
+    // Just save the note, don't auto-send email
+    onSave(note);
   };
 
   const handleDiscard = () => {
