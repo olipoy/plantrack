@@ -321,13 +321,11 @@ export const sendEmailWithAttachment = async (
       filename: fileName,
       type: fileType,
       size: fileSize
-    }
+    },
+    noteId: noteId // Make sure noteId is at the top level
   };
 
-  // Add noteId if provided
-  if (noteId) {
-    requestBody.noteId = noteId;
-  }
+  console.log('Sending email with noteId:', noteId); // Debug log
 
   const response = await fetch(`${API_BASE_URL}/send-email-attachment`, {
     method: 'POST',

@@ -892,6 +892,10 @@ app.post('/api/send-email', authenticateToken, async (req, res) => {
 app.post('/api/send-email-attachment', authenticateToken, async (req, res) => {
   try {
     const { to, subject, message, attachment, noteId } = req.body;
+    
+    console.log('=== EMAIL WITH ATTACHMENT DEBUG ===');
+    console.log('Received noteId:', noteId);
+    console.log('User ID:', req.user.id);
 
     if (!to || !subject || !attachment) {
       return res.status(400).json({ error: 'Missing required fields' });
@@ -925,16 +929,21 @@ app.post('/api/send-email-attachment', authenticateToken, async (req, res) => {
 
     // Send email
     await sgMail.send(msg);
+    console.log('Email sent successfully');
 
-    // Update note submitted status if noteId provided - this is mandatory
-    if (noteId) {
-      console.log('Updating note submitted status for noteId:', noteId);
-      const updatedNote = await noteDb.updateNoteSubmissionStatus(noteId, req.user.id, true);
-      if (!updatedNote) {
-        throw new Error('Failed to update note submission status - note not found or access denied');
-      }
-      console.log('Note submitted status updated successfully:', noteId);
+    // Update note submitted status - this is mandatory
+    if (!noteId) {
+      throw new Error('noteId is required for tracking email status');
     }
+    
+    console.log('Updating note submitted status for noteId:', noteId);
+    const updatedNote = await noteDb.updateNoteSubmissionStatus(noteId, req.user.id, true);
+    console.log('Database update result:', updatedNote);
+    
+    if (!updatedNote) {
+      throw new Error('Failed to update note submission status - note not found or access denied');
+    }
+    console.log('Note submitted status updated successfully:', noteId);
 
     res.json({
       success: true,

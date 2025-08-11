@@ -39,7 +39,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
     console.log('Note ID:', noteId);
     console.log('Current project notes:', project.notes.map(n => ({ id: n.id, submitted: n.submitted })));
     
-    // Update the note's submitted status
+    // Update the note's submitted status in local state
     const updatedProject = {
       ...project,
       notes: project.notes.map((note: Note) => 
@@ -52,6 +52,40 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
     
     console.log('Updated project notes:', updatedProject.notes.map(n => ({ id: n.id, submitted: n.submitted })));
     onProjectUpdate(updatedProject);
+    
+    // Force reload the project from backend to get the latest database state
+    setTimeout(async () => {
+      try {
+        const { getProjectById } = await import('../utils/api');
+        const freshProject = await getProjectById(project.id);
+        console.log('Reloaded project from backend:', freshProject.notes?.map(n => ({ id: n.id, submitted: n.submitted })));
+        
+        // Convert to frontend format and update
+        const formattedProject = {
+          ...project,
+          notes: (freshProject.notes || []).map((note: any) => ({
+            id: note.id,
+            type: note.type,
+            content: note.content,
+            transcription: note.transcription,
+            imageLabel: note.image_label,
+            timestamp: new Date(note.created_at),
+            submitted: note.submitted || false,
+            submittedAt: note.submitted_at ? new Date(note.submitted_at) : undefined,
+            individualReport: note.individual_report,
+            fileUrl: note.files && note.files.length > 0 ? note.files[0].file_url : undefined,
+            fileName: note.files && note.files.length > 0 ? note.files[0].file_name : undefined,
+            fileSize: note.files && note.files.length > 0 ? note.files[0].file_size : undefined
+          })),
+          updatedAt: new Date()
+        };
+        
+        onProjectUpdate(formattedProject);
+      } catch (error) {
+        console.error('Failed to reload project:', error);
+      }
+    }, 1000); // Wait 1 second for database to be updated
+    
     console.log('=== handleNoteEmailSent completed ===');
   };
 
