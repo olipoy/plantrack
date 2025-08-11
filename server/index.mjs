@@ -421,389 +421,131 @@ const chatHistory = new Map();
 // Upload and transcribe endpoint
 app.post('/api/upload', authenticateToken, upload.single('file'), async (req, res) => {
   try {
-    console.log('=== RAILWAY DEBUG: Upload endpoint hit ===');
-    console.log('User ID:', req.user?.id);
-    console.log('File present:', !!req.file);
-    console.log('Body:', req.body);
-    
-    console.log('Upload endpoint hit');
-    console.log('User:', req.user?.id);
-    console.log('File:', req.file ? 'Present' : 'Missing');
-    console.log('Body:', req.body);
-    
-    if (!req.file) {
-      console.log('=== RAILWAY DEBUG: No file uploaded ===');
-      return res.status(400).json({ error: 'No file uploaded' });
+    const { projectId, noteType } = req.body;
+    const file = req.file;
+    const userId = req.user.id;
+
+    if (!file || !projectId || !noteType) {
+      return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const { projectId, noteType, content } = req.body;
-    if (!projectId) {
-      console.log('=== RAILWAY DEBUG: No project ID provided ===');
-      return res.status(400).json({ error: 'Project ID is required' });
-    }
-
-    console.log('=== RAILWAY DEBUG: Starting file processing ===');
-    console.log('Verifying project ownership...');
-    // Verify project belongs to user
-    const project = await projectDb.getProjectById(projectId, req.user.id);
+    // Verify project ownership
+    const project = await projectDb.getProjectById(projectId, userId);
     if (!project) {
-      console.log('=== RAILWAY DEBUG: Project not found for user ===');
-      console.log('Project not found for user');
-      return res.status(404).json({ error: 'Project not found' });
+      return res.status(404).json({ error: 'Project not found or access denied' });
     }
 
-    console.log('=== RAILWAY DEBUG: Project verified, processing file ===');
-    console.log('Project verified, processing file...');
-    let fileUrl = null;
-    let transcription = null;
+    // File storage
+    let fileUrl;
+    let fullFilePath;
 
-    // Upload to S3 if configured, otherwise use local storage
     if (s3 && process.env.AWS_S3_BUCKET) {
-      try {
-        console.log('Uploading to S3...');
-        const fileContent = await fs.readFile(req.file.path);
-        const uploadParams = {
-          Bucket: process.env.AWS_S3_BUCKET,
-          Key: `uploads/${req.file.filename}`,
-          Body: fileContent,
-          ContentType: req.file.mimetype
-        };
+      // Upload to S3
+      const fileName = `${uuidv4()}-${file.originalname}`;
+      const uploadParams = {
+        Bucket: process.env.AWS_S3_BUCKET,
+        Key: `uploads/${fileName}`,
+        Body: file.buffer,
+        ContentType: file.mimetype
+      };
 
-        const uploadResult = await s3.upload(uploadParams).promise();
-        fileUrl = uploadResult.Location;
-        console.log('S3 upload successful:', fileUrl);
-
-        // Clean up local file
-        await fs.unlink(req.file.path);
-      } catch (s3Error) {
-        console.error('S3 upload failed, using local storage:', s3Error);
-        fileUrl = `/uploads/${req.file.filename}`;
-      }
+      const uploadResult = await s3.upload(uploadParams).promise();
+      fileUrl = uploadResult.Location;
     } else {
-      console.log('Using local storage');
-      fileUrl = `/uploads/${req.file.filename}`;
-      console.log('File saved to:', req.file.path);
-      console.log('File URL will be:', fileUrl);
+      // Use local storage
+      const fileName = `${uuidv4()}-${file.originalname}`;
+      fullFilePath = path.join(uploadsDir, fileName);
+      
+      await fs.writeFile(fullFilePath, file.buffer);
+      
+      fileUrl = `/uploads/${fileName}`;
       
       // Verify file exists
       try {
-        await fs.access(req.file.path);
-        console.log('File verified to exist at:', req.file.path);
+        await fs.access(fullFilePath);
       } catch (error) {
-        console.error('File does not exist after upload:', error);
+        throw new Error('File save verification failed');
       }
     }
 
-    // Transcribe audio/video files
-    if (req.file.mimetype.startsWith('audio/') || req.file.mimetype.startsWith('video/')) {
-      try {
-        console.log('Starting transcription...');
-        console.log('=== WHISPER TRANSCRIPTION DEBUG ===');
-        console.log('Original file details:', {
-          originalname: req.file.originalname,
-          mimetype: req.file.mimetype,
-          size: req.file.size,
-          filename: req.file.filename,
-          path: req.file.path
-        });
-        
-        // Check if file exists and get stats
-        try {
-          const fileStats = await fs.stat(req.file.path);
-          console.log('File stats:', {
-            size: fileStats.size,
-            isFile: fileStats.isFile(),
-            created: fileStats.birthtime,
-            modified: fileStats.mtime
-          });
-        } catch (statError) {
-          console.error('Error getting file stats:', statError);
-        }
-        
-        const filePath = s3 ? null : req.file.path;
-        let audioBuffer;
-
-        if (s3 && fileUrl.startsWith('http')) {
-          console.log('Using S3 file for transcription:', fileUrl);
-          // Download from S3 for transcription
-          const response = await fetch(fileUrl);
-          audioBuffer = await response.arrayBuffer();
-          console.log('Downloaded from S3, buffer size:', audioBuffer.byteLength);
-        } else {
-          console.log('Using local file for transcription:', filePath);
-          audioBuffer = await fs.readFile(filePath);
-          console.log('Read local file, buffer size:', audioBuffer.byteLength);
-        }
-
-        // Create a temporary file for OpenAI API
-        const fileExtension = req.file.mimetype.split('/')[1];
-        const tempFileName = `${uuidv4()}.${fileExtension}`;
-        const tempFile = join(__dirname, 'temp', tempFileName);
-        
-        console.log('Creating temp file:', {
-          originalMimetype: req.file.mimetype,
-          extractedExtension: fileExtension,
-          tempFileName: tempFileName,
-          tempFilePath: tempFile
-        });
-        
-        await fs.mkdir(join(__dirname, 'temp'), { recursive: true });
-        await fs.writeFile(tempFile, Buffer.from(audioBuffer));
-        
-        // Verify temp file was created correctly
-        try {
-          const tempStats = await fs.stat(tempFile);
-          console.log('Temp file created successfully:', {
-            size: tempStats.size,
-            exists: tempStats.isFile(),
-            sizeMatches: tempStats.size === audioBuffer.byteLength
-          });
-        } catch (tempStatError) {
-          console.error('Error verifying temp file:', tempStatError);
-          throw new Error('Failed to create temp file for transcription');
-        }
-
-        console.log('Calling OpenAI transcription...');
-        console.log('Whisper API call parameters:', {
-          model: 'whisper-1',
-          language: 'sv',
-          fileSize: audioBuffer.byteLength,
-          filePath: tempFile
-        });
-        
-        const transcriptionStartTime = Date.now();
-        const transcriptionResponse = await openai.audio.transcriptions.create({
-          file: createReadStream(tempFile),
-          model: 'whisper-1',
-          language: 'sv'
-        });
-        
-        const transcriptionEndTime = Date.now();
-        const transcriptionDuration = transcriptionEndTime - transcriptionStartTime;
-
-        // Filter out placeholder text and empty/meaningless transcriptions
-        const rawTranscription = transcriptionResponse.text?.trim() || '';
-        
-        // Common placeholder texts to filter out
-        const placeholderTexts = [
-          'svensktextning.nu',
-          'svenska textning', 
-          'svensk textning',
-          'textning.nu',
-          'undertextning',
-          'svensk undertextning',
-          'undertexter från amara.org-gemenskapen',
-          'amara.org',
-          'undertexter från',
-          'gemenskapen',
-          'textning av',
-          'översättning av'
-        ];
-        
-        // Check if transcription is just placeholder text or too short to be meaningful
-        const isPlaceholder = placeholderTexts.some(placeholder => 
-          rawTranscription.toLowerCase().includes(placeholder.toLowerCase())
-        );
-        
-        const isTooShort = rawTranscription.length < 3;
-        const isOnlyPunctuation = /^[.,!?;:\s]*$/.test(rawTranscription);
-        const isOnlyNumbers = /^[\d\s.,]*$/.test(rawTranscription);
-        
-        // Set transcription to empty if it's placeholder text or meaningless
-        if (isPlaceholder || isTooShort || isOnlyPunctuation || isOnlyNumbers) {
-          transcription = null; // No transcription text
-          console.log('Filtered out placeholder/empty transcription. Raw text was:', rawTranscription);
-        } else {
-          transcription = rawTranscription;
-        }
-        
-        console.log('Transcription successful:', {
-          duration: `${transcriptionDuration}ms`,
-          textLength: transcription ? transcription.length : 0,
-          textPreview: transcription ? transcription.substring(0, 100) + (transcription.length > 100 ? '...' : '') : 'No transcription (filtered out)',
-          wasFiltered: !transcription && rawTranscription.length > 0
-        });
-
-        // Clean up temp file
-        try {
-          await fs.unlink(tempFile);
-          console.log('Temp file cleaned up successfully');
-        } catch (cleanupError) {
-          console.error('Error cleaning up temp file:', cleanupError);
-        }
-        
-        console.log('=== END WHISPER TRANSCRIPTION DEBUG ===');
-      } catch (transcriptionError) {
-        console.error('=== WHISPER TRANSCRIPTION ERROR ===');
-        console.error('Error type:', transcriptionError.constructor.name);
-        console.error('Error message:', transcriptionError.message);
-        console.error('Error code:', transcriptionError.code);
-        console.error('Full error:', transcriptionError);
-        
-        // Check if it's an OpenAI API specific error
-        if (transcriptionError.response) {
-          console.error('OpenAI API response error:', {
-            status: transcriptionError.response.status,
-            statusText: transcriptionError.response.statusText,
-            data: transcriptionError.response.data
-          });
-        }
-        
-        // Check if temp file still exists for debugging
-        const tempFile = join(__dirname, 'temp', `${uuidv4()}.${req.file.mimetype.split('/')[1]}`);
-        try {
-          await fs.access(tempFile);
-          console.log('Temp file still exists after error');
-        } catch {
-          console.log('Temp file does not exist after error');
-        }
-        
-        console.error('=== END WHISPER TRANSCRIPTION ERROR ===');
-        transcription = 'Transkribering misslyckades';
-      }
-    }
-
-    // Generate image labels for photos using OpenAI Vision API
+    // Process file based on type
+    let transcription = null;
     let imageLabel = null;
-    if (req.file.mimetype.startsWith('image/')) {
+
+    if (noteType === 'photo') {
       try {
-        console.log('Starting image recognition...');
-        console.log('=== IMAGE RECOGNITION DEBUG ===');
+        const startTime = Date.now();
         
-        let imageBuffer;
-        let imageUrl;
+        // Read the image file
+        const imageBuffer = await fs.readFile(fullFilePath);
+        const base64Image = imageBuffer.toString('base64');
+        const imageUrl = `data:${file.mimetype};base64,${base64Image}`;
 
-        if (s3 && fileUrl.startsWith('http')) {
-          console.log('Using S3 image for recognition:', fileUrl);
-          imageUrl = fileUrl;
-        } else {
-          console.log('Using local image for recognition:', req.file.path);
-          imageBuffer = await fs.readFile(req.file.path);
-          const base64Image = imageBuffer.toString('base64');
-          imageUrl = `data:${req.file.mimetype};base64,${base64Image}`;
-        }
-
-        console.log('Calling OpenAI Vision API...');
-        const visionStartTime = Date.now();
-        
-        const visionResponse = await openai.chat.completions.create({
+        const response = await openai.chat.completions.create({
           model: 'gpt-4o',
-          messages: [
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'text',
-                  text: 'Beskriv vad som syns i denna bild med 1-4 ord på svenska. Fokusera på det huvudsakliga objektet eller systemet som visas i en facilitetsinspektionskontext. Exempel: "värmepump", "elcentral", "ventilationskanal", "rörledning", "brandvarnare", "köksutrustning", "dryckesautomat". Svara endast med beskrivningen, inga extra ord eller meningar.'
-                },
-                {
-                  type: 'image_url',
-                  image_url: {
-                    url: imageUrl,
-                    detail: 'low'
-                  }
+          messages: [{
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: 'Beskriv vad som syns i denna bild med 1-4 ord på svenska. Fokusera på det huvudsakliga objektet eller systemet som visas i en facilitetsinspektionskontext. Exempel: "värmepump", "elcentral", "ventilationskanal", "rörledning", "brandvarnare", "köksutrustning", "dryckesautomat". Svara endast med beskrivningen, inga extra ord eller meningar.'
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: imageUrl,
+                  detail: 'low'
                 }
-              ]
-            }
-          ],
+              }
+            ]
+          }],
           max_tokens: 20,
           temperature: 0.3
         });
 
-        const visionEndTime = Date.now();
-        const visionDuration = visionEndTime - visionStartTime;
-
-        const rawLabel = visionResponse.choices[0].message.content?.trim() || '';
+        imageLabel = response.choices[0].message.content?.trim() || '';
         
-        // Clean up the label - remove quotes, extra punctuation, etc.
-        imageLabel = rawLabel
-          .replace(/^["']|["']$/g, '') // Remove surrounding quotes
-          .replace(/\.$/, '') // Remove trailing period
-          .replace(/^(det är |detta är |jag ser )/i, '') // Remove common prefixes
-          .toLowerCase()
-          .trim();
-
-        // Validate label length and content
-        if (imageLabel.length > 30 || imageLabel.length < 2) {
-          console.log('Label too long or too short, discarding:', imageLabel);
-          imageLabel = null;
-        }
-
-        console.log('Image recognition successful:', {
-          duration: `${visionDuration}ms`,
-          rawLabel,
-          cleanedLabel: imageLabel
-        });
-        
-        console.log('=== END IMAGE RECOGNITION DEBUG ===');
-      } catch (visionError) {
-        console.error('=== IMAGE RECOGNITION ERROR ===');
-        console.error('Error type:', visionError.constructor.name);
-        console.error('Error message:', visionError.message);
-        console.error('Full error:', visionError);
-        
-        if (visionError.response) {
-          console.error('OpenAI Vision API response error:', {
-            status: visionError.response.status,
-            statusText: visionError.response.statusText,
-            data: visionError.response.data
-          });
-        }
-        
-        console.error('=== END IMAGE RECOGNITION ERROR ===');
-        imageLabel = null; // Don't fail the upload if vision fails
+        // Clean up the label
+        imageLabel = imageLabel.toLowerCase();
+      } catch (error) {
+        imageLabel = 'Foto taget';
       }
     }
-    console.log('Saving note to database...');
+
     // Save note to database
     const note = await noteDb.createNote(
       projectId,
       noteType,
-      content || (noteType === 'photo' ? (imageLabel || 'Foto taget') : 'Videoinspelning'),
+      noteType === 'photo' ? (imageLabel || 'Foto taget') : 'Videoinspelning',
       transcription,
       imageLabel
     );
 
-    // Add file info to note if there's a file
-    if (fileUrl) {
-      await noteDb.addFileToNote(
-        note.id,
-        fileUrl,
-        req.file.mimetype,
-        req.file.originalname,
-        req.file.size
-      );
-    }
-
-    console.log('Upload completed successfully');
-    console.log('=== RAILWAY DEBUG: Upload completed successfully ===');
-    console.log('Response data:', {
-      success: true,
-      noteId: note.id,
+    // Add file info to note
+    await noteDb.addFileToNote(
+      note.id,
       fileUrl,
-      hasTranscription: !!transcription,
-      hasImageLabel: !!imageLabel
-    });
-    
+      file.mimetype,
+      file.originalname,
+      file.size
+    );
+
     res.json({
       success: true,
       noteId: note.id,
       fileUrl,
       transcription,
       imageLabel,
-      filename: req.file.filename,
-      originalName: req.file.originalname,
-      mimeType: req.file.mimetype,
-      size: req.file.size
+      filename: file.filename,
+      originalName: file.originalname,
+      mimeType: file.mimetype,
+      size: file.size
     });
 
   } catch (error) {
-    console.log('=== RAILWAY DEBUG: Upload error ===');
-    console.error('Upload error:', error);
     res.status(500).json({ 
       error: 'Upload failed', 
-      details: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      details: error.message 
     });
   }
 });
@@ -811,145 +553,71 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
 // Chat endpoint
 app.post('/api/chat', authenticateToken, async (req, res) => {
   try {
-    const { message } = req.body;
+    const { message, projects } = req.body;
 
     if (!message) {
       return res.status(400).json({ error: 'Message is required' });
     }
 
-    console.log('=== CHAT ENDPOINT HIT ===');
-    console.log('User ID:', req.user.id);
-    console.log('Message:', message);
-    console.log('Request body keys:', Object.keys(req.body));
-    console.log('Projects in request:', req.body.projects ? req.body.projects.length : 'undefined');
-
-    // Get user's projects from database
-    const projects = await projectDb.getUserProjects(req.user.id);
-    console.log('=== DATABASE PROJECTS ===');
-    console.log('Projects from DB:', projects.length, 'projects found');
-    console.log('DB Projects:', projects.map(p => ({
-      id: p.id,
-      name: p.name,
-      location: p.location,
-      note_count: p.note_count
-    })));
-    
-    // Get detailed project data with notes
-    console.log('=== FETCHING NOTES FOR EACH PROJECT ===');
-    const projectsWithNotes = await Promise.all(
-      projects.map(async (project) => {
-        console.log(`Fetching notes for project: ${project.name} (${project.id})`);
-        const notes = await noteDb.getProjectNotes(project.id);
-        console.log(`Project ${project.name}: ${notes.length} notes found`);
-        console.log('Notes preview:', notes.slice(0, 2).map(n => ({
-          id: n.id,
-          type: n.type,
-          content: n.content?.substring(0, 50),
-          transcription: n.transcription?.substring(0, 50),
-          image_label: n.image_label
-        })));
-        return { ...project, notes };
-      })
-    );
-
-    console.log('=== FINAL PROJECT DATA ===');
-    console.log('Projects with notes count:', projectsWithNotes.length);
-    console.log('Total notes across all projects:', projectsWithNotes.reduce((sum, p) => sum + p.notes.length, 0));
-
-    // Get or create chat history for user
-    const userId = req.user.id;
-    if (!chatHistory.has(userId)) {
-      chatHistory.set(userId, []);
-    }
-    const userChatHistory = chatHistory.get(userId);
-
-    // Prepare context from all projects
-    console.log('=== PREPARING CONTEXT ===');
-    const projectContext = projectsWithNotes.map(project => {
-      const notesText = project.notes.map(note => 
-        `[${note.type}] ${note.transcription || note.content || note.image_label || 'Ingen text'}`
-      ).join('\n');
-      
-      const contextBlock = `Projekt: ${project.name}
-Plats: ${project.location || 'Ej angiven'}
-Datum: ${new Date(project.created_at).toLocaleDateString('sv-SE')}
-Anteckningar:
-${notesText}
-${project.ai_summary ? `\nAI-Sammanfattning: ${project.ai_summary}` : ''}`;
-      
-      console.log(`Context for ${project.name}:`, contextBlock.substring(0, 200) + '...');
-      return contextBlock;
-    }).join('\n\n---\n\n');
-
-    console.log('=== FINAL CONTEXT ===');
-    console.log('Total context length:', projectContext.length);
-    console.log('Project context preview:', projectContext.substring(0, 500) + '...');
-
-    if (projectContext.trim().length === 0) {
-      console.log('❌ WARNING: Empty project context!');
-      console.log('Projects count:', projectsWithNotes.length);
-      console.log('Projects with notes:', projectsWithNotes.filter(p => p.notes.length > 0).length);
+    if (!projects || projects.length === 0) {
       return res.json({
-        response: `Det finns inga sparade projekt eller anteckningar ännu som jag kan använda för att svara på din fråga. Debug: ${projectsWithNotes.length} projekt hittade, ${projectsWithNotes.reduce((sum, p) => sum + p.notes.length, 0)} anteckningar totalt.`,
-        chatHistory: userChatHistory
+        response: 'Det finns inga sparade projekt eller anteckningar ännu som jag kan använda för att svara på din fråga.',
+        chatHistory: []
       });
     }
 
-    // Build messages for OpenAI
-    console.log('=== CALLING OPENAI ===');
-    const messages = [
-      {
-        role: 'system',
-        content: `Du är en AI-assistent som hjälper med facilitetsinspektioner. Du har tillgång till följande projektdata:
+    // Prepare context from all projects
+    let context = `Du är en AI-assistent som hjälper med analys av inspektionsprojekt. Här är användarens projekt och anteckningar:\n\n`;
+    
+    projects.forEach((project, index) => {
+      context += `Projekt ${index + 1}: ${project.name}\n`;
+      context += `Plats: ${project.location || 'Ej angiven'}\n`;
+      context += `Datum: ${new Date(project.created_at).toLocaleDateString('sv-SE')}\n`;
+      
+      if (project.notes && project.notes.length > 0) {
+        context += `Anteckningar:\n`;
+        project.notes.forEach((note, noteIndex) => {
+          const noteContent = note.transcription || note.content || note.image_label || 'Ingen text';
+          context += `  ${noteIndex + 1}. [${note.type}] ${noteContent}\n`;
+        });
+      } else {
+        context += `Inga anteckningar ännu.\n`;
+      }
+      
+      if (project.ai_summary) {
+        context += `AI-Sammanfattning: ${project.ai_summary}\n`;
+      }
+      
+      context += `\n`;
+    });
 
-${projectContext}
-
-Svara på svenska och var specifik när du refererar till projekt och anteckningar. Om användaren frågar om specifika projekt, sök igenom all tillgänglig data och ge detaljerade svar baserat på inspektionsanteckningarna.`
-      },
-      ...userChatHistory,
-      { role: 'user', content: message }
-    ];
-
-    console.log('Sending to OpenAI...');
-    console.log('Messages count:', messages.length);
-    console.log('System message length:', messages[0].content.length);
-
+    // Send to OpenAI
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages,
+      model: "gpt-4",
+      messages: [
+        {
+          role: "system",
+          content: context + "\nSvara på svenska och var specifik när du refererar till projekt och anteckningar. Om användaren frågar om specifika projekt, sök igenom all tillgänglig data och ge detaljerade svar baserat på inspektionsanteckningarna."
+        },
+        {
+          role: "user",
+          content: message
+        }
+      ],
       max_tokens: 1000,
       temperature: 0.7
     });
 
-    const assistantResponse = completion.choices[0].message.content;
-    console.log('✅ OpenAI response received, length:', assistantResponse.length);
-
-    console.log('=== CHAT SUCCESS ===');
-
-    // Update chat history
-    userChatHistory.push(
-      { role: 'user', content: message },
-      { role: 'assistant', content: assistantResponse }
-    );
-
-    // Keep only last 20 messages to prevent context overflow
-    if (userChatHistory.length > 20) {
-      userChatHistory.splice(0, userChatHistory.length - 20);
-    }
+    const response = completion.choices[0].message.content;
 
     res.json({
-      response: assistantResponse,
-      chatHistory: userChatHistory
+      response,
+      chatHistory: []
     });
 
   } catch (error) {
-    console.error('=== CHAT ERROR ===');
-    console.error('Error type:', error.constructor.name);
-    console.error('Error message:', error.message);
-    console.error('Full error:', error);
-    console.error('=== END CHAT ERROR ===');
     res.status(500).json({ 
-      error: 'Chat request failed',
+      error: 'Chat request failed', 
       details: error.message 
     });
   }
@@ -1180,56 +848,48 @@ Datum: ${new Date(note.created_at).toLocaleDateString('sv-SE')}
 // Summarize notes endpoint
 app.post('/api/summarize', authenticateToken, async (req, res) => {
   try {
-    console.log('=== SUMMARIZATION REQUEST ===');
-    console.log('User ID:', req.user.id);
-    console.log('Request body:', req.body);
-    
     const { projectId } = req.body;
 
     if (!projectId) {
-      console.log('Missing project ID in request');
       return res.status(400).json({ error: 'Project ID is required' });
     }
 
-    console.log('Verifying project ownership for project:', projectId);
-    // Verify project belongs to user
+    // Get project with notes
     const project = await projectDb.getProjectById(projectId, req.user.id);
     if (!project) {
-      console.log('Project not found for user');
       return res.status(404).json({ error: 'Project not found' });
     }
 
-    console.log('Project found:', project.name);
-    console.log('Getting notes for project...');
-    // Get notes for this project
+    // Get all notes for the project
     const notes = await noteDb.getProjectNotes(projectId);
-    console.log('Notes retrieved:', notes.length, 'notes');
-    
+
     if (notes.length === 0) {
-      console.log('No notes found for project');
       return res.status(400).json({ error: 'No notes found for this project' });
     }
 
-    const notesText = notes.map(note => note.transcription || note.content).join('\n');
-    console.log('Combined notes text length:', notesText.length);
-    console.log('Notes text preview:', notesText.substring(0, 200) + '...');
-    
-    if (!process.env.OPENAI_API_KEY) {
-      console.log('OpenAI API key not configured');
-      return res.status(500).json({ error: 'OpenAI API key not configured' });
-    }
-    
-    console.log('Calling OpenAI for summarization...');
-    
+    // Prepare notes text for summarization
+    const notesText = notes.map(note => {
+      if (note.transcription) {
+        return `[${note.type}] ${note.transcription}`;
+      } else if (note.content) {
+        return `[${note.type}] ${note.content}`;
+      } else if (note.image_label) {
+        return `[${note.type}] ${note.image_label}`;
+      } else {
+        return `[${note.type}] Ingen textinformation`;
+      }
+    }).join('\n');
+
+    // Generate summary using OpenAI
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
+      model: "gpt-4",
       messages: [
         {
-          role: 'system',
-          content: 'Du är en expert på facilitetsinspektioner. Skapa en strukturerad sammanfattning av inspektionsanteckningarna på svenska. Inkludera identifierade problem, rekommendationer och övergripande status.'
+          role: "system",
+          content: "Du är en expert på facilitetsinspektioner. Skapa en strukturerad sammanfattning av inspektionsanteckningarna på svenska. Inkludera identifierade problem, rekommendationer och övergripande status."
         },
         {
-          role: 'user',
+          role: "user",
           content: `Sammanfatta följande inspektionsanteckningar för projekt "${project.name}" på plats "${project.location || 'okänd plats'}":\n\n${notesText}`
         }
       ],
@@ -1238,34 +898,17 @@ app.post('/api/summarize', authenticateToken, async (req, res) => {
     });
 
     const summary = completion.choices[0].message.content;
-    console.log('OpenAI response received, summary length:', summary.length);
 
-    console.log('Saving summary to database...');
     // Save summary to database
     await summaryDb.upsertSummary(projectId, summary);
-    console.log('Summary saved successfully');
 
-    console.log('=== SUMMARIZATION SUCCESS ===');
-    res.json({ summary });
+    res.json({
+      summary
+    });
 
   } catch (error) {
-    console.error('=== SUMMARIZATION ERROR ===');
-    console.error('Error type:', error.constructor.name);
-    console.error('Error message:', error.message);
-    console.error('Full error:', error);
-    
-    // Check if it's an OpenAI API specific error
-    if (error.response) {
-      console.error('OpenAI API response error:', {
-        status: error.response.status,
-        statusText: error.response.statusText,
-        data: error.response.data
-      });
-    }
-    
-    console.error('=== END SUMMARIZATION ERROR ===');
     res.status(500).json({ 
-      error: 'Summarization failed',
+      error: 'Summarization failed', 
       details: error.message 
     });
   }
@@ -1357,33 +1000,16 @@ app.post('/api/send-email', authenticateToken, async (req, res) => {
   }
 });
 
-// Email with attachment endpoint
+// Send email with attachment
 app.post('/api/send-email-attachment', authenticateToken, async (req, res) => {
   try {
-    console.log('=== RAILWAY DEBUG: Email attachment endpoint hit ===');
-    console.log('User ID:', req.user?.id);
-    console.log('Request body keys:', Object.keys(req.body));
-    
-    console.log('=== EMAIL WITH ATTACHMENT ENDPOINT HIT ===');
-    console.log('User ID:', req.user.id);
-    console.log('Request body keys:', Object.keys(req.body));
-    
     const { to, subject, message, attachment, noteId } = req.body;
 
-    if (!process.env.SENDGRID_API_KEY) {
-      console.log('=== RAILWAY DEBUG: SendGrid API key not configured ===');
-      console.log('SendGrid API key not configured');
-      return res.status(500).json({ error: 'SendGrid API key not configured' });
-    }
-
     if (!to || !subject || !attachment) {
-      console.log('=== RAILWAY DEBUG: Missing required fields ===', { to: !!to, subject: !!subject, attachment: !!attachment });
-      console.log('Missing required fields:', { to: !!to, subject: !!subject, attachment: !!attachment });
-      return res.status(400).json({ error: 'Missing required fields: to, subject, and attachment are required' });
+      return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    console.log('=== RAILWAY DEBUG: Preparing email message ===');
-    console.log('Preparing email message with attachment...');
+    // Prepare email
     const msg = {
       to,
       from: process.env.FROM_EMAIL || 'noreply@inspektionsassistent.se',
@@ -1406,49 +1032,31 @@ app.post('/api/send-email-attachment', authenticateToken, async (req, res) => {
           type: attachment.type,
           disposition: 'attachment'
         }
-      ]
+      ],
     };
 
-    console.log('Sending email via SendGrid...');
-    console.log('Email details:', {
-      to: msg.to,
-      subject: msg.subject,
-      attachmentSize: attachment.content.length,
-      fileName: attachment.filename
-    });
-    
+    // Send email
     await sgMail.send(msg);
-    console.log('=== RAILWAY DEBUG: Email sent successfully ===');
-    console.log('Email sent successfully');
-    res.json({ success: true, message: 'Email sent successfully' });
 
-    // Update note's submitted status if noteId is provided
+    // Update note submitted status if noteId provided
     if (noteId) {
       try {
         await noteDb.updateNoteSubmissionStatus(noteId, req.user.id, true);
-        console.log('=== RAILWAY DEBUG: Note submitted status updated ===');
-        console.log('Note ID:', noteId, 'marked as submitted');
+        console.log('Note submitted status updated:', noteId);
       } catch (error) {
-        console.error('Failed to update note submitted status:', error);
-        // Don't fail the email send if status update fails
+        console.error('Failed to update note status:', error);
       }
     }
-    
+
+    res.json({
+      success: true,
+      message: 'Email sent successfully'
+    });
+
   } catch (error) {
-    console.log('=== RAILWAY DEBUG: Email sending error ===');
-    console.error('=== EMAIL WITH ATTACHMENT SENDING ERROR ===');
-    console.error('Error type:', error.constructor.name);
-    console.error('Error message:', error.message);
-    console.error('Full error:', error);
-    
-    // Check if it's a SendGrid specific error
-    if (error.response && error.response.body) {
-      console.error('SendGrid API error:', error.response.body);
-    }
-    
-    console.error('=== END EMAIL WITH ATTACHMENT ERROR ===');
+    console.error('Email failed:', error);
     res.status(500).json({ 
-      error: 'Failed to send email',
+      error: 'Failed to send email', 
       details: error.message 
     });
   }
