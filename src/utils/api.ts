@@ -513,3 +513,76 @@ export const deleteProject = async (projectId: string): Promise<void> => {
     throw new Error(`Failed to delete project: ${response.statusText}`);
   }
 };
+
+// Organization API functions
+export const getUserOrganizations = async (): Promise<any[]> => {
+  const token = getToken();
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/organizations`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to get organizations: ${response.statusText}`);
+  }
+
+  return response.json();
+};
+
+export const getOrganizationMembers = async (organizationId: string): Promise<any[]> => {
+  const token = getToken();
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/organizations/${organizationId}/members`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to get organization members: ${response.statusText}`);
+  }
+
+  return response.json();
+};
+
+export const createOrganizationInvite = async (organizationId: string, email: string): Promise<any> => {
+  const token = getToken();
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/organizations/${organizationId}/invite`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ email }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || `Failed to create invite: ${response.statusText}`);
+  }
+
+  return response.json();
+};
+
+export const getInviteDetails = async (token: string): Promise<any> => {
+  const response = await fetch(`${API_BASE_URL}/invites/${token}`);
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || `Failed to get invite details: ${response.statusText}`);
+  }
+
+  return response.json();
+};

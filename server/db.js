@@ -31,6 +31,164 @@ const query = async (text, params) => {
   }
 };
 
+// Organization-related database functions
+const organizationDb = {
+  // Create a new organization
+  async createOrganization(name, adminUserId) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      
+      // Create organization
+      const orgResult = await client.query(
+        'INSERT INTO organizations (name) VALUES ($1) RETURNING *',
+        [name]
+      );
+      const organization = orgResult.rows[0];
+      
+      // Add admin user to organization
+      await client.query(
+        'INSERT INTO organization_users (organization_id, user_id, role) VALUES ($1, $2, $3)',
+        [organization.id, adminUserId, 'admin']
+      );
+      
+      await client.query('COMMIT');
+      return organization;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
+
+  // Get user's organizations
+  async getUserOrganizations(userId) {
+    const result = await query(
+      `SELECT o.*, ou.role, ou.joined_at
+       FROM organizations o
+       JOIN organization_users ou ON o.id = ou.organization_id
+       WHERE ou.user_id = $1
+       ORDER BY ou.joined_at ASC`,
+      [userId]
+    );
+    return result.rows;
+  },
+
+  // Get organization by ID (with user access check)
+  async getOrganizationById(organizationId, userId) {
+    const result = await query(
+      `SELECT o.*, ou.role
+       FROM organizations o
+       JOIN organization_users ou ON o.id = ou.organization_id
+       WHERE o.id = $1 AND ou.user_id = $2`,
+      [organizationId, userId]
+    );
+    return result.rows[0];
+  },
+
+  // Get organization members
+  async getOrganizationMembers(organizationId, userId) {
+    // First check if user has access to this organization
+    const accessCheck = await query(
+      'SELECT role FROM organization_users WHERE organization_id = $1 AND user_id = $2',
+      [organizationId, userId]
+    );
+    
+    if (accessCheck.rows.length === 0) {
+      throw new Error('Access denied');
+    }
+    
+    const result = await query(
+      `SELECT u.id, u.name, u.email, ou.role, ou.joined_at
+       FROM users u
+       JOIN organization_users ou ON u.id = ou.user_id
+       WHERE ou.organization_id = $1
+       ORDER BY ou.joined_at ASC`,
+      [organizationId]
+    );
+    return result.rows;
+  },
+
+  // Create organization invite
+  async createInvite(organizationId, email, invitedBy, token, expiresAt) {
+    const result = await query(
+      'INSERT INTO organization_invites (organization_id, email, invited_by, token, expires_at) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [organizationId, email, invitedBy, token, expiresAt]
+    );
+    return result.rows[0];
+  },
+
+  // Get invite by token
+  async getInviteByToken(token) {
+    const result = await query(
+      `SELECT oi.*, o.name as organization_name, u.name as invited_by_name
+       FROM organization_invites oi
+       JOIN organizations o ON oi.organization_id = o.id
+       JOIN users u ON oi.invited_by = u.id
+       WHERE oi.token = $1 AND oi.expires_at > NOW()`,
+      [token]
+    );
+    return result.rows[0];
+  },
+
+  // Accept invite
+  async acceptInvite(token, userId) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      
+      // Get invite details
+      const inviteResult = await client.query(
+        'SELECT * FROM organization_invites WHERE token = $1 AND expires_at > NOW()',
+        [token]
+      );
+      
+      if (inviteResult.rows.length === 0) {
+        throw new Error('Invalid or expired invite');
+      }
+      
+      const invite = inviteResult.rows[0];
+      
+      // Check if user is already a member
+      const memberCheck = await client.query(
+        'SELECT id FROM organization_users WHERE organization_id = $1 AND user_id = $2',
+        [invite.organization_id, userId]
+      );
+      
+      if (memberCheck.rows.length > 0) {
+        throw new Error('User is already a member of this organization');
+      }
+      
+      // Add user to organization
+      await client.query(
+        'INSERT INTO organization_users (organization_id, user_id, role) VALUES ($1, $2, $3)',
+        [invite.organization_id, userId, 'member']
+      );
+      
+      // Delete the invite
+      await client.query('DELETE FROM organization_invites WHERE id = $1', [invite.id]);
+      
+      await client.query('COMMIT');
+      return invite.organization_id;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
+
+  // Get user's primary organization ID
+  async getUserPrimaryOrganization(userId) {
+    const result = await query(
+      'SELECT organization_id FROM organization_users WHERE user_id = $1 ORDER BY joined_at ASC LIMIT 1',
+      [userId]
+    );
+    return result.rows[0]?.organization_id || null;
+  }
+};
+
 // User-related database functions
 const userDb = {
   // Create a new user
@@ -58,59 +216,87 @@ const userDb = {
 // Project-related database functions
 const projectDb = {
   // Create a new project
-  async createProject(userId, name, description, location, inspector, projectDate) {
+  async createProject(userId, name, description, location, inspector, projectDate, organizationId) {
+    if (!organizationId) {
+      // Get user's primary organization
+      organizationId = await organizationDb.getUserPrimaryOrganization(userId);
+      if (!organizationId) {
+        throw new Error('User must belong to an organization to create projects');
+      }
+    }
+    
     const result = await query(
-      `INSERT INTO projects (user_id, name, description, location, inspector, project_date) 
-       VALUES ($1, $2, $3, $4, $5, $6) 
+      `INSERT INTO projects (user_id, name, description, location, inspector, project_date, organization_id) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7) 
        RETURNING id, name, description, location, inspector, project_date, created_at, updated_at`,
-      [userId, name, description, location, inspector, projectDate]
+      [userId, name, description, location, inspector, projectDate, organizationId]
     );
     return result.rows[0];
   },
 
   // Get all projects for a user
   async getUserProjects(userId) {
+    const organizationId = await organizationDb.getUserPrimaryOrganization(userId);
+    if (!organizationId) {
+      return [];
+    }
+    
     const result = await query(
       `SELECT p.*, 
        (SELECT COUNT(*) FROM notes WHERE project_id = p.id) as note_count,
        (SELECT content FROM summaries WHERE project_id = p.id ORDER BY updated_at DESC LIMIT 1) as ai_summary
        FROM projects p 
-       WHERE p.user_id = $1 
+       WHERE p.organization_id = $1 
        ORDER BY p.updated_at DESC`,
-      [userId]
+      [organizationId]
     );
     return result.rows;
   },
 
   // Get a specific project (with ownership check)
   async getProjectById(projectId, userId) {
+    const organizationId = await organizationDb.getUserPrimaryOrganization(userId);
+    if (!organizationId) {
+      return null;
+    }
+    
     const result = await query(
       `SELECT p.*,
        (SELECT content FROM summaries WHERE project_id = p.id ORDER BY updated_at DESC LIMIT 1) as ai_summary
        FROM projects p 
-       WHERE p.id = $1 AND p.user_id = $2`,
-      [projectId, userId]
+       WHERE p.id = $1 AND p.organization_id = $2`,
+      [projectId, organizationId]
     );
     return result.rows[0];
   },
 
   // Update project
   async updateProject(projectId, userId, updates) {
+    const organizationId = await organizationDb.getUserPrimaryOrganization(userId);
+    if (!organizationId) {
+      return null;
+    }
+    
     const setClause = Object.keys(updates).map((key, index) => `${key} = $${index + 3}`).join(', ');
     const values = Object.values(updates);
     
     const result = await query(
-      `UPDATE projects SET ${setClause} WHERE id = $1 AND user_id = $2 RETURNING *`,
-      [projectId, userId, ...values]
+      `UPDATE projects SET ${setClause} WHERE id = $1 AND organization_id = $2 RETURNING *`,
+      [projectId, organizationId, ...values]
     );
     return result.rows[0];
   },
 
   // Delete project
   async deleteProject(projectId, userId) {
+    const organizationId = await organizationDb.getUserPrimaryOrganization(userId);
+    if (!organizationId) {
+      return null;
+    }
+    
     const result = await query(
-      'DELETE FROM projects WHERE id = $1 AND user_id = $2 RETURNING id',
-      [projectId, userId]
+      'DELETE FROM projects WHERE id = $1 AND organization_id = $2 RETURNING id',
+      [projectId, organizationId]
     );
     return result.rows[0];
   }
@@ -119,10 +305,19 @@ const projectDb = {
 // Note-related database functions
 const noteDb = {
   // Create a new note
-  async createNote(projectId, type, content, transcription, imageLabel = null) {
+  async createNote(projectId, type, content, transcription, imageLabel = null, organizationId = null) {
+    if (!organizationId) {
+      // Get organization from project
+      const projectResult = await query('SELECT organization_id FROM projects WHERE id = $1', [projectId]);
+      if (projectResult.rows.length === 0) {
+        throw new Error('Project not found');
+      }
+      organizationId = projectResult.rows[0].organization_id;
+    }
+    
     const result = await query(
-      'INSERT INTO notes (project_id, type, content, transcription, image_label) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [projectId, type, content, transcription, imageLabel]
+      'INSERT INTO notes (project_id, type, content, transcription, image_label, organization_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [projectId, type, content, transcription, imageLabel, organizationId]
     );
     return result.rows[0];
   },
@@ -163,33 +358,48 @@ const noteDb = {
 
   // Update note label
   async updateNoteLabel(noteId, userId, newLabel) {
+    const organizationId = await organizationDb.getUserPrimaryOrganization(userId);
+    if (!organizationId) {
+      return null;
+    }
+    
     // First verify the note belongs to the user's project
     const result = await query(
       `UPDATE notes 
        SET image_label = $1
        WHERE id = $2 
-       AND project_id IN (SELECT id FROM projects WHERE user_id = $3)
+       AND organization_id = $3
        RETURNING *`,
-      [newLabel, noteId, userId]
+      [newLabel, noteId, organizationId]
     );
     return result.rows[0];
   },
 
   // Update note submission status
   async updateNoteSubmissionStatus(noteId, userId, submitted, individualReport = null) {
+    const organizationId = await organizationDb.getUserPrimaryOrganization(userId);
+    if (!organizationId) {
+      return null;
+    }
+    
     const result = await query(
       `UPDATE notes 
        SET submitted = $1, individual_report = $2
        WHERE id = $3 
-       AND project_id IN (SELECT id FROM projects WHERE user_id = $4)
+       AND organization_id = $4
        RETURNING *`,
-      [submitted, individualReport, noteId, userId]
+      [submitted, individualReport, noteId, organizationId]
     );
     return result.rows[0];
   },
 
   // Get individual note with submission status
   async getNoteById(noteId, userId) {
+    const organizationId = await organizationDb.getUserPrimaryOrganization(userId);
+    if (!organizationId) {
+      return null;
+    }
+    
     const result = await query(
       `SELECT n.*, 
        json_agg(
@@ -204,9 +414,9 @@ const noteDb = {
        FROM notes n
        LEFT JOIN note_files nf ON n.id = nf.note_id
        WHERE n.id = $1
-       AND n.project_id IN (SELECT id FROM projects WHERE user_id = $2)
+       AND n.organization_id = $2
        GROUP BY n.id`,
-      [noteId, userId]
+      [noteId, organizationId]
     );
     return result.rows[0];
   },
@@ -222,13 +432,18 @@ const noteDb = {
 
   // Delete note
   async deleteNote(noteId, userId) {
+    const organizationId = await organizationDb.getUserPrimaryOrganization(userId);
+    if (!organizationId) {
+      return null;
+    }
+    
     // First verify the note belongs to the user's project
     const result = await query(
       `DELETE FROM notes 
        WHERE id = $1 
-       AND project_id IN (SELECT id FROM projects WHERE user_id = $2)
+       AND organization_id = $2
        RETURNING id`,
-      [noteId, userId]
+      [noteId, organizationId]
     );
     return result.rows[0];
   }
@@ -237,7 +452,16 @@ const noteDb = {
 // Summary-related database functions
 const summaryDb = {
   // Create or update summary
-  async upsertSummary(projectId, content) {
+  async upsertSummary(projectId, content, organizationId = null) {
+    if (!organizationId) {
+      // Get organization from project
+      const projectResult = await query('SELECT organization_id FROM projects WHERE id = $1', [projectId]);
+      if (projectResult.rows.length === 0) {
+        throw new Error('Project not found');
+      }
+      organizationId = projectResult.rows[0].organization_id;
+    }
+    
     // First, try to find existing summary
     const existingResult = await query(
       'SELECT id FROM summaries WHERE project_id = $1 ORDER BY created_at DESC LIMIT 1',
@@ -254,8 +478,8 @@ const summaryDb = {
     } else {
       // Create new summary
       const result = await query(
-        'INSERT INTO summaries (project_id, content) VALUES ($1, $2) RETURNING *',
-        [projectId, content]
+        'INSERT INTO summaries (project_id, content, organization_id) VALUES ($1, $2, $3) RETURNING *',
+        [projectId, content, organizationId]
       );
       return result.rows[0];
     }
@@ -275,6 +499,7 @@ const summaryDb = {
 export {
   query,
   pool,
+  organizationDb,
   userDb,
   projectDb,
   noteDb,
@@ -285,6 +510,7 @@ export {
 export default {
   query,
   pool,
+  organizationDb,
   userDb,
   projectDb,
   noteDb,

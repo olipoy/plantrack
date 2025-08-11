@@ -1,7 +1,7 @@
 // Authentication utilities and middleware
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { userDb } from './db.js';
+import { userDb, organizationDb } from './db.js';
 
 // JWT secret - in production, use a strong random secret
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this-in-production';
@@ -58,7 +58,7 @@ const authenticateToken = async (req, res, next) => {
 };
 
 // Register new user
-const registerUser = async (email, password, name) => {
+const registerUser = async (email, password, name, organizationName = null, inviteToken = null) => {
   try {
     // Check if user already exists
     const existingUser = await userDb.findUserByEmail(email);
@@ -72,6 +72,19 @@ const registerUser = async (email, password, name) => {
     // Create user
     const user = await userDb.createUser(email, passwordHash, name);
 
+    let organizationId;
+    
+    if (inviteToken) {
+      // Join existing organization via invite
+      organizationId = await organizationDb.acceptInvite(inviteToken, user.id);
+    } else if (organizationName) {
+      // Create new organization
+      const organization = await organizationDb.createOrganization(organizationName, user.id);
+      organizationId = organization.id;
+    } else {
+      throw new Error('Must either provide organization name or invite token');
+    }
+
     // Generate token
     const token = generateToken(user.id);
 
@@ -80,7 +93,8 @@ const registerUser = async (email, password, name) => {
         id: user.id,
         email: user.email,
         name: user.name,
-        created_at: user.created_at
+        created_at: user.created_at,
+        organizationId
       },
       token
     };
@@ -104,6 +118,9 @@ const loginUser = async (email, password) => {
       throw new Error('Invalid email or password');
     }
 
+    // Get user's primary organization
+    const organizationId = await organizationDb.getUserPrimaryOrganization(user.id);
+    
     // Generate token
     const token = generateToken(user.id);
 
@@ -112,7 +129,8 @@ const loginUser = async (email, password) => {
         id: user.id,
         email: user.email,
         name: user.name,
-        created_at: user.created_at
+        created_at: user.created_at,
+        organizationId
       },
       token
     };

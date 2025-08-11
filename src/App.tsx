@@ -5,17 +5,19 @@ import { NewProject } from './components/NewProject';
 import { ProjectDetail } from './components/ProjectDetail';
 import { GlobalAIChat } from './components/GlobalAIChat';
 import { AuthForm } from './components/AuthForm';
+import { OrganizationSettings } from './components/OrganizationSettings';
 import { populateWithMockData } from './utils/storage';
 import { getUserProjects, getProjectById } from './utils/api';
-import { ClipboardList, Plus, FolderOpen, Bot, LogOut, User, ChevronDown, X } from 'lucide-react';
+import { ClipboardList, Plus, FolderOpen, Bot, LogOut, User, Settings, X } from 'lucide-react';
 import { isAuthenticated, getUser, logout } from './utils/auth';
 
-type View = 'list' | 'new' | 'detail';
+type View = 'list' | 'new' | 'detail' | 'organization-settings';
 type Tab = 'projects' | 'ai';
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [inviteToken, setInviteToken] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<View>('list');
   const [activeTab, setActiveTab] = useState<Tab>('projects');
   const [projects, setProjects] = useState<Project[]>([]);
@@ -24,6 +26,15 @@ function App() {
   const [pendingEmailData, setPendingEmailData] = useState<any>(null);
 
   useEffect(() => {
+    // Check for invite token in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('invite');
+    if (token) {
+      setInviteToken(token);
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    
     // Check authentication status
     const checkAuth = () => {
       setIsLoggedIn(isAuthenticated());
@@ -128,6 +139,7 @@ function App() {
 
   const handleAuthSuccess = () => {
     setIsLoggedIn(true);
+    setInviteToken(null); // Clear invite token after successful auth
   };
 
   const handleLogout = () => {
@@ -159,7 +171,7 @@ function App() {
 
   // Show auth form if not logged in
   if (!isLoggedIn) {
-    return <AuthForm onAuthSuccess={handleAuthSuccess} />;
+    return <AuthForm onAuthSuccess={handleAuthSuccess} inviteToken={inviteToken} />;
   }
 
   const handleSelectProject = (project: Project) => {
@@ -302,6 +314,16 @@ function App() {
                             <button
                               onClick={() => {
                                 setShowUserMenu(false);
+                                setCurrentView('organization-settings');
+                              }}
+                              className="w-full flex items-center p-4 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-colors"
+                            >
+                              <Settings className="w-5 h-5 mr-3" />
+                              <span className="font-medium">Organisationsinställningar</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                setShowUserMenu(false);
                                 handleLogout();
                               }}
                               className="w-full flex items-center p-4 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors"
@@ -338,6 +360,10 @@ function App() {
                   onEmailDataProcessed={() => setPendingEmailData(null)}
                 />
               )}
+
+              {currentView === 'organization-settings' && (
+                <OrganizationSettings onBack={handleBackToList} />
+              )}
             </>
           )}
 
@@ -349,7 +375,7 @@ function App() {
         </div>
 
         {/* Footer Navigation - Only show when not in project detail */}
-        {!(activeTab === 'projects' && currentView === 'detail') && (
+        {!(activeTab === 'projects' && (currentView === 'detail' || currentView === 'organization-settings')) && (
           <div className="bg-white border-t border-gray-200 px-4 py-2 safe-area-pb flex-shrink-0">
             <div className="flex">
               <button

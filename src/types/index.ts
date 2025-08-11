@@ -39,9 +39,33 @@ export interface User {
   email: string;
   name: string;
   created_at: string;
+  organizationId?: string;
 }
 
 export interface AuthResponse {
   user: User;
   token: string;
+}
+
+export interface Organization {
+  id: string;
+  name: string;
+  role: 'admin' | 'member';
+  joined_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OrganizationMember {
+  id: string;
+  name: string;
+  email: string;
+  role: 'admin' | 'member';
+  joined_at: string;
+}
+
+export interface OrganizationInvite {
+  organizationName: string;
+  invitedBy: string;
+  email: string;
 }

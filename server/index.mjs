@@ -18,7 +18,7 @@ globalThis.File = File;
 
 // Import authentication and database modules (ESM)
 import { authenticateToken, registerUser, loginUser } from './auth.js';
-import { projectDb, noteDb, summaryDb } from './db.js';
+import { organizationDb, projectDb, noteDb, summaryDb } from './db.js';
 
 // Load environment variables
 dotenv.config();
@@ -86,7 +86,7 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 // Register new user
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { email, password, name } = req.body;
+    const { email, password, name, organizationName, inviteToken } = req.body;
 
     // Basic validation
     if (!email || !password || !name) {
@@ -97,7 +97,11 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(400).json({ error: 'Password must be at least 6 characters long' });
     }
 
-    const result = await registerUser(email, password, name);
+    if (!organizationName && !inviteToken) {
+      return res.status(400).json({ error: 'Must provide either organization name or invite token' });
+    }
+
+    const result = await registerUser(email, password, name, organizationName, inviteToken);
     res.status(201).json(result);
   } catch (error) {
     console.error('Registration error:', error);
@@ -125,6 +129,91 @@ app.post('/api/auth/login', async (req, res) => {
 // Get current user info
 app.get('/api/auth/me', authenticateToken, (req, res) => {
   res.json({ user: req.user });
+});
+
+// Organization Routes (Protected)
+
+// Get user's organizations
+app.get('/api/organizations', authenticateToken, async (req, res) => {
+  try {
+    const organizations = await organizationDb.getUserOrganizations(req.user.id);
+    res.json(organizations);
+  } catch (error) {
+    console.error('Get organizations error:', error);
+    res.status(500).json({ error: 'Failed to get organizations' });
+  }
+});
+
+// Get organization members
+app.get('/api/organizations/:id/members', authenticateToken, async (req, res) => {
+  try {
+    const members = await organizationDb.getOrganizationMembers(req.params.id, req.user.id);
+    res.json(members);
+  } catch (error) {
+    console.error('Get organization members error:', error);
+    res.status(500).json({ error: 'Failed to get organization members' });
+  }
+});
+
+// Create organization invite
+app.post('/api/organizations/:id/invite', authenticateToken, async (req, res) => {
+  try {
+    const { email } = req.body;
+    const organizationId = req.params.id;
+    
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    // Check if user is admin of this organization
+    const organization = await organizationDb.getOrganizationById(organizationId, req.user.id);
+    if (!organization || organization.role !== 'admin') {
+      return res.status(403).json({ error: 'Only organization admins can send invites' });
+    }
+
+    // Generate unique invite token
+    const token = uuidv4();
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+    const invite = await organizationDb.createInvite(
+      organizationId,
+      email,
+      req.user.id,
+      token,
+      expiresAt
+    );
+
+    // TODO: Send email with invite link
+    // For now, just return the invite token
+    res.status(201).json({
+      success: true,
+      inviteToken: token,
+      inviteUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/invite/${token}`
+    });
+  } catch (error) {
+    console.error('Create invite error:', error);
+    res.status(500).json({ error: 'Failed to create invite' });
+  }
+});
+
+// Get invite details
+app.get('/api/invites/:token', async (req, res) => {
+  try {
+    const invite = await organizationDb.getInviteByToken(req.params.token);
+    
+    if (!invite) {
+      return res.status(404).json({ error: 'Invite not found or expired' });
+    }
+
+    res.json({
+      organizationName: invite.organization_name,
+      invitedBy: invite.invited_by_name,
+      email: invite.email
+    });
+  } catch (error) {
+    console.error('Get invite error:', error);
+    res.status(500).json({ error: 'Failed to get invite details' });
+  }
 });
 
 // Project Routes (Protected)
