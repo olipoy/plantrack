@@ -345,7 +345,9 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                 content: note.content?.substring(0, 30)
               })))}
               <div className="space-y-3">
-                {project.notes.map((note: Note) => (
+                {project.notes
+                  .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                  .map((note: Note) => (
                   <div 
                     key={note.id} 
                     onClick={() => handleNoteClick(note)}
@@ -359,9 +361,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                         {note.submitted && (
                           <>
                             <Check className="w-4 h-4 text-green-600 ml-2" />
-              {project.notes
-                .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-                .map((note: Note) => (
                           </>
                         )}
                         {/* Debug: Show submitted status for all notes */}
@@ -503,7 +502,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                     </button>
                   </div>
                 </>
-              ))}
+              )}
             </div>
           </div>
         </div>
