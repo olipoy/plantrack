@@ -330,7 +330,7 @@ export const sendEmailWithAttachment = async (
     to,
     subject,
     message,
-    noteId,
+    noteId: noteId || null, // Ensure noteId is always included
     attachment: {
       content: base64Content,
       filename: fileName,
@@ -340,7 +340,7 @@ export const sendEmailWithAttachment = async (
   };
 
   console.log('=== API REQUEST BODY DEBUG ===');
-  console.log('Request body noteId:', requestBody.noteId);
+  console.log('Request body noteId:', requestBody.noteId, 'type:', typeof requestBody.noteId);
   console.log('Request body structure:', { 
     ...requestBody, 
     attachment: { ...requestBody.attachment, content: '[BASE64_DATA_TRUNCATED]' } 
