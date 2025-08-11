@@ -56,6 +56,21 @@ if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
   s3 = new AWS.S3();
 }
 
+// Test database connection and schema on startup
+const testDatabaseSchema = async () => {
+  try {
+    console.log('Testing database schema...');
+    const result = await query('SELECT org_id FROM projects LIMIT 1');
+    console.log('✅ Database schema test passed - org_id column exists');
+  } catch (error) {
+    console.error('❌ Database schema test failed:', error.message);
+    console.error('Make sure the database has org_id columns instead of organization_id');
+  }
+};
+
+// Run schema test on startup
+testDatabaseSchema();
+
 // Middleware
 function cleanEnvUrl(url) {
   if (!url) return null;
@@ -159,14 +174,14 @@ app.get('/api/organizations/:id/members', authenticateToken, async (req, res) =>
 app.post('/api/organizations/:id/invite', authenticateToken, async (req, res) => {
   try {
     const { email } = req.body;
-    const organizationId = req.params.id;
+    const orgId = req.params.id;
     
     if (!email) {
       return res.status(400).json({ error: 'Email is required' });
     }
 
     // Check if user is admin of this organization
-    const organization = await organizationDb.getOrganizationById(organizationId, req.user.id);
+    const organization = await organizationDb.getOrganizationById(orgId, req.user.id);
     if (!organization || organization.role !== 'admin') {
       return res.status(403).json({ error: 'Only organization admins can send invites' });
     }
@@ -176,7 +191,7 @@ app.post('/api/organizations/:id/invite', authenticateToken, async (req, res) =>
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
     const invite = await organizationDb.createInvite(
-      organizationId,
+      orgId,
       email,
       req.user.id,
       token,
@@ -206,7 +221,7 @@ app.get('/api/invites/:token', async (req, res) => {
     }
 
     res.json({
-      organizationName: invite.organization_name,
+      organizationName: invite.org_name,
       invitedBy: invite.invited_by_name,
       email: invite.email
     });
