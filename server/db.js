@@ -113,8 +113,8 @@ const organizationDb = {
   // Create organization invite
   async createInvite(organizationId, email, invitedBy, token, expiresAt) {
     const result = await query(
-      'INSERT INTO organization_invites (organization_id, email, invited_by, token, expires_at) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [organizationId, email, invitedBy, token, expiresAt]
+      'INSERT INTO organization_invites (organization_id, email, invited_by, token, expires_at, role, status) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+      [organizationId, email, invitedBy, token, expiresAt, 'member', 'pending']
     );
     return result.rows[0];
   },
@@ -125,8 +125,8 @@ const organizationDb = {
       `SELECT oi.*, o.name as organization_name, u.name as invited_by_name
        FROM organization_invites oi
        JOIN organizations o ON oi.organization_id = o.id
-       JOIN users u ON oi.invited_by = u.id
-       WHERE oi.token = $1 AND oi.expires_at > NOW()`,
+       LEFT JOIN users u ON oi.invited_by = u.id
+       WHERE oi.token = $1 AND (oi.expires_at IS NULL OR oi.expires_at > NOW()) AND oi.status = 'pending'`,
       [token]
     );
     return result.rows[0];
