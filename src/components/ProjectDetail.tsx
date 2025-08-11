@@ -115,6 +115,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
     console.log('Received note:', note);
     console.log('Note ID:', note.id);
     console.log('Note ID type:', typeof note.id);
+    console.log('Current project notes count:', project.notes?.length || 0);
     
     const updatedProject = {
       ...project,
@@ -122,6 +123,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
       updatedAt: new Date()
     };
     
+    console.log('Updated project notes count:', updatedProject.notes.length);
     console.log('Final note being added:', note);
     onProjectUpdate(updatedProject);
     

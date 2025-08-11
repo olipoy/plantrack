@@ -86,11 +86,17 @@ function App() {
 
   const handleProjectUpdate = (updatedProject: Project) => {
     console.log('Updating project:', updatedProject);
+    console.log('Updated project notes count:', updatedProject.notes?.length || 0);
+    console.log('Current projects state count:', projects.length);
+    
     setProjects(prev => prev.map(p => 
       p.id === updatedProject.id ? updatedProject : p
     ));
+    
+    // Also update the selectedProject to ensure ProjectDetail gets the latest data
     setSelectedProject(updatedProject);
     
+    console.log('Project state updated, selectedProject updated');
     // Don't clear pendingEmailData here to avoid interference
   };
 
