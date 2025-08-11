@@ -906,11 +906,28 @@ app.post('/api/send-email-attachment', authenticateToken, async (req, res) => {
     const { to, subject, message, attachment, noteId } = req.body;
     
     console.log('=== EMAIL WITH ATTACHMENT DEBUG ===');
-    console.log('Received noteId:', noteId);
+    console.log('Raw request body keys:', Object.keys(req.body));
+    console.log('Raw request body noteId:', req.body.noteId);
+    console.log('Destructured noteId:', noteId);
+    console.log('noteId type:', typeof noteId);
+    console.log('noteId === undefined:', noteId === undefined);
+    console.log('noteId === null:', noteId === null);
+    console.log('Full request body (without attachment content):', {
+      to,
+      subject,
+      message: message?.substring(0, 50),
+      noteId,
+      attachmentPresent: !!attachment
+    });
     console.log('User ID:', req.user.id);
 
     if (!to || !subject || !attachment) {
       return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    if (!noteId) {
+      console.error('CRITICAL: noteId is missing in server request!');
+      return res.status(400).json({ error: 'noteId is required for tracking email status' });
     }
 
     // Prepare email
@@ -943,11 +960,7 @@ app.post('/api/send-email-attachment', authenticateToken, async (req, res) => {
     await sgMail.send(msg);
     console.log('Email sent successfully');
 
-    // Update note submitted status - this is mandatory
-    if (!noteId) {
-      throw new Error('noteId is required for tracking email status');
-    }
-    
+    // Update note submitted status
     console.log('Updating note submitted status for noteId:', noteId);
     const updatedNote = await noteDb.updateNoteSubmissionStatus(noteId, req.user.id, true);
     console.log('Database update result:', updatedNote);

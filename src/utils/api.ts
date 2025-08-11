@@ -284,15 +284,31 @@ export const sendEmailWithAttachment = async (
   fileName: string,
   fileType: string,
   fileSize: number,
-  noteId?: string
+  noteId: string  // Made required instead of optional
 ): Promise<{ success: boolean; message: string }> => {
   const token = getToken();
   if (!token) {
     throw new Error('Authentication required');
   }
 
-  console.log('=== API sendEmailWithAttachment DEBUG ===');
-  console.log('Parameters received:', { to, subject, message, fileName, fileType, fileSize, noteId });
+  console.log('=== API sendEmailWithAttachment ENTRY DEBUG ===');
+  console.log('Function called with parameters:');
+  console.log('1. to:', to);
+  console.log('2. subject:', subject);
+  console.log('3. message:', message);
+  console.log('4. fileUrl:', fileUrl);
+  console.log('5. fileName:', fileName);
+  console.log('6. fileType:', fileType);
+  console.log('7. fileSize:', fileSize);
+  console.log('8. noteId:', noteId);
+  console.log('noteId type:', typeof noteId);
+  console.log('noteId === undefined:', noteId === undefined);
+  console.log('noteId === null:', noteId === null);
+  
+  if (!noteId) {
+    console.error('CRITICAL: noteId is missing in API function!');
+    throw new Error('noteId is required for email tracking');
+  }
 
   // Download the file to get its content
   const fileResponse = await fetch(fileUrl);
@@ -319,7 +335,7 @@ export const sendEmailWithAttachment = async (
     to,
     subject,
     message,
-    noteId, // Add noteId directly to the request body
+    noteId,
     attachment: {
       content: base64Content,
       filename: fileName,
@@ -328,8 +344,12 @@ export const sendEmailWithAttachment = async (
     }
   };
 
-
-  console.log('Request body being sent:', { ...requestBody, attachment: { ...requestBody.attachment, content: '[BASE64_DATA]' } });
+  console.log('=== API REQUEST BODY DEBUG ===');
+  console.log('Request body noteId:', requestBody.noteId);
+  console.log('Request body structure:', { 
+    ...requestBody, 
+    attachment: { ...requestBody.attachment, content: '[BASE64_DATA_TRUNCATED]' } 
+  });
 
   const response = await fetch(`${API_BASE_URL}/send-email-attachment`, {
     method: 'POST',
@@ -340,12 +360,17 @@ export const sendEmailWithAttachment = async (
     body: JSON.stringify(requestBody),
   });
 
+  console.log('API response status:', response.status);
+  
   if (!response.ok) {
     const error = await response.json();
+    console.error('API error response:', error);
     throw new Error(error.error || `Failed to send email: ${response.statusText}`);
   }
 
-  return response.json();
+  const result = await response.json();
+  console.log('API success response:', result);
+  return result;
 };
 
 export const sendEmailWithPDF = async (

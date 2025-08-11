@@ -29,6 +29,13 @@ export const NoteModal: React.FC<NoteModalProps> = ({
   if (!isOpen) return null;
 
   const handleSendEmail = async () => {
+    console.log('=== NoteModal handleSendEmail DEBUG ===');
+    console.log('note object:', note);
+    console.log('note.id:', note.id);
+    console.log('typeof note.id:', typeof note.id);
+    console.log('note.id === undefined:', note.id === undefined);
+    console.log('note.id === null:', note.id === null);
+    
     if (!email.trim() || !subject.trim()) {
       setError('E-postadress och ämne är obligatoriska');
       return;
@@ -39,14 +46,26 @@ export const NoteModal: React.FC<NoteModalProps> = ({
       return;
     }
 
-    console.log('=== NoteModal handleSendEmail DEBUG ===');
-    console.log('Note ID being sent:', note.id);
-    console.log('Note object:', { id: note.id, type: note.type, fileUrl: note.fileUrl, fileName: note.fileName });
+    if (!note.id) {
+      console.error('CRITICAL: note.id is missing!', { note });
+      setError('Fel: Antecknings-ID saknas. Kan inte skicka e-post.');
+      return;
+    }
 
     setIsSending(true);
     setError('');
 
     try {
+      console.log('Calling sendEmailWithAttachment with parameters:');
+      console.log('1. to:', email.trim());
+      console.log('2. subject:', subject.trim());
+      console.log('3. message:', message.trim());
+      console.log('4. fileUrl:', note.fileUrl);
+      console.log('5. fileName:', note.fileName);
+      console.log('6. fileType:', note.type === 'photo' ? 'image/jpeg' : 'video/webm');
+      console.log('7. fileSize:', note.fileSize || 0);
+      console.log('8. noteId:', note.id);
+      
       await sendEmailWithAttachment(
         email.trim(),
         subject.trim(),
