@@ -926,14 +926,14 @@ app.post('/api/send-email-attachment', authenticateToken, async (req, res) => {
     // Send email
     await sgMail.send(msg);
 
-    // Update note submitted status if noteId provided
+    // Update note submitted status if noteId provided - this is mandatory
     if (noteId) {
-      try {
-        await noteDb.updateNoteSubmissionStatus(noteId, req.user.id, true);
-        console.log('Note submitted status updated:', noteId);
-      } catch (error) {
-        console.error('Failed to update note status:', error);
+      console.log('Updating note submitted status for noteId:', noteId);
+      const updatedNote = await noteDb.updateNoteSubmissionStatus(noteId, req.user.id, true);
+      if (!updatedNote) {
+        throw new Error('Failed to update note submission status - note not found or access denied');
       }
+      console.log('Note submitted status updated successfully:', noteId);
     }
 
     res.json({
