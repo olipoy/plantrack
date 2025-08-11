@@ -34,6 +34,22 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [showNoteModal, setShowNoteModal] = useState(false);
 
+  const handleNoteEmailSent = (noteId: string) => {
+    console.log('Email sent for note:', noteId);
+    // Update the note's submitted status
+    const updatedProject = {
+      ...project,
+      notes: project.notes.map((note: Note) => 
+        note.id === noteId 
+          ? { ...note, submitted: true, submittedAt: new Date() }
+          : note
+      ),
+      updatedAt: new Date()
+    };
+    console.log('Updating project with submitted note:', updatedProject);
+    onProjectUpdate(updatedProject);
+  };
+
   // Show modal when pendingEmailData is available
   useEffect(() => {
     console.log('useEffect triggered with pendingEmailData:', pendingEmailData);
@@ -458,6 +474,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
           projectName={project.name}
           isOpen={showNoteModal}
           onClose={handleCloseNoteModal}
+          onEmailSent={handleNoteEmailSent}
           onEmailSent={handleNoteEmailSent}
         />
       )}

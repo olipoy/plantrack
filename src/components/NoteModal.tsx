@@ -8,13 +8,15 @@ interface NoteModalProps {
   projectName: string;
   isOpen: boolean;
   onClose: () => void;
+  onEmailSent?: (noteId: string) => void;
 }
 
 export const NoteModal: React.FC<NoteModalProps> = ({
   note,
   projectName,
   isOpen,
-  onClose
+  onClose,
+  onEmailSent
 }) => {
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [email, setEmail] = useState('');
