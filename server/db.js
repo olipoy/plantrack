@@ -179,6 +179,15 @@ const organizationDb = {
     }
   },
 
+  // Update invite status
+  async updateInviteStatus(token, status, acceptedBy = null) {
+    const result = await query(
+      'UPDATE organization_invites SET status = $1, accepted_by = $2, accepted_at = CASE WHEN $1 = \'accepted\' THEN NOW() ELSE accepted_at END WHERE token = $3 RETURNING *',
+      [status, acceptedBy, token]
+    );
+    return result.rows[0];
+  },
+
   // Get user's primary organization ID
   async getUserPrimaryOrganization(userId) {
     const result = await query(
