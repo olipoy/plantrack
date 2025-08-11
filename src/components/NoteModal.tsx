@@ -31,23 +31,29 @@ export const NoteModal: React.FC<NoteModalProps> = ({
   const handleSendEmail = async () => {
     // Add server-visible logging by making a test API call
     try {
-      console.log('=== FRONTEND: Sending debug info to server ===');
+      const token = localStorage.getItem('inspection_auth_token');
       const debugResponse = await fetch('/api/debug-note', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('inspection_auth_token')}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           noteObject: note,
           noteId: note.id,
           noteIdType: typeof note.id,
-          allNoteKeys: Object.keys(note)
+          allNoteKeys: Object.keys(note),
+          noteStringified: JSON.stringify(note)
         })
       });
-      console.log('Debug info sent to server');
+      
+      if (debugResponse.ok) {
+        console.log('Debug info sent to server successfully');
+      } else {
+        console.log('Debug API call failed with status:', debugResponse.status);
+      }
     } catch (error) {
-      console.log('Debug API call failed, continuing with email send');
+      console.log('Debug API call failed:', error);
     }
     
     if (!email.trim() || !subject.trim()) {
