@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, X, Send, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { ArrowLeft, X, Send, Loader2, CheckCircle, AlertCircle, Check } from 'lucide-react';
 import { Note } from '../types';
 import { sendEmailWithPDF, sendEmailWithAttachment } from '../utils/api';
 import { CameraView } from './CameraView';
@@ -288,21 +288,19 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                     className="border border-gray-200 rounded-lg p-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-colors"
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-gray-700">
-                        {note.type === 'photo' ? '📷 Foto' : '🎥 Video'}
-                      </span>
+                      <div className="flex items-center">
+                        <span className="text-sm font-medium text-gray-700">
+                          {note.type === 'photo' ? '📷 Foto' : '🎥 Video'}
+                        </span>
+                        {note.submitted && (
+                          <Check className="w-4 h-4 text-green-600 ml-2" />
+                        )}
+                      </div>
                       <span className="text-xs text-gray-500">
                         {note.timestamp.toLocaleString()}
                       </span>
                     </div>
                     <p className="text-sm text-gray-800">{note.content}</p>
-                    {note.submitted && (
-                      <div className="mt-2">
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
-                          ✓ Skickad
-                        </span>
-                      </div>
-                    )}
                   </div>
                 ))}
               </div>
