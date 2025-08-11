@@ -191,7 +191,7 @@ const organizationDb = {
   // Get user's primary organization ID
   async getUserPrimaryOrganization(userId) {
     const result = await query(
-      'SELECT organization_id FROM organization_users WHERE user_id = $1 ORDER BY joined_at ASC LIMIT 1',
+      'SELECT organization_id FROM organization_users WHERE user_id = $1 LIMIT 1',
       [userId]
     );
     return result.rows[0]?.organization_id || null;
