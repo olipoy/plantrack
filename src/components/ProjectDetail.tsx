@@ -109,14 +109,31 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
     setCurrentView('detail');
   };
 
-  const handleNoteSave = (note: Omit<Note, 'id'>, emailData?: any) => {
-    // Add the note to the project and update (note should already have an ID from upload)
-    const noteWithId = 'id' in note ? note as Note : { ...note, id: Date.now().toString() };
+  const handleNoteSave = (note: Omit<Note, 'id'> | Note, emailData?: any) => {
+    // Add the note to the project and update
+    console.log('=== handleNoteSave DEBUG ===');
+    console.log('Received note:', note);
+    console.log('Note has id property:', 'id' in note);
+    console.log('Note id value:', (note as any).id);
+    
+    // The note should already have an ID from upload, but check if it's valid
+    let noteWithId: Note;
+    if ('id' in note && (note as any).id) {
+      noteWithId = note as Note;
+      console.log('Using existing note ID:', noteWithId.id);
+    } else {
+      // Fallback to timestamp ID if no valid ID exists
+      noteWithId = { ...note, id: `fallback-${Date.now()}` };
+      console.log('Generated fallback ID:', noteWithId.id);
+    }
+    
     const updatedProject = {
       ...project,
       notes: [...(project.notes || []), noteWithId],
       updatedAt: new Date()
     };
+    
+    console.log('Final note being added:', noteWithId);
     onProjectUpdate(updatedProject);
     
     // Navigate back to project view first

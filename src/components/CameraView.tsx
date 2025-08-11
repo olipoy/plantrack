@@ -8,7 +8,7 @@ interface CameraViewProps {
   projectId: string;
   mode: 'photo' | 'video';
   onBack: () => void;
-  onSave: (note: Omit<Note, 'id'>, emailData?: any) => void;
+  onSave: (note: Omit<Note, 'id'> | Note, emailData?: any) => void;
 }
 
 export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack, onSave }) => {
