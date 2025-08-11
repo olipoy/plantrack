@@ -363,10 +363,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                             <Check className="w-4 h-4 text-green-600 ml-2" />
                           </>
                         )}
-                        {/* Debug: Show submitted status for all notes */}
-                        <span className="text-xs text-gray-400 ml-2">
-                          [Debug: submitted={String(note.submitted)}]
-                        </span>
                       </div>
                       <span className="text-xs text-gray-500">
                         {note.timestamp.toLocaleString()}
