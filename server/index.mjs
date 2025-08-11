@@ -437,9 +437,11 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
     } else {
       // Use local storage
       const fileName = `${uuidv4()}-${file.originalname}`;
-      fullFilePath = path.join(uploadsDir, fileName);
+      const tempFilePath = file.path; // multer already saved it here
+      fullFilePath = join(uploadsDir, fileName);
       
-      await fs.writeFile(fullFilePath, file.buffer);
+      // Move file from temp location to final location
+      await fs.rename(tempFilePath, fullFilePath);
       
       fileUrl = `/uploads/${fileName}`;
       
