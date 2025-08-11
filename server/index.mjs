@@ -18,7 +18,7 @@ globalThis.File = File;
 
 // Import authentication and database modules (ESM)
 import { authenticateToken, registerUser, loginUser } from './auth.js';
-import { organizationDb, projectDb, noteDb, summaryDb } from './db.js';
+import { organizationDb, userDb, projectDb, noteDb, summaryDb } from './db.js';
 
 // Load environment variables
 dotenv.config();
