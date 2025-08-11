@@ -39,6 +39,10 @@ export const NoteModal: React.FC<NoteModalProps> = ({
       return;
     }
 
+    console.log('=== NoteModal handleSendEmail DEBUG ===');
+    console.log('Note ID being sent:', note.id);
+    console.log('Note object:', { id: note.id, type: note.type, fileUrl: note.fileUrl, fileName: note.fileName });
+
     setIsSending(true);
     setError('');
 
@@ -54,11 +58,11 @@ export const NoteModal: React.FC<NoteModalProps> = ({
         note.id  // This should be the noteId
       );
 
+      console.log('Email sent successfully, calling onEmailSent with noteId:', note.id);
       setEmailSuccess(true);
       
       // Notify parent that email was sent successfully
       if (onEmailSent) {
-        console.log('=== NoteModal calling onEmailSent with noteId:', note.id);
         onEmailSent(note.id);
       }
       

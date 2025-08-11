@@ -291,6 +291,9 @@ export const sendEmailWithAttachment = async (
     throw new Error('Authentication required');
   }
 
+  console.log('=== API sendEmailWithAttachment DEBUG ===');
+  console.log('Parameters received:', { to, subject, message, fileName, fileType, fileSize, noteId });
+
   // Download the file to get its content
   const fileResponse = await fetch(fileUrl);
   if (!fileResponse.ok) {
@@ -312,10 +315,11 @@ export const sendEmailWithAttachment = async (
   
   const base64Content = btoa(binaryString);
 
-  const requestBody: any = {
+  const requestBody = {
     to,
     subject,
     message,
+    noteId, // Add noteId directly to the request body
     attachment: {
       content: base64Content,
       filename: fileName,
@@ -324,12 +328,8 @@ export const sendEmailWithAttachment = async (
     }
   };
 
-  // Add noteId at the top level if provided
-  if (noteId) {
-    requestBody.noteId = noteId;
-  }
 
-  console.log('Sending email with noteId:', noteId); // Debug log
+  console.log('Request body being sent:', { ...requestBody, attachment: { ...requestBody.attachment, content: '[BASE64_DATA]' } });
 
   const response = await fetch(`${API_BASE_URL}/send-email-attachment`, {
     method: 'POST',
