@@ -53,6 +53,11 @@ export const NoteModal: React.FC<NoteModalProps> = ({
 
       setEmailSuccess(true);
       
+      // Notify parent that email was sent successfully
+      if (onEmailSent) {
+        onEmailSent(note.id);
+      }
+      
       // Auto-close after success
       setTimeout(() => {
         onClose();

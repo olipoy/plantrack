@@ -280,6 +280,14 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
           {project.notes && project.notes.length > 0 && (
             <div className="bg-white rounded-lg p-4 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-900 mb-3">Anteckningar</h2>
+              {/* Debug: Log note data */}
+              {console.log('=== DEBUG: Project notes data ===', project.notes.map(note => ({
+                id: note.id,
+                type: note.type,
+                submitted: note.submitted,
+                submittedAt: note.submittedAt,
+                content: note.content?.substring(0, 30)
+              })))}
               <div className="space-y-3">
                 {project.notes.map((note: Note) => (
                   <div 
@@ -293,8 +301,15 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                           {note.type === 'photo' ? '📷 Foto' : '🎥 Video'}
                         </span>
                         {note.submitted && (
-                          <Check className="w-4 h-4 text-green-600 ml-2" />
+                          <>
+                            <Check className="w-4 h-4 text-green-600 ml-2" />
+                            <span className="text-xs text-green-600 ml-1">Skickad</span>
+                          </>
                         )}
+                        {/* Debug: Show submitted status for all notes */}
+                        <span className="text-xs text-gray-400 ml-2">
+                          [Debug: submitted={String(note.submitted)}]
+                        </span>
                       </div>
                       <span className="text-xs text-gray-500">
                         {note.timestamp.toLocaleString()}
@@ -443,6 +458,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
           projectName={project.name}
           isOpen={showNoteModal}
           onClose={handleCloseNoteModal}
+          onEmailSent={handleNoteEmailSent}
         />
       )}
     </div>
