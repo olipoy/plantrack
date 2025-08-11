@@ -1,4 +1,3 @@
-console.log("### Running deployed server/index.mjs VERSION 999 ###");
 import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
@@ -23,10 +22,7 @@ import { projectDb, noteDb, summaryDb } from './db.js';
 // Load environment variables
 dotenv.config();
 
-// Define NODE_ENV after loading environment
 const NODE_ENV = process.env.NODE_ENV || 'development';
-
-console.log("### ENV VARS ###", process.env);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -35,11 +31,6 @@ const __dirname = dirname(__filename);
 const uploadsDir = NODE_ENV === 'production' 
   ? join(process.cwd(), 'server', 'uploads')  // /app/server/uploads in production
   : join(__dirname, 'uploads');               // ./server/uploads in development
-
-console.log('Environment:', NODE_ENV);
-console.log('Current working directory:', process.cwd());
-console.log('__dirname:', __dirname);
-console.log('Uploads directory:', uploadsDir);
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -376,22 +367,10 @@ app.get('/uploads/:filename', (req, res) => {
 // Create uploads directory if it doesn't exist
 try {
   await fs.access(uploadsDir);
-  console.log('Uploads directory exists');
 } catch {
   await fs.mkdir(uploadsDir, { recursive: true });
-  console.log('Created uploads directory');
 }
 
-// List existing files in uploads directory
-try {
-  const files = await fs.readdir(uploadsDir);
-  console.log('Existing files in uploads:', files.length, 'files');
-  if (files.length > 0) {
-    console.log('Sample files:', files.slice(0, 5));
-  }
-} catch (error) {
-  console.log('Error reading uploads directory:', error);
-}
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -421,6 +400,7 @@ const chatHistory = new Map();
 // Upload and transcribe endpoint
 app.post('/api/upload', authenticateToken, upload.single('file'), async (req, res) => {
   try {
+    console.log('=== UPLOAD START ===');
     const { projectId, noteType } = req.body;
     const file = req.file;
     const userId = req.user.id;
@@ -432,9 +412,11 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
     // Verify project ownership
     const project = await projectDb.getProjectById(projectId, userId);
     if (!project) {
+      console.log('Project not found for upload');
       return res.status(404).json({ error: 'Project not found or access denied' });
     }
 
+    console.log('Processing file upload...');
     // File storage
     let fileUrl;
     let fullFilePath;
@@ -463,7 +445,9 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
       // Verify file exists
       try {
         await fs.access(fullFilePath);
+        console.log('File saved successfully');
       } catch (error) {
+        console.error('File save verification failed:', error);
         throw new Error('File save verification failed');
       }
     }
@@ -474,8 +458,6 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
 
     if (noteType === 'photo') {
       try {
-        const startTime = Date.now();
-        
         // Read the image file
         const imageBuffer = await fs.readFile(fullFilePath);
         const base64Image = imageBuffer.toString('base64');
@@ -507,7 +489,9 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
         
         // Clean up the label
         imageLabel = imageLabel.toLowerCase();
+        console.log('Image recognition completed');
       } catch (error) {
+        console.error('Image recognition failed:', error);
         imageLabel = 'Foto taget';
       }
     }
@@ -530,6 +514,7 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
       file.size
     );
 
+    console.log('Upload completed successfully');
     res.json({
       success: true,
       noteId: note.id,
@@ -543,16 +528,6 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
     });
 
   } catch (error) {
-    res.status(500).json({ 
-      error: 'Upload failed', 
-      details: error.message 
-    });
-  }
-});
-
-// Chat endpoint
-app.post('/api/chat', authenticateToken, async (req, res) => {
-  try {
     const { message, projects } = req.body;
 
     if (!message) {
@@ -616,6 +591,7 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
     });
 
   } catch (error) {
+    console.error('Chat request failed:', error);
     res.status(500).json({ 
       error: 'Chat request failed', 
       details: error.message 
@@ -626,53 +602,31 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
 // Generate individual item report endpoint
 app.post('/api/notes/:id/generate-report', authenticateToken, async (req, res) => {
   try {
-    console.log('=== INDIVIDUAL REPORT GENERATION ===');
-    console.log('User ID:', req.user.id);
-    console.log('Note ID:', req.params.id);
-    
     const noteId = req.params.id;
 
     if (!noteId) {
-      console.log('Missing note ID in request');
       return res.status(400).json({ error: 'Note ID is required' });
     }
 
-    console.log('Getting note details...');
     // Get the specific note with project info
     const note = await noteDb.getNoteById(noteId, req.user.id);
     if (!note) {
-      console.log('Note not found for user');
       return res.status(404).json({ error: 'Note not found' });
     }
-
-    console.log('Note found:', {
-      id: note.id,
-      type: note.type,
-      hasContent: !!note.content,
-      hasTranscription: !!note.transcription,
-      hasImageLabel: !!note.image_label
-    });
 
     // Get project info for context
     const project = await projectDb.getProjectById(note.project_id, req.user.id);
     if (!project) {
-      console.log('Project not found for note');
       return res.status(404).json({ error: 'Project not found' });
     }
-
-    console.log('Project found:', project.name);
 
     // Prepare content for AI analysis
     const noteContent = note.transcription || note.content || note.image_label || 'Ingen textinformation tillgänglig';
     const noteType = note.type === 'photo' ? 'Foto' : note.type === 'video' ? 'Video' : 'Textanteckning';
     
     if (!process.env.OPENAI_API_KEY) {
-      console.log('OpenAI API key not configured');
       return res.status(500).json({ error: 'OpenAI API key not configured' });
     }
-    
-    console.log('Calling OpenAI for individual item report...');
-    console.log('Content preview:', noteContent.substring(0, 100));
     
     const completion = await openai.chat.completions.create({
       model: 'gpt-4',
@@ -707,31 +661,14 @@ Innehåll: ${noteContent}`
     });
 
     const individualReport = completion.choices[0].message.content;
-    console.log('OpenAI response received, report length:', individualReport.length);
 
-    console.log('Saving individual report to database...');
     // Save the individual report to the note
     await noteDb.updateNoteSubmissionStatus(noteId, req.user.id, false, individualReport);
-    console.log('Individual report saved successfully');
 
-    console.log('=== INDIVIDUAL REPORT GENERATION SUCCESS ===');
     res.json({ report: individualReport });
 
   } catch (error) {
-    console.error('=== INDIVIDUAL REPORT GENERATION ERROR ===');
-    console.error('Error type:', error.constructor.name);
-    console.error('Error message:', error.message);
-    console.error('Full error:', error);
-    
-    if (error.response) {
-      console.error('OpenAI API response error:', {
-        status: error.response.status,
-        statusText: error.response.statusText,
-        data: error.response.data
-      });
-    }
-    
-    console.error('=== END INDIVIDUAL REPORT GENERATION ERROR ===');
+    console.error('Individual report generation failed:', error);
     res.status(500).json({ 
       error: 'Individual report generation failed',
       details: error.message 
@@ -742,44 +679,33 @@ Innehåll: ${noteContent}`
 // Submit individual item report endpoint
 app.post('/api/notes/:id/submit', authenticateToken, async (req, res) => {
   try {
-    console.log('=== INDIVIDUAL ITEM SUBMISSION ===');
-    console.log('User ID:', req.user.id);
-    console.log('Note ID:', req.params.id);
-    
     const { to, subject, customMessage } = req.body;
     const noteId = req.params.id;
 
     if (!to || !subject) {
-      console.log('Missing required fields:', { to: !!to, subject: !!subject });
       return res.status(400).json({ error: 'Email address and subject are required' });
     }
 
     if (!process.env.SENDGRID_API_KEY) {
-      console.log('SendGrid API key not configured');
       return res.status(500).json({ error: 'SendGrid API key not configured' });
     }
 
-    console.log('Getting note with report...');
     // Get the note with its individual report
     const note = await noteDb.getNoteById(noteId, req.user.id);
     if (!note) {
-      console.log('Note not found for user');
       return res.status(404).json({ error: 'Note not found' });
     }
 
     if (!note.individual_report) {
-      console.log('No individual report found for note');
       return res.status(400).json({ error: 'No report generated for this item. Please generate a report first.' });
     }
 
     // Get project info for context
     const project = await projectDb.getProjectById(note.project_id, req.user.id);
     if (!project) {
-      console.log('Project not found for note');
       return res.status(404).json({ error: 'Project not found' });
     }
 
-    console.log('Preparing email with individual report...');
     const emailContent = `
 ${customMessage || 'Se bifogad rapport för enskild inspektionspost.'}
 
@@ -817,27 +743,15 @@ Datum: ${new Date(note.created_at).toLocaleDateString('sv-SE')}
       `
     };
 
-    console.log('Sending individual report email...');
     await sgMail.send(msg);
     
-    console.log('Marking item as submitted...');
     // Mark the note as submitted
     await noteDb.updateNoteSubmissionStatus(noteId, req.user.id, true, note.individual_report);
     
-    console.log('Individual item submitted successfully');
     res.json({ success: true, message: 'Individual report sent successfully' });
 
   } catch (error) {
-    console.error('=== INDIVIDUAL ITEM SUBMISSION ERROR ===');
-    console.error('Error type:', error.constructor.name);
-    console.error('Error message:', error.message);
-    console.error('Full error:', error);
-    
-    if (error.response && error.response.body) {
-      console.error('SendGrid API error:', error.response.body);
-    }
-    
-    console.error('=== END INDIVIDUAL ITEM SUBMISSION ERROR ===');
+    console.error('Individual item submission failed:', error);
     res.status(500).json({ 
       error: 'Failed to send individual report',
       details: error.message 
@@ -907,6 +821,7 @@ app.post('/api/summarize', authenticateToken, async (req, res) => {
     });
 
   } catch (error) {
+    console.error('Summarization failed:', error);
     res.status(500).json({ 
       error: 'Summarization failed', 
       details: error.message 
@@ -916,34 +831,24 @@ app.post('/api/summarize', authenticateToken, async (req, res) => {
 // Email endpoint
 app.post('/api/send-email', authenticateToken, async (req, res) => {
   try {
-    console.log('=== EMAIL ENDPOINT HIT ===');
-    console.log('User ID:', req.user.id);
-    console.log('Request body keys:', Object.keys(req.body));
-    
     const { to, subject, text, pdfBuffer, fileName, projectId } = req.body;
 
     if (!process.env.SENDGRID_API_KEY) {
-      console.log('SendGrid API key not configured');
       return res.status(500).json({ error: 'SendGrid API key not configured' });
     }
 
     if (!to || !subject || !pdfBuffer) {
-      console.log('Missing required fields:', { to: !!to, subject: !!subject, pdfBuffer: !!pdfBuffer });
       return res.status(400).json({ error: 'Missing required fields: to, subject, and pdfBuffer are required' });
     }
 
     // Verify project belongs to user (if projectId is provided)
     if (projectId) {
-      console.log('Verifying project ownership for project:', projectId);
       const project = await projectDb.getProjectById(projectId, req.user.id);
       if (!project) {
-        console.log('Project not found for user');
         return res.status(404).json({ error: 'Project not found' });
       }
-      console.log('Project verified:', project.name);
     }
 
-    console.log('Preparing email message...');
     const msg = {
       to,
       from: process.env.FROM_EMAIL || 'noreply@inspektionsassistent.se',
@@ -969,30 +874,11 @@ app.post('/api/send-email', authenticateToken, async (req, res) => {
       ]
     };
 
-    console.log('Sending email via SendGrid...');
-    console.log('Email details:', {
-      to: msg.to,
-      subject: msg.subject,
-      attachmentSize: pdfBuffer.length,
-      fileName: fileName
-    });
-    
     await sgMail.send(msg);
-    console.log('Email sent successfully');
     res.json({ success: true, message: 'Email sent successfully' });
 
   } catch (error) {
-    console.error('=== EMAIL SENDING ERROR ===');
-    console.error('Error type:', error.constructor.name);
-    console.error('Error message:', error.message);
-    console.error('Full error:', error);
-    
-    // Check if it's a SendGrid specific error
-    if (error.response && error.response.body) {
-      console.error('SendGrid API error:', error.response.body);
-    }
-    
-    console.error('=== END EMAIL ERROR ===');
+    console.error('Email sending failed:', error);
     res.status(500).json({ 
       error: 'Failed to send email',
       details: error.message 
@@ -1054,7 +940,7 @@ app.post('/api/send-email-attachment', authenticateToken, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Email failed:', error);
+    console.error('Email with attachment failed:', error);
     res.status(500).json({ 
       error: 'Failed to send email', 
       details: error.message 
@@ -1077,24 +963,4 @@ app.get('/api/health', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Environment: ${NODE_ENV}`);
-  console.log(`OpenAI API configured: ${!!process.env.OPENAI_API_KEY}`);
-  console.log(`S3 configured: ${!!s3}`);
-  console.log(`Database configured: ${!!process.env.DATABASE_URL}`);
-  if (NODE_ENV === 'production') {
-    console.log('Serving static files from dist folder');
-  }
 });
-
-if (app._router && app._router.stack) {
-  app._router.stack.forEach(r => {
-    if (r.route && r.route.path) {
-      console.log('ROUTE:', r.route.path);
-    } else if (r.name === 'router' && r.handle && r.handle.stack) {
-      r.handle.stack.forEach(h => {
-        if (h.route && h.route.path) {
-          console.log('ROUTE:', h.route.path);
-        }
-      });
-    }
-  });
-}
