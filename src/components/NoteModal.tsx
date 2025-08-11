@@ -57,7 +57,10 @@ export const NoteModal: React.FC<NoteModalProps> = ({
       
       // Notify parent that email was sent successfully
       if (onEmailSent) {
+        console.log('=== NoteModal calling onEmailSent ===');
+        console.log('Note ID being sent:', note.id);
         onEmailSent(note.id);
+        console.log('=== onEmailSent called ===');
       }
       
       // Auto-close after success
