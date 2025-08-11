@@ -1368,7 +1368,7 @@ app.post('/api/send-email-attachment', authenticateToken, async (req, res) => {
     console.log('User ID:', req.user.id);
     console.log('Request body keys:', Object.keys(req.body));
     
-    const { to, subject, message, attachment } = req.body;
+    const { to, subject, message, attachment, noteId } = req.body;
 
     if (!process.env.SENDGRID_API_KEY) {
       console.log('=== RAILWAY DEBUG: SendGrid API key not configured ===');
@@ -1422,6 +1422,18 @@ app.post('/api/send-email-attachment', authenticateToken, async (req, res) => {
     console.log('Email sent successfully');
     res.json({ success: true, message: 'Email sent successfully' });
 
+    // Update note's submitted status if noteId is provided
+    if (noteId) {
+      try {
+        await noteDb.updateNoteSubmissionStatus(noteId, req.user.id, true);
+        console.log('=== RAILWAY DEBUG: Note submitted status updated ===');
+        console.log('Note ID:', noteId, 'marked as submitted');
+      } catch (error) {
+        console.error('Failed to update note submitted status:', error);
+        // Don't fail the email send if status update fails
+      }
+    }
+    
   } catch (error) {
     console.log('=== RAILWAY DEBUG: Email sending error ===');
     console.error('=== EMAIL WITH ATTACHMENT SENDING ERROR ===');
