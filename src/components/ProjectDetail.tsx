@@ -110,10 +110,11 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   };
 
   const handleNoteSave = (note: Omit<Note, 'id'>, emailData?: any) => {
-    // Add the note to the project and update
+    // Add the note to the project and update (note should already have an ID from upload)
+    const noteWithId = 'id' in note ? note as Note : { ...note, id: Date.now().toString() };
     const updatedProject = {
       ...project,
-      notes: [...(project.notes || []), { ...note, id: Date.now().toString() }],
+      notes: [...(project.notes || []), noteWithId],
       updatedAt: new Date()
     };
     onProjectUpdate(updatedProject);

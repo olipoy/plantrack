@@ -296,8 +296,12 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
       fileSize: uploadResponse.size
     };
     
-    // Save the note and pass email data
-    onSave(note, emailData);
+    // Save the note with the ID from upload response and pass email data
+    const noteWithId = {
+      ...note,
+      id: uploadResponse.noteId || `temp-${Date.now()}`
+    };
+    onSave(noteWithId, emailData);
   };
 
   const handleDiscard = () => {

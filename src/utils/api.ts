@@ -27,6 +27,7 @@ export interface UploadResponse {
   originalName: string;
   mimeType: string;
   size: number;
+  noteId: string;
 }
 
 export interface ChatResponse {
