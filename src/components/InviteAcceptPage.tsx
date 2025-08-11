@@ -78,17 +78,28 @@ export const InviteAcceptPage: React.FC = () => {
     setError('');
 
     try {
-      const response = await fetch(`/api/invites/${token}/accept`, {
+      const API_BASE_URL = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
+      
+      const response = await fetch(`${API_BASE_URL}/invites/${token}/accept`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ name: name.trim(), password }),
+        body: JSON.stringify({ 
+          name: name.trim(), 
+          password 
+        }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Kunde inte acceptera inbjudan');
+        
+        if (errorData.error === 'validation' && errorData.details) {
+          const errorMessages = errorData.details.map((detail: any) => detail.message).join(', ');
+          throw new Error(errorMessages);
+        } else {
+          throw new Error(errorData.error || 'Kunde inte acceptera inbjudan');
+        }
       }
 
       const { user, token: authToken } = await response.json();

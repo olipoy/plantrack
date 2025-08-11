@@ -216,6 +216,73 @@ app.get('/api/invites/:token', async (req, res) => {
   }
 });
 
+// Accept invite
+app.post('/api/invites/:token/accept', async (req, res) => {
+  try {
+    const { name, password } = req.body;
+    const token = req.params.token;
+    
+    // Validate input
+    const errors = [];
+    
+    if (!name || typeof name !== 'string' || name.trim().length < 1) {
+      errors.push({ path: 'name', message: 'Name must be at least 1 character long' });
+    }
+    
+    if (!password || typeof password !== 'string' || password.length < 6) {
+      errors.push({ path: 'password', message: 'Password must be at least 6 characters long' });
+    }
+    
+    if (errors.length > 0) {
+      console.error('Validation errors:', errors);
+      return res.status(400).json({ 
+        error: 'validation', 
+        details: errors 
+      });
+    }
+
+    // Get invite details
+    const invite = await organizationDb.getInviteByToken(token);
+    
+    if (!invite) {
+      return res.status(404).json({ 
+        error: 'validation', 
+        details: [{ path: 'token', message: 'Invite not found or expired' }] 
+      });
+    }
+
+    if (invite.status !== 'pending') {
+      return res.status(410).json({ 
+        error: 'validation', 
+        details: [{ path: 'token', message: 'Invite has already been used' }] 
+      });
+    }
+
+    // Check if user already exists
+    const existingUser = await organizationDb.getUserByEmail(invite.email);
+    if (existingUser) {
+      return res.status(409).json({ error: 'User already exists with this email' });
+    }
+
+    // Create user account and add to organization
+    const result = await registerUser(invite.email, password, name, null, token);
+    
+    // Mark invite as accepted
+    await organizationDb.updateInviteStatus(token, 'accepted');
+
+    // Return user data and token
+    const { user: userResponse, token: authToken } = result;
+    res.json({ user: userResponse, token: authToken });
+
+  } catch (error) {
+    console.error('Accept invite error:', error);
+    res.status(500).json({ 
+      error: 'server', 
+      details: [{ path: 'general', message: 'Failed to accept invite' }] 
+    });
+  }
+});
+
 // Project Routes (Protected)
 
 // Create new project

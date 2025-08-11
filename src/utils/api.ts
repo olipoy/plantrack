@@ -577,7 +577,11 @@ export const createOrganizationInvite = async (organizationId: string, email: st
 };
 
 export const getInviteDetails = async (token: string): Promise<any> => {
-  const response = await fetch(`${API_BASE_URL}/invites/${token}`);
+  const response = await fetch(`${API_BASE_URL}/invites/${token}`, {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
 
   if (!response.ok) {
     const error = await response.json();
