@@ -5,6 +5,7 @@ import { NewProject } from './components/NewProject';
 import { ProjectDetail } from './components/ProjectDetail';
 import { GlobalAIChat } from './components/GlobalAIChat';
 import { AuthForm } from './components/AuthForm';
+import { InviteAcceptance } from './components/InviteAcceptance';
 import { OrganizationSettings } from './components/OrganizationSettings';
 import { populateWithMockData } from './utils/storage';
 import { getUserProjects, getProjectById } from './utils/api';
@@ -18,6 +19,7 @@ function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [inviteToken, setInviteToken] = useState<string | null>(null);
+  const [showInviteAcceptance, setShowInviteAcceptance] = useState(false);
   const [currentView, setCurrentView] = useState<View>('list');
   const [activeTab, setActiveTab] = useState<Tab>('projects');
   const [projects, setProjects] = useState<Project[]>([]);
@@ -28,11 +30,15 @@ function App() {
   useEffect(() => {
     // Check for invite token in URL
     const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get('invite');
+    const token = urlParams.get('token');
     if (token) {
       setInviteToken(token);
+      setShowInviteAcceptance(true);
       // Clean up URL
       window.history.replaceState({}, document.title, window.location.pathname);
+      // Don't check auth if we're showing invite acceptance
+      setIsCheckingAuth(false);
+      return;
     }
     
     // Check authentication status
@@ -139,7 +145,12 @@ function App() {
 
   const handleAuthSuccess = () => {
     setIsLoggedIn(true);
-    setInviteToken(null); // Clear invite token after successful auth
+    setInviteToken(null);
+    setShowInviteAcceptance(false);
+  };
+
+  const handleInviteSuccess = () => {
+    handleAuthSuccess();
   };
 
   const handleLogout = () => {
@@ -169,9 +180,14 @@ function App() {
     );
   }
 
+  // Show invite acceptance if we have a token
+  if (showInviteAcceptance && inviteToken) {
+    return <InviteAcceptance token={inviteToken} onSuccess={handleInviteSuccess} />;
+  }
+
   // Show auth form if not logged in
   if (!isLoggedIn) {
-    return <AuthForm onAuthSuccess={handleAuthSuccess} inviteToken={inviteToken} />;
+    return <AuthForm onAuthSuccess={handleAuthSuccess} />;
   }
 
   const handleSelectProject = (project: Project) => {

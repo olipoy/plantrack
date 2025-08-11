@@ -33,7 +33,7 @@ export const register = async (
   email: string, 
   password: string, 
   name: string, 
-  organizationName?: string, 
+  organizationName?: string,
   inviteToken?: string
 ): Promise<AuthResponse> => {
   const response = await fetch(`${API_BASE_URL}/auth/register`, {

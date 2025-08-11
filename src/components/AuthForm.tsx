@@ -1,15 +1,13 @@
 import React, { useState } from 'react';
 import { ClipboardList, Mail, Lock, User, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { login, register } from '../utils/auth';
-import { getInviteDetails } from '../utils/api';
 
 interface AuthFormProps {
   onAuthSuccess: () => void;
-  inviteToken?: string;
 }
 
-export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess, inviteToken }) => {
-  const [mode, setMode] = useState<'login' | 'register' | 'create-org'>(inviteToken ? 'register' : 'login');
+export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
+  const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -17,23 +15,6 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess, inviteToken }
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [inviteDetails, setInviteDetails] = useState<any>(null);
-
-  // Load invite details if invite token is provided
-  React.useEffect(() => {
-    if (inviteToken) {
-      const loadInviteDetails = async () => {
-        try {
-          const details = await getInviteDetails(inviteToken);
-          setInviteDetails(details);
-          setEmail(details.email);
-        } catch (error) {
-          setError('Ogiltig eller utgången inbjudan');
-        }
-      };
-      loadInviteDetails();
-    }
-  }, [inviteToken]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,22 +22,16 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess, inviteToken }
     setError('');
 
     try {
-      if (mode === 'register' || mode === 'create-org') {
+      if (mode === 'register') {
         if (!name.trim()) {
           throw new Error('Namn är obligatoriskt');
         }
         
-        if (mode === 'create-org' && !organizationName.trim()) {
+        if (!organizationName.trim()) {
           throw new Error('Organisationsnamn är obligatoriskt');
         }
         
-        await register(
-          email, 
-          password, 
-          name, 
-          mode === 'create-org' ? organizationName : undefined,
-          inviteToken
-        );
+        await register(email, password, name, organizationName);
       } else {
         await login(email, password);
       }
@@ -69,14 +44,11 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess, inviteToken }
   };
 
   const isFormValid = () => {
-    if (mode === 'register' || mode === 'create-org') {
-      const baseValid = email.trim() && password.length >= 6 && name.trim();
-      if (mode === 'create-org') {
-        return baseValid && organizationName.trim();
-      }
-      return email.trim() && password.length >= 6 && name.trim();
+    if (mode === 'register') {
+      return email.trim() && password.length >= 6 && name.trim() && organizationName.trim();
+    } else {
+      return email.trim() && password.trim();
     }
-    return email.trim() && password.trim();
   };
 
   return (
@@ -89,64 +61,41 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess, inviteToken }
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Inspektionsassistent</h1>
           <p className="text-gray-500 mt-2">AI-driven facilitetsinspektioner</p>
-          
-          {inviteDetails && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
-              <p className="text-blue-800 text-sm">
-                Du har blivit inbjuden till <strong>{inviteDetails.organizationName}</strong> av {inviteDetails.invitedBy}
-              </p>
-            </div>
-          )}
         </div>
 
         {/* Auth Form */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-          {!inviteToken && (
-            <div className="flex bg-gray-100 rounded-xl p-1 mb-6">
-              <button
-                onClick={() => {
-                  setMode('login');
-                  setError('');
-                }}
-                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
-                  mode === 'login'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Logga in
-              </button>
-              <button
-                onClick={() => {
-                  setMode('register');
-                  setError('');
-                }}
-                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
-                  mode === 'register'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Gå med
-              </button>
-              <button
-                onClick={() => {
-                  setMode('create-org');
-                  setError('');
-                }}
-                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
-                  mode === 'create-org'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Skapa org
-              </button>
-            </div>
-          )}
+          <div className="flex bg-gray-100 rounded-xl p-1 mb-6">
+            <button
+              onClick={() => {
+                setMode('login');
+                setError('');
+              }}
+              className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                mode === 'login'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Logga in
+            </button>
+            <button
+              onClick={() => {
+                setMode('register');
+                setError('');
+              }}
+              className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                mode === 'register'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Skapa konto
+            </button>
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {(mode === 'register' || mode === 'create-org') && (
+            {mode === 'register' && (
               <div>
                 <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
                   Namn
@@ -166,7 +115,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess, inviteToken }
               </div>
             )}
 
-            {mode === 'create-org' && (
+            {mode === 'register' && (
               <div>
                 <label htmlFor="organizationName" className="block text-sm font-medium text-gray-700 mb-2">
                   Organisationsnamn
@@ -200,7 +149,6 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess, inviteToken }
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="din@email.se"
                   required
-                  disabled={!!inviteToken}
                 />
               </div>
             </div>
@@ -217,9 +165,9 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess, inviteToken }
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder={(mode === 'register' || mode === 'create-org') ? 'Minst 6 tecken' : 'Ditt lösenord'}
+                  placeholder={mode === 'register' ? 'Minst 6 tecken' : 'Ditt lösenord'}
                   required
-                  minLength={(mode === 'register' || mode === 'create-org') ? 6 : undefined}
+                  minLength={mode === 'register' ? 6 : undefined}
                 />
                 <button
                   type="button"
@@ -229,7 +177,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess, inviteToken }
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
-              {(mode === 'register' || mode === 'create-org') && (
+              {mode === 'register' && (
                 <p className="text-xs text-gray-500 mt-1">Lösenordet måste vara minst 6 tecken långt</p>
               )}
             </div>
@@ -251,15 +199,14 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess, inviteToken }
               {isLoading ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
-                mode === 'register' ? (inviteToken ? 'Gå med i organisation' : 'Skapa konto') :
-                mode === 'create-org' ? 'Skapa organisation' : 'Logga in'
+                mode === 'register' ? 'Skapa konto' : 'Logga in'
               )}
             </button>
           </form>
 
           <div className="mt-6 text-center">
             <p className="text-xs text-gray-500">
-              {(mode === 'register' || mode === 'create-org')
+              {mode === 'register'
                 ? 'Genom att skapa ett konto godkänner du våra användarvillkor'
                 : 'Glömt lösenord? Kontakta support'
               }
