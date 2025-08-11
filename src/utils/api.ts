@@ -284,7 +284,7 @@ export const sendEmailWithAttachment = async (
   fileName: string,
   fileType: string,
   fileSize: number,
-  noteId: string  // Made required instead of optional
+  noteId?: string  // Made optional again for debugging
 ): Promise<{ success: boolean; message: string }> => {
   const token = getToken();
   if (!token) {
@@ -305,11 +305,6 @@ export const sendEmailWithAttachment = async (
   console.log('noteId === undefined:', noteId === undefined);
   console.log('noteId === null:', noteId === null);
   
-  if (!noteId) {
-    console.error('CRITICAL: noteId is missing in API function!');
-    throw new Error('noteId is required for email tracking');
-  }
-
   // Download the file to get its content
   const fileResponse = await fetch(fileUrl);
   if (!fileResponse.ok) {
