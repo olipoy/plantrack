@@ -527,7 +527,6 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
       size: file.size
     });
 
-  } catch (error) {
     const { message, projects } = req.body;
 
     if (!message) {
