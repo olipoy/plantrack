@@ -1201,37 +1201,79 @@ app.post('/api/send-email-attachment', authenticateToken, async (req, res) => {
       console.warn('WARNING: noteId is missing in server request, proceeding anyway');
     }
 
+    // Generate or get existing share URL for the note
+    let shareUrl = '';
+    if (noteId && noteId !== `fallback-${noteId.split('-')[1]}`) {
+      try {
+        // Look for existing active share
+        let share = await findActiveShareForNote(noteId);
+        
+        if (!share) {
+          // Create new share (expires in 30 days)
+          const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+          share = await createNoteShare(noteId, req.user.id, expiresAt);
+        }
+        
+        shareUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/share/${share.token}`;
+        console.log('Generated share URL:', shareUrl);
+      } catch (error) {
+        console.error('Failed to create share URL:', error);
+        // Continue without share URL if creation fails
+      }
+    }
+
+    // Determine if this is a video (don't attach videos, only provide link)
+    const isVideo = attachment.type && attachment.type.startsWith('video/');
+    
+    // Compose email message with share URL
+    let emailMessage = message || '';
+    if (shareUrl) {
+      if (emailMessage) {
+        emailMessage += '\n\n';
+      }
+      if (isVideo) {
+        emailMessage += `Visa video: ${shareUrl}`;
+      } else {
+        emailMessage += `Visa bild: ${shareUrl}`;
+      }
+    }
+
     // Instead of downloading the file, use the attachment content directly
     console.log('Using attachment content directly from request body');
     
     if (!attachment.content) {
       return res.status(400).json({ error: 'Attachment content is missing' });
     }
+    
     // Prepare email
     const msg = {
       to,
       from: process.env.FROM_EMAIL || 'noreply@inspektionsassistent.se',
       subject,
-      text: message || 'Se bifogad fil från inspektionsassistenten.',
+      text: emailMessage || 'Se bifogad fil från inspektionsassistenten.',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #2563EB;">Inspektionsrapport</h2>
           <p>Hej,</p>
-          <p>${message ? message.replace(/\n/g, '<br>') : 'Bifogat finner du filen från inspektionen.'}</p>
+          <p>${emailMessage ? emailMessage.replace(/\n/g, '<br>') : 'Bifogat finner du filen från inspektionen.'}</p>
           <p>Rapporten har genererats automatiskt av Inspektionsassistenten.</p>
           <br>
           <p>Med vänliga hälsningar,<br>Inspektionsassistenten</p>
         </div>
       `,
-      attachments: [
+    };
+
+    // Only attach files for non-video content
+    if (!isVideo) {
+      msg.attachments = [
         {
           content: attachment.content, // This is already base64 from frontend
           filename: attachment.filename,
           type: attachment.type,
           disposition: 'attachment'
         }
-      ],
-    };
+      ];
+    }
 
     // Send email
     await sgMail.send(msg);
