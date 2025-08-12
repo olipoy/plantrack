@@ -18,7 +18,7 @@ globalThis.File = File;
 
 // Import authentication and database modules (ESM)
 import { authenticateToken, registerUser, loginUser } from './auth.js';
-import { organizationDb, userDb, projectDb, noteDb, summaryDb, noteShareDb } from './db.js';
+import { organizationDb, userDb, projectDb, noteDb, summaryDb, createNoteShare, findActiveShareForNote, getShareByToken } from './db.js';
 
 // Load environment variables
 dotenv.config();
@@ -223,12 +223,17 @@ app.post('/api/notes/:noteId/share', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Note not found' });
     }
     
-    // Create or get existing share
-    const share = await noteShareDb.createOrGetShare(
-      noteId, 
-      req.user.id, 
-      expiresAt ? new Date(expiresAt) : null
-    );
+    // Check for existing active share
+    let share = await findActiveShareForNote(noteId);
+    
+    if (!share) {
+      // Create new share
+      share = await createNoteShare(
+        noteId, 
+        req.user.id, 
+        expiresAt ? new Date(expiresAt) : null
+      );
+    }
     
     const shareUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/share/${share.token}`;
     
@@ -264,7 +269,7 @@ app.get('/api/share/:token', async (req, res) => {
     global.rateLimitStore.set(rateLimitKey, recentRequests);
     
     // Get share data
-    const share = await noteShareDb.getShareByToken(token);
+    const share = await getShareByToken(token);
     
     if (!share) {
       return res.status(404).json({ error: 'Share not found' });
