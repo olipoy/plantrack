@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, Send, Loader2, CheckCircle, AlertCircle, Play, Share2, Copy } from 'lucide-react';
 import { Note } from '../types';
-import { sendEmailWithAttachment, createNoteShare } from '../utils/api';
+import { createNoteShare } from '../utils/api';
 
 interface NoteModalProps {
   note: Note;
@@ -32,85 +32,45 @@ export const NoteModal: React.FC<NoteModalProps> = ({
   if (!isOpen) return null;
 
   const handleSendEmail = async () => {
-    // Add server-visible logging by making a test API call
+    if (!email.trim() || !subject.trim()) {
+      setError('E-postadress och ämne är obligatoriska');
+      return;
+    }
+
+    if (!note.id) {
+      setError('Antecknings-ID saknas');
+      return;
+    }
+
+    setIsSending(true);
+    setError('');
+
     try {
       const token = localStorage.getItem('inspection_auth_token');
-      const debugResponse = await fetch('/api/debug-note', {
+      const response = await fetch('/api/send-email-note', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
-          noteObject: note,
-          noteId: note.id,
-          noteIdType: typeof note.id,
-          allNoteKeys: Object.keys(note),
-          noteStringified: JSON.stringify(note)
-        })
+          to: email.trim(),
+          subject: subject.trim(),
+          message: message.trim(),
+          noteId: note.id
+        }),
       });
       
-      if (debugResponse.ok) {
-        console.log('Debug info sent to server successfully');
-      } else {
-        console.log('Debug API call failed with status:', debugResponse.status);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || `Failed to send email: ${response.statusText}`);
       }
-    } catch (error) {
-      console.log('Debug API call failed:', error);
-    }
-    
-    if (!email.trim() || !subject.trim()) {
-      setError('E-postadress och ämne är obligatoriska');
-      return;
-    }
 
-    if (!note.fileUrl || !note.fileName) {
-      setError('Ingen fil att skicka');
-      return;
-    }
-
-    // Temporary: Allow sending without noteId to debug the issue
-    let noteIdToUse = note.id;
-    if (!noteIdToUse) {
-      console.warn('WARNING: note.id is missing, using timestamp as fallback');
-      noteIdToUse = `fallback-${Date.now()}`;
-      // Don't return error, let it proceed to see what happens
-    }
-
-    console.log('Using noteId:', noteIdToUse);
-    console.log('noteId type:', typeof noteIdToUse);
-
-    setIsSending(true);
-    setError('');
-
-    try {
-      console.log('Calling sendEmailWithAttachment with parameters:');
-      console.log('1. to:', email.trim());
-      console.log('2. subject:', subject.trim());
-      console.log('3. message:', message.trim());
-      console.log('4. fileUrl:', note.fileUrl);
-      console.log('5. fileName:', note.fileName);
-      console.log('6. fileType:', note.type === 'photo' ? 'image/jpeg' : 'video/webm');
-      console.log('7. fileSize:', note.fileSize || 0);
-      console.log('8. noteId:', noteIdToUse);
-      
-      await sendEmailWithAttachment(
-        email.trim(),
-        subject.trim(),
-        message.trim(),
-        note.fileUrl,
-        note.fileName,
-        note.type === 'photo' ? 'image/jpeg' : 'video/webm',
-        note.fileSize || 0,
-        noteIdToUse
-      );
-
-      console.log('Email sent successfully, calling onEmailSent with noteId:', noteIdToUse);
       setEmailSuccess(true);
       
       // Notify parent that email was sent successfully
       if (onEmailSent) {
-        onEmailSent(noteIdToUse);
+        onEmailSent(note.id);
       }
       
       // Auto-close after success
@@ -208,17 +168,17 @@ export const NoteModal: React.FC<NoteModalProps> = ({
             <>
               {/* Media Display */}
               <div className="p-6 border-b border-gray-200">
-                {note.fileUrl && (
+                {note.mediaUrl ? (
                   <div className="mb-4">
                     {note.type === 'photo' ? (
                       <img
-                        src={note.fileUrl}
+                        src={note.mediaUrl}
                         alt={note.imageLabel || 'Foto'}
                         className="w-full max-h-96 object-contain rounded-lg border border-gray-200"
                       />
                     ) : note.type === 'video' ? (
                       <video
-                        src={note.fileUrl}
+                        src={note.mediaUrl}
                         controls
                         className="w-full max-h-96 rounded-lg border border-gray-200"
                         preload="metadata"
@@ -228,6 +188,13 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                         </div>
                       </video>
                     ) : null}
+                  </div>
+                ) : (
+                  <div className="mb-4 p-8 bg-gray-100 rounded-lg border border-gray-200 text-center">
+                    <div className="text-gray-500">
+                      <div className="text-4xl mb-2">📄</div>
+                      <p className="text-sm">Ingen förhandsvisning – äldre fil</p>
+                    </div>
                   </div>
                 )}
 
@@ -350,7 +317,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                       {note.fileName && (
                         <div className="bg-blue-50 rounded-lg p-3">
                           <p className="text-blue-800 text-sm">
-                            📎 Bifogad fil: {note.fileName}
+                            📎 {note.type === 'photo' ? 'Foto' : 'Video'}: {note.fileName || 'Okänt filnamn'}
                           </p>
                           {note.fileSize && (
                             <p className="text-blue-600 text-xs">
