@@ -1,6 +1,5 @@
 // Database connection and query utilities
 import pkg from 'pg';
-import AWS from 'aws-sdk';
 const { Pool } = pkg;
 
 // Create PostgreSQL connection pool
@@ -321,7 +320,7 @@ const projectDb = {
 // Note-related database functions
 const noteDb = {
   // Create a new note
-  async createNote(projectId, type, content, transcription, imageLabel = null, orgId = null) {
+  async createNote(projectId, type, content, transcription, imageLabel = null, fileKey = null, orgId = null) {
     if (!orgId) {
       // Get organization from project
       const projectResult = await query('SELECT org_id FROM projects WHERE id = $1', [projectId]);
@@ -332,8 +331,8 @@ const noteDb = {
     }
     
     const result = await query(
-      'INSERT INTO notes (project_id, type, content, transcription, image_label, org_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [projectId, type, content, transcription, imageLabel, orgId]
+      'INSERT INTO notes (project_id, type, content, transcription, image_label, file_key, org_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+      [projectId, type, content, transcription, imageLabel, fileKey, orgId]
     );
     return result.rows[0];
   },
@@ -342,33 +341,22 @@ const noteDb = {
   async getProjectNotes(projectId) {
     console.log('Getting notes for project:', projectId);
     const result = await query(
-      `SELECT n.*, 
-       json_agg(
-         json_build_object(
-           'id', nf.id,
-           'file_url', nf.file_url,
-           'file_type', nf.file_type,
-           'file_name', nf.file_name,
-           'file_size', nf.file_size
-         )
-       ) FILTER (WHERE nf.id IS NOT NULL) as files
+      `SELECT n.*
        FROM notes n
-       LEFT JOIN note_files nf ON n.id = nf.note_id
        WHERE n.project_id = $1
-       GROUP BY n.id
        ORDER BY n.created_at DESC`,
       [projectId]
     );
     console.log('Database notes query result:', result.rows.length, 'notes found');
-    console.log('Notes data:', result.rows.map(n => ({ 
-      id: n.id, 
-      type: n.type, 
-      content: n.content?.substring(0, 30),
-      hasFiles: n.files && n.files.length > 0,
-      submitted: n.submitted,
-      submittedAt: n.submitted_at,
-      hasIndividualReport: !!n.individual_report
-    })));
+    
+    // Generate signed URLs for notes with file_key
+    const notesWithUrls = result.rows.map(note => {
+      if (note.file_key && process.env.STORAGE_PROVIDER === 's3') {
+        note.file_url = generateSignedUrl(note.file_key);
+      }
+      return note;
+    });
+    
     return result.rows;
   },
 
@@ -417,24 +405,19 @@ const noteDb = {
     }
     
     const result = await query(
-      `SELECT n.*, 
-       json_agg(
-         json_build_object(
-           'id', nf.id,
-           'file_url', nf.file_url,
-           'file_type', nf.file_type,
-           'file_name', nf.file_name,
-           'file_size', nf.file_size
-         )
-       ) FILTER (WHERE nf.id IS NOT NULL) as files
+      `SELECT n.*
        FROM notes n
-       LEFT JOIN note_files nf ON n.id = nf.note_id
        WHERE n.id = $1
-       AND n.org_id = $2
-       GROUP BY n.id`,
+       AND n.org_id = $2`,
       [noteId, orgId]
     );
-    return result.rows[0];
+    
+    const note = result.rows[0];
+    if (note && note.file_key && process.env.STORAGE_PROVIDER === 's3') {
+      note.file_url = generateSignedUrl(note.file_key);
+    }
+    
+    return note;
   },
 
   // Add file to note
@@ -462,6 +445,39 @@ const noteDb = {
       [noteId, orgId]
     );
     return result.rows[0];
+  }
+};
+
+// Helper function to generate signed S3 URLs
+const generateSignedUrl = (fileKey) => {
+  if (!fileKey || process.env.STORAGE_PROVIDER !== 's3') {
+    return null;
+  }
+  
+  // Initialize S3 if not already done
+  if (!global.s3Instance && process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
+    AWS.config.update({
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+      region: process.env.AWS_REGION || 'us-east-1'
+    });
+    global.s3Instance = new AWS.S3();
+  }
+  
+  if (!global.s3Instance || !process.env.S3_BUCKET) {
+    return null;
+  }
+  
+  try {
+    const signedUrlTTL = parseInt(process.env.SIGNED_URL_TTL_SECONDS) || 3600; // 1 hour default
+    return global.s3Instance.getSignedUrl('getObject', {
+      Bucket: process.env.S3_BUCKET,
+      Key: fileKey,
+      Expires: signedUrlTTL
+    });
+  } catch (error) {
+    console.error('Failed to generate signed URL:', error);
+    return null;
   }
 };
 
@@ -511,22 +527,6 @@ const summaryDb = {
   }
 };
 
-// Named exports
-export {
-  query,
-  pool,
-  organizationDb,
-  userDb,
-  projectDb,
-  noteDb,
-  summaryDb,
-  createNoteShare,
-  findActiveShareForNote,
-  getShareByToken,
-  revokeShare,
-  revokeShareByToken
-};
-
 // Note sharing database functions
 const createNoteShare = async (noteId, createdBy, expiresAt = null) => {
   // Create new share token
@@ -550,23 +550,26 @@ const findActiveShareForNote = async (noteId) => {
 
 const getShareByToken = async (token) => {
   const result = await query(
-    `SELECT ns.*, n.type, n.content, n.transcription, n.image_label, n.file_key, n.created_at as note_created_at,
+    `SELECT ns.*, n.type, n.content, n.transcription, n.image_label, n.created_at as note_created_at,
      p.name as project_name,
-     n.type as file_type
+     json_agg(
+       json_build_object(
+         'id', nf.id,
+         'file_url', nf.file_url,
+         'file_type', nf.file_type,
+         'file_name', nf.file_name,
+         'file_size', nf.file_size
+       )
+     ) FILTER (WHERE nf.id IS NOT NULL) as files
      FROM note_shares ns
      JOIN notes n ON ns.note_id = n.id
      JOIN projects p ON n.project_id = p.id
+     LEFT JOIN note_files nf ON n.id = nf.note_id
      WHERE ns.token = $1
      GROUP BY ns.id, n.id, p.id`,
     [token]
   );
-  
-  const share = result.rows[0];
-  if (share && share.file_key && process.env.STORAGE_PROVIDER === 's3') {
-    share.file_url = generateSignedUrl(share.file_key);
-  }
-  
-  return share;
+  return result.rows[0];
 };
 
 const revokeShare = async (noteId) => {
@@ -585,11 +588,19 @@ const revokeShareByToken = async (token) => {
   return result.rows[0];
 };
 
-// Update exports
-// (removed duplicate export block)
+// Named exports
+export {
+  query,
+  pool,
+  organizationDb,
+  userDb,
+  projectDb,
+  noteDb,
   summaryDb,
   createNoteShare,
   findActiveShareForNote,
   getShareByToken,
   revokeShare,
-  revokeShareByToken
+  revokeShareByToken,
+  generateSignedUrl
+};
