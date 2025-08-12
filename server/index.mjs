@@ -12,7 +12,6 @@ import { v4 as uuidv4 } from 'uuid';
 import sgMail from '@sendgrid/mail';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getObjectStream, presign, isS3Available, getBucketName } from './s3.js';
-import { getObjectStream, presign, isS3Available, getBucketName } from './s3.js';
 
 // Polyfill for OpenAI library File upload support
 import { File } from 'node:buffer';
