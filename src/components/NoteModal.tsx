@@ -245,6 +245,46 @@ export const NoteModal: React.FC<NoteModalProps> = ({
               {/* Email Form or Send Button */}
               {!note.submitted && (
                 <div className="p-6">
+                  {/* Share Link Section */}
+                  {!shareSuccess && (
+                    <div className="mb-6">
+                      <button
+                        onClick={handleCreateShare}
+                        disabled={isCreatingShare}
+                        className="w-full flex items-center justify-center p-4 bg-gray-50 text-gray-700 rounded-xl hover:bg-gray-100 transition-colors border border-gray-200"
+                      >
+                        {isCreatingShare ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                            Skapar delningslänk...
+                          </>
+                        ) : (
+                          <>
+                            <Share2 className="w-4 h-4 mr-2" />
+                            Skapa delningslänk
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Share URL Display */}
+                  {shareSuccess && shareUrl && (
+                    <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-green-800">Delningslänk skapad</span>
+                        <button
+                          onClick={handleCopyShareUrl}
+                          className="flex items-center text-green-700 hover:text-green-800 text-sm"
+                        >
+                          <Copy className="w-4 h-4 mr-1" />
+                          Kopiera
+                        </button>
+                      </div>
+                      <p className="text-xs text-green-600 break-all">{shareUrl}</p>
+                    </div>
+                  )}
+
                   {!showEmailForm ? (
                     <div className="text-center">
                       <button
