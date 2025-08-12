@@ -419,32 +419,10 @@ export const checkServerHealth = async () => {
   }
 };
 
-export const createNoteShare = async (noteId: string): Promise<{ url: string }> => {
-  const token = getToken();
-  if (!token) {
-    throw new Error('Authentication required');
-  }
-
-  const response = await fetch(`${API_BASE_URL}/notes/${noteId}/share`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    },
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || `Failed to create share link: ${response.statusText}`);
-  }
-
-  return response.json();
-};
-
-export const createNoteShare = async (
+export async function createNoteShare(
   noteId: string,
   body?: { expiresAt?: string }
-): Promise<{ url: string }> => {
+): Promise<{ url: string }> {
   const token = getToken();
   if (!token) {
     throw new Error('Authentication required');
@@ -465,7 +443,7 @@ export const createNoteShare = async (
   }
 
   return response.json();
-};
+}
 
 // Project API functions
 export const createProject = async (
