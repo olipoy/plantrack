@@ -18,7 +18,7 @@ globalThis.File = File;
 
 // Import authentication and database modules (ESM)
 import { authenticateToken, registerUser, loginUser } from './auth.js';
-import { organizationDb, userDb, projectDb, noteDb, summaryDb } from './db.js';
+import { organizationDb, userDb, projectDb, noteDb, summaryDb, noteShareDb } from './db.js';
 
 // Load environment variables
 dotenv.config();
@@ -208,6 +208,99 @@ app.post('/api/organizations/:id/invite', authenticateToken, async (req, res) =>
   } catch (error) {
     console.error('Create invite error:', error);
     res.status(500).json({ error: 'Failed to create invite' });
+  }
+});
+
+// Create shareable link for note
+app.post('/api/notes/:noteId/share', authenticateToken, async (req, res) => {
+  try {
+    const { noteId } = req.params;
+    const { expiresAt } = req.body;
+    
+    // Verify note exists and user has access
+    const note = await noteDb.getNoteById(noteId, req.user.id);
+    if (!note) {
+      return res.status(404).json({ error: 'Note not found' });
+    }
+    
+    // Create or get existing share
+    const share = await noteShareDb.createOrGetShare(
+      noteId, 
+      req.user.id, 
+      expiresAt ? new Date(expiresAt) : null
+    );
+    
+    const shareUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/share/${share.token}`;
+    
+    res.json({ url: shareUrl });
+  } catch (error) {
+    console.error('Create share error:', error);
+    res.status(500).json({ error: 'Failed to create share link' });
+  }
+});
+
+// Public share endpoint
+app.get('/api/share/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    
+    // Basic rate limiting - simple in-memory store
+    const now = Date.now();
+    const clientIp = req.ip || req.connection.remoteAddress;
+    const rateLimitKey = `share_${clientIp}`;
+    
+    if (!global.rateLimitStore) {
+      global.rateLimitStore = new Map();
+    }
+    
+    const clientRequests = global.rateLimitStore.get(rateLimitKey) || [];
+    const recentRequests = clientRequests.filter(time => now - time < 60000); // 1 minute window
+    
+    if (recentRequests.length >= 10) { // 10 requests per minute
+      return res.status(429).json({ error: 'Too many requests' });
+    }
+    
+    recentRequests.push(now);
+    global.rateLimitStore.set(rateLimitKey, recentRequests);
+    
+    // Get share data
+    const share = await noteShareDb.getShareByToken(token);
+    
+    if (!share) {
+      return res.status(404).json({ error: 'Share not found' });
+    }
+    
+    // Check if expired
+    if (share.expires_at && new Date(share.expires_at) < new Date()) {
+      return res.status(410).json({ error: 'Share has expired' });
+    }
+    
+    // Get media URL and mime type
+    const mediaUrl = share.files && share.files.length > 0 ? share.files[0].file_url : null;
+    const mimeType = share.files && share.files.length > 0 ? share.files[0].file_type : null;
+    
+    // Get caption based on note type
+    let caption = '';
+    if (share.type === 'photo' && share.image_label) {
+      caption = share.image_label;
+    } else if (share.type === 'video' && share.transcription) {
+      caption = share.transcription;
+    } else if (share.content) {
+      caption = share.content;
+    }
+    
+    res.json({
+      type: share.type,
+      mediaUrl,
+      caption,
+      projectName: share.project_name,
+      createdAt: share.note_created_at,
+      mimeType
+    });
+    
+  } catch (error) {
+    console.error('Get share error:', error);
+    res.status(500).json({ error: 'Failed to get share data' });
   }
 });
 

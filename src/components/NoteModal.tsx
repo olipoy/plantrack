@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { X, Send, Loader2, CheckCircle, AlertCircle, Play } from 'lucide-react';
+import { X, Send, Loader2, CheckCircle, AlertCircle, Play, Share2, Copy } from 'lucide-react';
 import { Note } from '../types';
-import { sendEmailWithAttachment } from '../utils/api';
+import { sendEmailWithAttachment, createNoteShare } from '../utils/api';
 
 interface NoteModalProps {
   note: Note;
@@ -25,6 +25,9 @@ export const NoteModal: React.FC<NoteModalProps> = ({
   const [isSending, setIsSending] = useState(false);
   const [emailSuccess, setEmailSuccess] = useState(false);
   const [error, setError] = useState('');
+  const [shareUrl, setShareUrl] = useState('');
+  const [isCreatingShare, setIsCreatingShare] = useState(false);
+  const [shareSuccess, setShareSuccess] = useState(false);
 
   if (!isOpen) return null;
 
@@ -122,6 +125,31 @@ export const NoteModal: React.FC<NoteModalProps> = ({
       setError(error instanceof Error ? error.message : 'Kunde inte skicka e-post');
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const handleCreateShare = async () => {
+    setIsCreatingShare(true);
+    setError('');
+    
+    try {
+      const response = await createNoteShare(note.id);
+      setShareUrl(response.url);
+      setShareSuccess(true);
+    } catch (error) {
+      console.error('Failed to create share:', error);
+      setError(error instanceof Error ? error.message : 'Kunde inte skapa delningslänk');
+    } finally {
+      setIsCreatingShare(false);
+    }
+  };
+
+  const handleCopyShareUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      // Could add a toast notification here
+    } catch (error) {
+      console.error('Failed to copy URL:', error);
     }
   };
 

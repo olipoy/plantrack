@@ -8,6 +8,7 @@ import { GlobalAIChat } from './components/GlobalAIChat';
 import { AuthForm } from './components/AuthForm';
 import { InviteAcceptPage } from './components/InviteAcceptPage';
 import { OrganizationSettings } from './components/OrganizationSettings';
+import { SharePage } from './components/SharePage';
 import { populateWithMockData } from './utils/storage';
 import { getUserProjects, getProjectById } from './utils/api';
 import { ClipboardList, Plus, FolderOpen, Bot, LogOut, User, Settings, X } from 'lucide-react';
@@ -21,6 +22,7 @@ function App() {
     <Router>
       <Routes>
         <Route path="/invite/:token" element={<InviteAcceptPage />} />
+        <Route path="/share/:token" element={<SharePage />} />
         <Route path="/login" element={<AuthForm onAuthSuccess={() => window.location.href = '/'} />} />
         <Route path="/*" element={<MainApp />} />
       </Routes>
