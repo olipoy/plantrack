@@ -766,6 +766,27 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
         console.error('Image recognition failed:', error);
         imageLabel = 'Foto taget';
       }
+    } else if (noteType === 'video') {
+      try {
+        console.log('Starting video transcription...');
+        
+        // Create a readable stream from the video file for OpenAI Whisper
+        const videoStream = createReadStream(fullFilePath);
+        
+        const response = await openai.audio.transcriptions.create({
+          file: videoStream,
+          model: 'whisper-1',
+          language: 'sv', // Swedish
+          response_format: 'text',
+          temperature: 0.2
+        });
+
+        transcription = response?.trim() || '';
+        console.log('Video transcription completed:', transcription.substring(0, 100));
+      } catch (error) {
+        console.error('Video transcription failed:', error);
+        transcription = 'Videoinspelning (transkription misslyckades)';
+      }
     }
 
     // Save note to database
