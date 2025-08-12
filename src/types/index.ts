@@ -19,9 +19,10 @@ export interface Note {
   imageLabel?: string;
   isLabelLoading?: boolean;
   timestamp: Date;
-  fileUrl?: string;
-  fileName?: string;
-  fileSize?: number;
+  mediaUrl?: string | null;
+  fileName?: string | null;
+  mimeType?: string | null;
+  fileSize?: number | null;
   submitted?: boolean;
   submittedAt?: Date;
   individualReport?: string;

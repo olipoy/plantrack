@@ -32,6 +32,21 @@ const query = async (text, params) => {
   }
 };
 
+// Helper function to generate signed S3 URLs
+const generateSignedUrl = async (fileKey) => {
+  if (!fileKey || process.env.STORAGE_PROVIDER !== 's3') {
+    return null;
+  }
+  
+  try {
+    const signedUrlTTL = parseInt(process.env.SIGNED_URL_TTL_SECONDS) || 3600; // 1 hour default
+    return await presign(fileKey, signedUrlTTL);
+  } catch (error) {
+    console.error('Failed to generate signed URL:', error);
+    return null;
+  }
+};
+
 // Organization-related database functions
 const organizationDb = {
   // Create a new organization
@@ -350,13 +365,44 @@ const noteDb = {
     );
     console.log('Database notes query result:', result.rows.length, 'notes found');
     
-    // Generate signed URLs for notes with file_key
+    // Generate signed URLs and format response for notes with file_key
     const notesWithUrls = await Promise.all(
       result.rows.map(async (note) => {
-        if (note.file_key && process.env.STORAGE_PROVIDER === 's3') {
-          note.file_url = await generateSignedUrl(note.file_key);
+        const formattedNote = {
+          id: note.id,
+          type: note.type,
+          content: note.content,
+          transcription: note.transcription,
+          image_label: note.image_label,
+          created_at: note.created_at,
+          submitted: note.submitted || false,
+          submitted_at: note.submitted_at,
+          individual_report: note.individual_report,
+          mediaUrl: null,
+          fileName: null,
+          mimeType: null,
+          fileSize: null
+        };
+        
+        if (note.file_key) {
+          formattedNote.mediaUrl = await generateSignedUrl(note.file_key);
+          // Extract filename from file_key (e.g., "project-uploads/abc123.jpg" -> "abc123.jpg")
+          const keyParts = note.file_key.split('/');
+          formattedNote.fileName = keyParts[keyParts.length - 1];
+          // Determine mime type from file extension
+          const extension = formattedNote.fileName.split('.').pop()?.toLowerCase();
+          if (extension === 'jpg' || extension === 'jpeg') {
+            formattedNote.mimeType = 'image/jpeg';
+          } else if (extension === 'png') {
+            formattedNote.mimeType = 'image/png';
+          } else if (extension === 'webm') {
+            formattedNote.mimeType = 'video/webm';
+          } else if (extension === 'mp4') {
+            formattedNote.mimeType = 'video/mp4';
+          }
         }
-        return note;
+        
+        return formattedNote;
       })
     );
     
@@ -416,8 +462,11 @@ const noteDb = {
     );
     
     const note = result.rows[0];
-    if (note && note.file_key && process.env.STORAGE_PROVIDER === 's3') {
-      note.file_url = await generateSignedUrl(note.file_key);
+    if (note && note.file_key) {
+      note.mediaUrl = await generateSignedUrl(note.file_key);
+      // Extract filename from file_key
+      const keyParts = note.file_key.split('/');
+      note.fileName = keyParts[keyParts.length - 1];
     }
     
     return note;
@@ -448,21 +497,6 @@ const noteDb = {
       [noteId, orgId]
     );
     return result.rows[0];
-  }
-};
-
-// Helper function to generate signed S3 URLs
-const generateSignedUrl = async (fileKey) => {
-  if (!fileKey || process.env.STORAGE_PROVIDER !== 's3') {
-    return null;
-  }
-  
-  try {
-    const signedUrlTTL = parseInt(process.env.SIGNED_URL_TTL_SECONDS) || 3600; // 1 hour default
-    return await presign(fileKey, signedUrlTTL);
-  } catch (error) {
-    console.error('Failed to generate signed URL:', error);
-    return null;
   }
 };
 
@@ -546,7 +580,7 @@ const getShareByToken = async (token) => {
   );
   
   const share = result.rows[0];
-  if (share && share.file_key && process.env.STORAGE_PROVIDER === 's3') {
+  if (share && share.file_key) {
     share.file_url = await generateSignedUrl(share.file_key);
   }
   

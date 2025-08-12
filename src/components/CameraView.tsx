@@ -280,9 +280,10 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
       transcription: mode === 'video' ? editableContent : transcription,
       imageLabel: mode === 'photo' ? editableContent : imageLabel,
       timestamp: new Date(),
-      fileUrl: uploadResponse.fileUrl,
-      fileName: uploadResponse.originalName,
-      fileSize: uploadResponse.size
+      mediaUrl: uploadResponse.mediaUrl,
+      fileName: uploadResponse.fileName,
+      mimeType: uploadResponse.mimeType,
+      fileSize: uploadResponse.fileSize
     };
 
     console.log('Saving note with edited content:', note);

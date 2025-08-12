@@ -12,6 +12,7 @@ import { v4 as uuidv4 } from 'uuid';
 import sgMail from '@sendgrid/mail';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getObjectStream, presign, isS3Available, getBucketName } from './s3.js';
+import { getObjectStream, presign, isS3Available, getBucketName } from './s3.js';
 
 // Polyfill for OpenAI library File upload support
 import { File } from 'node:buffer';
@@ -49,7 +50,10 @@ if (process.env.SENDGRID_API_KEY) {
 
 // Initialize S3 client for uploads
 let s3Client = null;
-if (isS3Available()) {
+if (process.env.STORAGE_PROVIDER === 's3' && 
+    process.env.AWS_ACCESS_KEY_ID && 
+    process.env.AWS_SECRET_ACCESS_KEY && 
+    process.env.S3_BUCKET) {
   s3Client = new S3Client({
     region: process.env.AWS_REGION || 'us-east-1',
     credentials: {
@@ -697,13 +701,13 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
     let fileUrl;
     let tempFilePath = file.path; // For transcription processing
 
-    if (process.env.STORAGE_PROVIDER === 's3' && s3Client && getBucketName()) {
+    if (process.env.STORAGE_PROVIDER === 's3' && s3Client && process.env.S3_BUCKET) {
       // Upload to S3
-      console.log('Uploading to S3 bucket:', getBucketName());
+      console.log('Uploading to S3 bucket:', process.env.S3_BUCKET);
       
       const fileBuffer = await fs.readFile(tempFilePath);
       const uploadCommand = new PutObjectCommand({
-        Bucket: getBucketName(),
+        Bucket: process.env.S3_BUCKET,
         Key: s3Key,
         Body: fileBuffer,
         ContentType: file.mimetype,
@@ -807,13 +811,12 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
     return res.json({
       success: true,
       noteId: note.id,
-      fileUrl,
-      transcription,
-      imageLabel,
-      filename: file.filename,
-      originalName: file.originalname,
+      mediaUrl: fileUrl,
+      fileName: `${uuidv4()}.${fileExtension}`,
       mimeType: file.mimetype,
-      size: file.size
+      fileSize: file.size,
+      transcription,
+      imageLabel
     });
 
   } catch (error) {
@@ -1187,60 +1190,39 @@ app.post('/api/send-email', authenticateToken, async (req, res) => {
 });
 
 // Send email with attachment
-app.post('/api/send-email-attachment', authenticateToken, async (req, res) => {
+app.post('/api/send-email-note', authenticateToken, async (req, res) => {
   try {
-    console.log('=== SERVER: EMAIL WITH ATTACHMENT REQUEST ===');
-    console.log('Request headers:', {
-      'content-type': req.headers['content-type'],
-      'authorization': req.headers['authorization'] ? 'Bearer [TOKEN]' : 'Missing'
-    });
-    console.log('Request body keys:', Object.keys(req.body));
-    console.log('Request body structure:', {
-      to: req.body.to,
-      subject: req.body.subject,
-      message: req.body.message?.substring(0, 50),
-      noteId: req.body.noteId,
-      noteIdType: typeof req.body.noteId,
-      attachmentPresent: !!req.body.attachment,
-      attachmentKeys: req.body.attachment ? Object.keys(req.body.attachment) : 'none'
-    });
+    const { to, subject, message, noteId } = req.body;
     
-    const { to, subject, message, attachment, noteId } = req.body;
-    
-    console.log('After destructuring - noteId:', noteId, 'type:', typeof noteId);
-
-    if (!to || !subject || !attachment) {
-      return res.status(400).json({ error: 'Missing required fields' });
+    if (!to || !subject || !noteId) {
+      return res.status(400).json({ error: 'Missing required fields: to, subject, noteId' });
     }
     
-    // Temporarily allow missing noteId for debugging
-    if (!noteId) {
-      console.warn('WARNING: noteId is missing in server request, proceeding anyway');
+    // Get the note from database
+    const note = await noteDb.getNoteById(noteId, req.user.id);
+    if (!note) {
+      return res.status(404).json({ error: 'Note not found' });
     }
 
-    // Generate or get existing share URL for the note
+    // Generate share URL for the note
     let shareUrl = '';
-    if (noteId && noteId !== `fallback-${noteId.split('-')[1]}`) {
-      try {
-        // Look for existing active share
-        let share = await findActiveShareForNote(noteId);
-        
-        if (!share) {
-          // Create new share (expires in 30 days)
-          const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-          share = await createNoteShare(noteId, req.user.id, expiresAt);
-        }
-        
-        shareUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/share/${share.token}`;
-        console.log('Generated share URL:', shareUrl);
-      } catch (error) {
-        console.error('Failed to create share URL:', error);
-        // Continue without share URL if creation fails
+    try {
+      // Look for existing active share
+      let share = await findActiveShareForNote(noteId);
+      
+      if (!share) {
+        // Create new share (expires in 30 days)
+        const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+        share = await createNoteShare(noteId, req.user.id, expiresAt);
       }
+      
+      shareUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/share/${share.token}`;
+    } catch (error) {
+      console.error('Failed to create share URL:', error);
     }
 
     // Determine if this is a video (don't attach videos, only provide link)
-    const isVideo = attachment.type && attachment.type.startsWith('video/');
+    const isVideo = note.type === 'video';
     
     // Compose email message with share URL
     let emailMessage = message || '';
@@ -1255,27 +1237,117 @@ app.post('/api/send-email-attachment', authenticateToken, async (req, res) => {
       }
     }
 
-    // For images, we need to get the file from S3 and attach it
+    // For images, get the file from S3 and attach it
     // For videos, we only include the share link
     let attachmentContent = null;
+    let attachmentInfo = null;
     
-    if (!isVideo) {
-      // Try to get file from S3 first, fallback to provided content
-      if (noteId && noteId !== `fallback-${noteId.split('-')[1]}`) {
-        try {
-          const note = await noteDb.getNoteById(noteId, req.user.id);
-          if (note && note.file_key) {
-            console.log('Getting file from S3 for attachment:', note.file_key);
-            const s3Object = await getObjectStream(note.file_key);
-            if (s3Object) {
-              // Convert stream to buffer
-              const chunks = [];
-              for await (const chunk of s3Object.stream) {
-                chunks.push(chunk);
-              }
-              const buffer = Buffer.concat(chunks);
-              attachmentContent = buffer.toString('base64');
-              console.log('Successfully retrieved file from S3 for attachment');
+    if (!isVideo && note.file_key) {
+      try {
+        console.log('Getting file from S3 for attachment:', note.file_key);
+        const s3Object = await getObjectStream(note.file_key);
+        if (s3Object) {
+          // Convert stream to buffer
+          const chunks = [];
+          for await (const chunk of s3Object.stream) {
+            chunks.push(chunk);
+          }
+          const buffer = Buffer.concat(chunks);
+          attachmentContent = buffer.toString('base64');
+          
+          // Extract filename from file_key
+          const keyParts = note.file_key.split('/');
+          const fileName = keyParts[keyParts.length - 1];
+          
+          attachmentInfo = {
+            content: attachmentContent,
+            filename: fileName,
+            type: s3Object.contentType,
+            disposition: 'attachment'
+          };
+          
+          console.log('Successfully retrieved file from S3 for attachment');
+        } else {
+          console.log('Could not retrieve file from S3');
+        }
+      } catch (error) {
+        console.error('Failed to get file from S3:', error);
+      }
+    }
+    
+    // If no attachment could be retrieved for an image, inform user
+    if (!isVideo && !attachmentContent) {
+      if (note.file_key) {
+        emailMessage += '\n\nObs: Kunde inte bifoga filen, men du kan visa den via länken ovan.';
+      } else {
+        emailMessage += '\n\nObs: Detta är en äldre anteckning utan bifogad fil.';
+      }
+    }
+    
+    // Prepare email
+    const msg = {
+      to,
+      from: process.env.FROM_EMAIL || 'noreply@inspektionsassistent.se',
+      subject,
+      text: emailMessage || 'Se bifogad fil från inspektionsassistenten.',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #2563EB;">Inspektionsrapport</h2>
+          <p>Hej,</p>
+          <p>${emailMessage ? emailMessage.replace(/\n/g, '<br>') : 'Bifogat finner du filen från inspektionen.'}</p>
+          <p>Rapporten har genererats automatiskt av Inspektionsassistenten.</p>
+          <br>
+          <p>Med vänliga hälsningar,<br>Inspektionsassistenten</p>
+        </div>
+      `,
+    };
+
+    // Only attach files for non-video content and when we have attachment content
+    if (attachmentInfo) {
+      msg.attachments = [attachmentInfo];
+    }
+
+    // Send email
+    await sgMail.send(msg);
+    console.log('Email sent successfully');
+
+    // Update note submitted status
+    try {
+      const updatedNote = await noteDb.updateNoteSubmissionStatus(noteId, req.user.id, true);
+      console.log('✅ Database update successful:', updatedNote ? 'Note updated' : 'Note not found');
+    } catch (dbError) {
+      console.error('❌ Database update failed:', dbError);
+    }
+
+    res.json({
+      success: true,
+      message: 'Email sent successfully'
+    });
+
+  } catch (error) {
+    console.error('Email with note failed:', error);
+    res.status(500).json({ 
+      error: 'Failed to send email', 
+      details: error.message 
+    });
+  }
+});
+
+// Keep the old endpoint for backward compatibility
+app.post('/api/send-email-attachment', authenticateToken, async (req, res) => {
+  try {
+    const { to, subject, message, noteId } = req.body;
+    
+    // Redirect to new endpoint
+    return res.redirect(307, '/api/send-email-note');
+  } catch (error) {
+    console.error('Legacy email endpoint error:', error);
+    res.status(500).json({ 
+      error: 'Please use the updated email functionality', 
+      details: error.message 
+    });
+  }
+});
             }
           }
         } catch (error) {
