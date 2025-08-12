@@ -1335,35 +1335,57 @@ app.post('/api/send-email-note', authenticateToken, async (req, res) => {
 // Keep the old endpoint for backward compatibility
 app.post('/api/send-email-attachment', authenticateToken, async (req, res) => {
   try {
-    const { to, subject, message, noteId } = req.body;
+    const { to, subject, message, noteId, attachment } = req.body;
     
-    // Redirect to new endpoint
-    return res.redirect(307, '/api/send-email-note');
-  } catch (error) {
-    console.error('Legacy email endpoint error:', error);
-    res.status(500).json({ 
-      error: 'Please use the updated email functionality', 
-      details: error.message 
-    });
-  }
-});
+    if (!to || !subject) {
+      return res.status(400).json({ error: 'Missing required fields: to, subject' });
+    }
+    
+    console.log('=== EMAIL WITH ATTACHMENT DEBUG ===');
+    
+    // Get attachment content from S3 if noteId is provided
+    let attachmentContent = null;
+    const isVideo = attachment?.type?.startsWith('video/') || false;
+    
+    if (noteId && !isVideo) {
+      try {
+        const note = await noteDb.getNoteById(noteId, req.user.id);
+        if (note && note.file_key) {
+          console.log('Getting file from S3 for attachment:', note.file_key);
+          const s3Object = await getObjectStream(note.file_key);
+          if (s3Object) {
+            const chunks = [];
+            for await (const chunk of s3Object.stream) {
+              chunks.push(chunk);
             }
+            const buffer = Buffer.concat(chunks);
+            attachmentContent = buffer.toString('base64');
+            console.log('Successfully retrieved file from S3 for attachment');
           }
-        } catch (error) {
-          console.error('Failed to get file from S3:', error);
         }
-      }
-      
-      // Fallback to provided attachment content
-      if (!attachmentContent && attachment.content) {
-        console.log('Using attachment content from request body');
-        attachmentContent = attachment.content;
-      }
-      
-      if (!attachmentContent) {
-        return res.status(400).json({ error: 'Attachment content is missing and could not retrieve from S3' });
+      } catch (error) {
+        console.error('Failed to get file from S3:', error);
       }
     }
+    
+    // Fallback to provided attachment content
+    if (!attachmentContent && attachment?.content) {
+      attachmentContent = attachment.content;
+    }
+    console.log('Request body keys:', Object.keys(req.body));
+    console.log('Attachment keys:', attachment ? Object.keys(attachment) : 'No attachment');
+    console.log('Note ID received:', noteId);
+    console.log('Note ID type:', typeof noteId);
+    console.log('Note ID === null:', noteId === null);
+    console.log('Note ID === undefined:', noteId === undefined);
+    
+    if (!attachment) {
+      return res.status(400).json({ error: 'Attachment is required' });
+    }
+    
+    const emailMessage = message || '';
+    
+    // Determine if this is a video (don't attach videos, only provide link)
     
     // Prepare email
     const msg = {
@@ -1384,7 +1406,7 @@ app.post('/api/send-email-attachment', authenticateToken, async (req, res) => {
     };
 
     // Only attach files for non-video content
-    if (!isVideo && attachmentContent) {
+    if (!isVideo && attachmentContent && attachment) {
       msg.attachments = [
         {
           content: attachmentContent,
@@ -1400,7 +1422,7 @@ app.post('/api/send-email-attachment', authenticateToken, async (req, res) => {
     console.log('Email sent successfully');
 
     // Update note submitted status only if noteId is provided
-    if (noteId && noteId !== `fallback-${noteId.split('-')[1]}`) {
+    if (noteId && typeof noteId === 'string' && !noteId.startsWith('fallback-')) {
       console.log('Updating note submitted status for noteId:', noteId);
       try {
         const updatedNote = await noteDb.updateNoteSubmissionStatus(noteId, req.user.id, true);
