@@ -518,7 +518,12 @@ export {
   userDb,
   projectDb,
   noteDb,
-  summaryDb
+  summaryDb,
+  createNoteShare,
+  findActiveShareForNote,
+  getShareByToken,
+  revokeShare,
+  revokeShareByToken
 };
 
 // Note sharing database functions
