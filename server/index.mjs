@@ -18,7 +18,7 @@ globalThis.File = File;
 
 // Import authentication and database modules (ESM)
 import { authenticateToken, registerUser, loginUser } from './auth.js';
-import { organizationDb, userDb, projectDb, noteDb, summaryDb, createNoteShare, findActiveShareForNote, getShareByToken } from './db.js';
+import { organizationDb, userDb, projectDb, noteDb, summaryDb, createNoteShare, findActiveShareForNote, getShareByToken, generateSignedUrl } from './db.js';
 
 // Load environment variables
 dotenv.config();
@@ -47,13 +47,14 @@ if (process.env.SENDGRID_API_KEY) {
 }
 // Initialize AWS S3 (optional)
 let s3 = null;
-if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
+if (process.env.STORAGE_PROVIDER === 's3' && process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
   AWS.config.update({
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
     region: process.env.AWS_REGION || 'us-east-1'
   });
   s3 = new AWS.S3();
+  console.log('S3 storage initialized for bucket:', process.env.S3_BUCKET);
 }
 
 // Test database connection and schema on startup
@@ -281,8 +282,8 @@ app.get('/api/share/:token', async (req, res) => {
     }
     
     // Get media URL and mime type
-    const mediaUrl = share.files && share.files.length > 0 ? share.files[0].file_url : null;
-    const mimeType = share.files && share.files.length > 0 ? share.files[0].file_type : null;
+    const mediaUrl = share.file_url || null;
+    const mimeType = share.file_type || null;
     
     // Get caption based on note type
     let caption = '';
@@ -462,8 +463,8 @@ app.get('/api/projects/:id', authenticateToken, async (req, res) => {
       type: n.type, 
       content: n.content?.substring(0, 50),
       transcription: n.transcription?.substring(0, 50),
-      hasFiles: n.files && n.files.length > 0,
-      fileUrl: n.files && n.files.length > 0 ? n.files[0].file_url : null
+      hasFileKey: !!n.file_key,
+      fileUrl: n.file_url
     })));
     
     project.notes = notes;
@@ -471,7 +472,7 @@ app.get('/api/projects/:id', authenticateToken, async (req, res) => {
     console.log('Sending project with notes:', {
       projectId: project.id,
       notesCount: notes.length,
-      notes: notes.map(n => ({ id: n.id, type: n.type, hasFiles: n.files && n.files.length > 0 }))
+      notes: notes.map(n => ({ id: n.id, type: n.type, hasFileKey: !!n.file_key }))
     });
 
     res.json(project);
@@ -687,41 +688,39 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
     }
 
     console.log('Processing file upload...');
-    // File storage
+    
+    // Generate S3 object key
+    const fileExtension = file.originalname.split('.').pop();
+    const s3Key = `project-uploads/${uuidv4()}.${fileExtension}`;
     let fileUrl;
-    let fullFilePath;
+    let tempFilePath = file.path; // For transcription processing
 
-    if (s3 && process.env.AWS_S3_BUCKET) {
+    if (process.env.STORAGE_PROVIDER === 's3' && s3 && process.env.S3_BUCKET) {
       // Upload to S3
-      const fileName = `${uuidv4()}-${file.originalname}`;
+      console.log('Uploading to S3 bucket:', process.env.S3_BUCKET);
+      
+      const fileBuffer = await fs.readFile(tempFilePath);
       const uploadParams = {
-        Bucket: process.env.AWS_S3_BUCKET,
-        Key: `uploads/${fileName}`,
-        Body: file.buffer,
-        ContentType: file.mimetype
+        Bucket: process.env.S3_BUCKET,
+        Key: s3Key,
+        Body: fileBuffer,
+        ContentType: file.mimetype,
+        ServerSideEncryption: 'AES256'
       };
 
       const uploadResult = await s3.upload(uploadParams).promise();
-      fileUrl = uploadResult.Location;
+      
+      // Generate signed URL for immediate access
+      const signedUrlTTL = parseInt(process.env.SIGNED_URL_TTL_SECONDS) || 3600; // 1 hour default
+      fileUrl = s3.getSignedUrl('getObject', {
+        Bucket: process.env.S3_BUCKET,
+        Key: s3Key,
+        Expires: signedUrlTTL
+      });
+      
+      console.log('File uploaded to S3 successfully');
     } else {
-      // Use local storage
-      const fileName = `${uuidv4()}-${file.originalname}`;
-      const tempFilePath = file.path; // multer already saved it here
-      fullFilePath = join(uploadsDir, fileName);
-      
-      // Move file from temp location to final location
-      await fs.rename(tempFilePath, fullFilePath);
-      
-      fileUrl = `/uploads/${fileName}`;
-      
-      // Verify file exists
-      try {
-        await fs.access(fullFilePath);
-        console.log('File saved successfully');
-      } catch (error) {
-        console.error('File save verification failed:', error);
-        throw new Error('File save verification failed');
-      }
+      throw new Error('S3 storage not properly configured. Check STORAGE_PROVIDER, S3_BUCKET, and AWS credentials.');
     }
 
     // Process file based on type
@@ -731,7 +730,7 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
     if (noteType === 'photo') {
       try {
         // Read the image file
-        const imageBuffer = await fs.readFile(fullFilePath);
+        const imageBuffer = await fs.readFile(tempFilePath);
         const base64Image = imageBuffer.toString('base64');
         const imageUrl = `data:${file.mimetype};base64,${base64Image}`;
 
@@ -771,7 +770,7 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
         console.log('Starting video transcription...');
         
         // Create a readable stream from the video file for OpenAI Whisper
-        const videoStream = createReadStream(fullFilePath);
+        const videoStream = createReadStream(tempFilePath);
         
         const response = await openai.audio.transcriptions.create({
           file: videoStream,
@@ -789,22 +788,21 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
       }
     }
 
+    // Clean up temporary file
+    try {
+      await fs.unlink(tempFilePath);
+    } catch (error) {
+      console.warn('Failed to clean up temporary file:', error);
+    }
+
     // Save note to database
     const note = await noteDb.createNote(
       projectId,
       noteType,
       noteType === 'photo' ? (imageLabel || 'Foto taget') : 'Videoinspelning',
       transcription,
-      imageLabel
-    );
-
-    // Add file info to note
-    await noteDb.addFileToNote(
-      note.id,
-      fileUrl,
-      file.mimetype,
-      file.originalname,
-      file.size
+      imageLabel,
+      s3Key // Pass the S3 key to be stored in file_key column
     );
 
     console.log('Upload completed successfully');

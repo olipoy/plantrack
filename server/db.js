@@ -1,5 +1,6 @@
 // Database connection and query utilities
 import pkg from 'pg';
+import AWS from 'aws-sdk';
 const { Pool } = pkg;
 
 // Create PostgreSQL connection pool
@@ -549,26 +550,23 @@ const findActiveShareForNote = async (noteId) => {
 
 const getShareByToken = async (token) => {
   const result = await query(
-    `SELECT ns.*, n.type, n.content, n.transcription, n.image_label, n.created_at as note_created_at,
+    `SELECT ns.*, n.type, n.content, n.transcription, n.image_label, n.file_key, n.created_at as note_created_at,
      p.name as project_name,
-     json_agg(
-       json_build_object(
-         'id', nf.id,
-         'file_url', nf.file_url,
-         'file_type', nf.file_type,
-         'file_name', nf.file_name,
-         'file_size', nf.file_size
-       )
-     ) FILTER (WHERE nf.id IS NOT NULL) as files
+     n.type as file_type
      FROM note_shares ns
      JOIN notes n ON ns.note_id = n.id
      JOIN projects p ON n.project_id = p.id
-     LEFT JOIN note_files nf ON n.id = nf.note_id
      WHERE ns.token = $1
      GROUP BY ns.id, n.id, p.id`,
     [token]
   );
-  return result.rows[0];
+  
+  const share = result.rows[0];
+  if (share && share.file_key && process.env.STORAGE_PROVIDER === 's3') {
+    share.file_url = generateSignedUrl(share.file_key);
+  }
+  
+  return share;
 };
 
 const revokeShare = async (noteId) => {
