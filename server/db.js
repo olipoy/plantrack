@@ -1,6 +1,6 @@
 // Database connection and query utilities
 import pkg from 'pg';
-const { Pool } = pkg;
+import { presign } from './s3.js';
 
 // Create PostgreSQL connection pool
 const pool = new Pool({
@@ -350,14 +350,16 @@ const noteDb = {
     console.log('Database notes query result:', result.rows.length, 'notes found');
     
     // Generate signed URLs for notes with file_key
-    const notesWithUrls = result.rows.map(note => {
-      if (note.file_key && process.env.STORAGE_PROVIDER === 's3') {
-        note.file_url = generateSignedUrl(note.file_key);
-      }
-      return note;
-    });
+    const notesWithUrls = await Promise.all(
+      result.rows.map(async (note) => {
+        if (note.file_key && process.env.STORAGE_PROVIDER === 's3') {
+          note.file_url = await generateSignedUrl(note.file_key);
+        }
+        return note;
+      })
+    );
     
-    return result.rows;
+    return notesWithUrls;
   },
 
   // Update note label
@@ -414,7 +416,7 @@ const noteDb = {
     
     const note = result.rows[0];
     if (note && note.file_key && process.env.STORAGE_PROVIDER === 's3') {
-      note.file_url = generateSignedUrl(note.file_key);
+      note.file_url = await generateSignedUrl(note.file_key);
     }
     
     return note;
@@ -449,32 +451,14 @@ const noteDb = {
 };
 
 // Helper function to generate signed S3 URLs
-const generateSignedUrl = (fileKey) => {
+const generateSignedUrl = async (fileKey) => {
   if (!fileKey || process.env.STORAGE_PROVIDER !== 's3') {
-    return null;
-  }
-  
-  // Initialize S3 if not already done
-  if (!global.s3Instance && process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
-    AWS.config.update({
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-      region: process.env.AWS_REGION || 'us-east-1'
-    });
-    global.s3Instance = new AWS.S3();
-  }
-  
-  if (!global.s3Instance || !process.env.S3_BUCKET) {
     return null;
   }
   
   try {
     const signedUrlTTL = parseInt(process.env.SIGNED_URL_TTL_SECONDS) || 3600; // 1 hour default
-    return global.s3Instance.getSignedUrl('getObject', {
-      Bucket: process.env.S3_BUCKET,
-      Key: fileKey,
-      Expires: signedUrlTTL
-    });
+    return await presign(fileKey, signedUrlTTL);
   } catch (error) {
     console.error('Failed to generate signed URL:', error);
     return null;
@@ -551,25 +535,21 @@ const findActiveShareForNote = async (noteId) => {
 const getShareByToken = async (token) => {
   const result = await query(
     `SELECT ns.*, n.type, n.content, n.transcription, n.image_label, n.created_at as note_created_at,
-     p.name as project_name,
-     json_agg(
-       json_build_object(
-         'id', nf.id,
-         'file_url', nf.file_url,
-         'file_type', nf.file_type,
-         'file_name', nf.file_name,
-         'file_size', nf.file_size
-       )
-     ) FILTER (WHERE nf.id IS NOT NULL) as files
+     p.name as project_name, n.file_key
      FROM note_shares ns
      JOIN notes n ON ns.note_id = n.id
      JOIN projects p ON n.project_id = p.id
-     LEFT JOIN note_files nf ON n.id = nf.note_id
      WHERE ns.token = $1
      GROUP BY ns.id, n.id, p.id`,
     [token]
   );
-  return result.rows[0];
+  
+  const share = result.rows[0];
+  if (share && share.file_key && process.env.STORAGE_PROVIDER === 's3') {
+    share.file_url = await generateSignedUrl(share.file_key);
+  }
+  
+  return share;
 };
 
 const revokeShare = async (noteId) => {

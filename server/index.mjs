@@ -8,9 +8,10 @@ import fs from 'fs/promises';
 import { createReadStream } from 'fs';
 import dotenv from 'dotenv';
 import OpenAI from 'openai';
-import AWS from 'aws-sdk';
 import { v4 as uuidv4 } from 'uuid';
 import sgMail from '@sendgrid/mail';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { getObjectStream, presign, isS3Available, getBucketName } from './s3.js';
 
 // Polyfill for OpenAI library File upload support
 import { File } from 'node:buffer';
@@ -45,16 +46,17 @@ const openai = new OpenAI({
 if (process.env.SENDGRID_API_KEY) {
   sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 }
-// Initialize AWS S3 (optional)
-let s3 = null;
-if (process.env.STORAGE_PROVIDER === 's3' && process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
-  AWS.config.update({
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    region: process.env.AWS_REGION || 'us-east-1'
+
+// Initialize S3 client for uploads
+let s3Client = null;
+if (isS3Available()) {
+  s3Client = new S3Client({
+    region: process.env.AWS_REGION || 'us-east-1',
+    credentials: {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    },
   });
-  s3 = new AWS.S3();
-  console.log('S3 storage initialized for bucket:', process.env.S3_BUCKET);
 }
 
 // Test database connection and schema on startup
@@ -695,28 +697,24 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
     let fileUrl;
     let tempFilePath = file.path; // For transcription processing
 
-    if (process.env.STORAGE_PROVIDER === 's3' && s3 && process.env.S3_BUCKET) {
+    if (process.env.STORAGE_PROVIDER === 's3' && s3Client && getBucketName()) {
       // Upload to S3
-      console.log('Uploading to S3 bucket:', process.env.S3_BUCKET);
+      console.log('Uploading to S3 bucket:', getBucketName());
       
       const fileBuffer = await fs.readFile(tempFilePath);
-      const uploadParams = {
-        Bucket: process.env.S3_BUCKET,
+      const uploadCommand = new PutObjectCommand({
+        Bucket: getBucketName(),
         Key: s3Key,
         Body: fileBuffer,
         ContentType: file.mimetype,
         ServerSideEncryption: 'AES256'
-      };
+      });
 
-      const uploadResult = await s3.upload(uploadParams).promise();
+      await s3Client.send(uploadCommand);
       
       // Generate signed URL for immediate access
       const signedUrlTTL = parseInt(process.env.SIGNED_URL_TTL_SECONDS) || 3600; // 1 hour default
-      fileUrl = s3.getSignedUrl('getObject', {
-        Bucket: process.env.S3_BUCKET,
-        Key: s3Key,
-        Expires: signedUrlTTL
-      });
+      fileUrl = await presign(s3Key, signedUrlTTL);
       
       console.log('File uploaded to S3 successfully');
     } else {
@@ -1257,11 +1255,43 @@ app.post('/api/send-email-attachment', authenticateToken, async (req, res) => {
       }
     }
 
-    // Instead of downloading the file, use the attachment content directly
-    console.log('Using attachment content directly from request body');
+    // For images, we need to get the file from S3 and attach it
+    // For videos, we only include the share link
+    let attachmentContent = null;
     
-    if (!attachment.content) {
-      return res.status(400).json({ error: 'Attachment content is missing' });
+    if (!isVideo) {
+      // Try to get file from S3 first, fallback to provided content
+      if (noteId && noteId !== `fallback-${noteId.split('-')[1]}`) {
+        try {
+          const note = await noteDb.getNoteById(noteId, req.user.id);
+          if (note && note.file_key) {
+            console.log('Getting file from S3 for attachment:', note.file_key);
+            const s3Object = await getObjectStream(note.file_key);
+            if (s3Object) {
+              // Convert stream to buffer
+              const chunks = [];
+              for await (const chunk of s3Object.stream) {
+                chunks.push(chunk);
+              }
+              const buffer = Buffer.concat(chunks);
+              attachmentContent = buffer.toString('base64');
+              console.log('Successfully retrieved file from S3 for attachment');
+            }
+          }
+        } catch (error) {
+          console.error('Failed to get file from S3:', error);
+        }
+      }
+      
+      // Fallback to provided attachment content
+      if (!attachmentContent && attachment.content) {
+        console.log('Using attachment content from request body');
+        attachmentContent = attachment.content;
+      }
+      
+      if (!attachmentContent) {
+        return res.status(400).json({ error: 'Attachment content is missing and could not retrieve from S3' });
+      }
     }
     
     // Prepare email
@@ -1283,10 +1313,10 @@ app.post('/api/send-email-attachment', authenticateToken, async (req, res) => {
     };
 
     // Only attach files for non-video content
-    if (!isVideo) {
+    if (!isVideo && attachmentContent) {
       msg.attachments = [
         {
-          content: attachment.content, // This is already base64 from frontend
+          content: attachmentContent,
           filename: attachment.filename,
           type: attachment.type,
           disposition: 'attachment'
