@@ -1,5 +1,7 @@
 // Database connection and query utilities
 import pkg from 'pg';
+const { Pool } = pkg;
+import pkg from 'pg';
 import { presign } from './s3.js';
 
 // Create PostgreSQL connection pool
