@@ -574,13 +574,4 @@ const noteShareDb = {
 
 // Update exports
 // Named exports
-export {
-  query,
-  pool,
-  organizationDb,
-  userDb,
-  projectDb,
-  noteDb,
-  summaryDb,
-  noteShareDb
-};
+// (removed duplicate export block)
