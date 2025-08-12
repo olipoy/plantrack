@@ -579,17 +579,6 @@ export {
   organizationDb,
   userDb,
   projectDb,
-  noteDb,
-  summaryDb,
-  noteShareDb
-};
-// Default export
-export default {
-  query,
-  pool,
-  organizationDb,
-  userDb,
-  projectDb,
-  noteDb,
   summaryDb
+  noteShareDb
 };
