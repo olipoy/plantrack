@@ -849,13 +849,18 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
     projects.forEach((project, index) => {
       context += `Projekt ${index + 1}: ${project.name}\n`;
       context += `Plats: ${project.location || 'Ej angiven'}\n`;
-      context += `Datum: ${new Date(project.created_at).toLocaleDateString('sv-SE')}\n`;
+      context += `Skapad: ${new Date(project.createdAt || project.created_at).toLocaleDateString('sv-SE')}\n`;
+      if (project.date && project.date !== project.createdAt && project.date !== project.created_at) {
+        context += `Projektdatum: ${new Date(project.date).toLocaleDateString('sv-SE')}\n`;
+      }
       
       if (project.notes && project.notes.length > 0) {
         context += `Anteckningar:\n`;
         project.notes.forEach((note, noteIndex) => {
           const noteContent = note.transcription || note.content || note.image_label || 'Ingen text';
-          context += `  ${noteIndex + 1}. [${note.type}] ${noteContent}\n`;
+          const noteDate = new Date(note.timestamp || note.created_at).toLocaleDateString('sv-SE');
+          const noteTime = new Date(note.timestamp || note.created_at).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
+          context += `  ${noteIndex + 1}. [${note.type}] (${noteDate} ${noteTime}) ${noteContent}\n`;
         });
       } else {
         context += `Inga anteckningar ännu.\n`;
@@ -874,7 +879,7 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
       messages: [
         {
           role: "system",
-          content: context + "\nSvara på svenska och var specifik när du refererar till projekt och anteckningar. Om användaren frågar om specifika projekt, sök igenom all tillgänglig data och ge detaljerade svar baserat på inspektionsanteckningarna."
+          content: context + "\nSvara på svenska och var specifik när du refererar till projekt och anteckningar. Om användaren frågar om specifika projekt, sök igenom all tillgänglig data och ge detaljerade svar baserat på inspektionsanteckningarna. Du har tillgång till datum för när projekt skapades och när varje anteckning gjordes."
         },
         {
           role: "user",
