@@ -217,6 +217,15 @@ const organizationDb = {
   async getUserByEmail(email) {
     const result = await query('SELECT * FROM users WHERE email = $1', [email]);
     return result.rows[0];
+  },
+
+  // Remove user from organization
+  async removeUserFromOrganization(organizationId, userId) {
+    const result = await query(
+      'DELETE FROM organization_users WHERE organization_id = $1 AND user_id = $2 RETURNING *',
+      [organizationId, userId]
+    );
+    return result.rows[0];
   }
 };
 

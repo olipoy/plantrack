@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Users, Mail, Copy, Check, AlertCircle, UserPlus, Shield } from 'lucide-react';
-import { getOrganizationMembers, createOrganizationInvite, getUserOrganizations } from '../utils/api';
+import { ArrowLeft, Users, Mail, Copy, Check, AlertCircle, UserPlus, Shield, Trash2 } from 'lucide-react';
+import { getOrganizationMembers, createOrganizationInvite, getUserOrganizations, removeUserFromOrganization } from '../utils/api';
 import { getUser } from '../utils/auth';
 import { Organization, OrganizationMember } from '../types';
 
@@ -18,6 +18,8 @@ export const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ onBa
   const [inviteSuccess, setInviteSuccess] = useState('');
   const [error, setError] = useState('');
   const [copiedInvite, setCopiedInvite] = useState(false);
+  const [removingUserId, setRemovingUserId] = useState<string | null>(null);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState<string | null>(null);
 
   const currentUser = getUser();
   const isAdmin = organization?.role === 'admin';
@@ -84,6 +86,28 @@ export const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ onBa
           console.error('Failed to copy link:', error);
         }
       }
+    }
+  };
+
+  const handleRemoveUser = async (userId: string) => {
+    if (!organization) return;
+    
+    setRemovingUserId(userId);
+    setError('');
+    
+    try {
+      await removeUserFromOrganization(organization.id, userId);
+      
+      // Refresh members list
+      const updatedMembers = await getOrganizationMembers(organization.id);
+      setMembers(updatedMembers);
+      
+      setShowRemoveConfirm(null);
+    } catch (error) {
+      console.error('Failed to remove user:', error);
+      setError(error instanceof Error ? error.message : 'Kunde inte ta bort användare');
+    } finally {
+      setRemovingUserId(null);
     }
   };
 
@@ -286,7 +310,7 @@ export const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ onBa
                       <p className="text-sm text-gray-500">{member.email}</p>
                     </div>
                   </div>
-                  <div className="flex items-center">
+                  <div className="flex items-center space-x-3">
                     {member.role === 'admin' ? (
                       <div className="flex items-center text-blue-600">
                         <Shield className="w-4 h-4 mr-1" />
@@ -295,6 +319,18 @@ export const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ onBa
                     ) : (
                       <span className="text-sm text-gray-500">Medlem</span>
                     )}
+                    
+                    {/* Remove user button - only show for admins and not for current user */}
+                    {isAdmin && member.id !== currentUser?.id && (
+                      <button
+                        onClick={() => setShowRemoveConfirm(member.id)}
+                        disabled={removingUserId === member.id}
+                        className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                        title="Ta bort användare"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -302,6 +338,39 @@ export const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ onBa
           </div>
         </div>
       </div>
+      
+      {/* Remove User Confirmation Modal */}
+      {showRemoveConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Ta bort användare</h3>
+            <p className="text-gray-600 mb-6">
+              Är du säker på att du vill ta bort denna användare från organisationen? 
+              Användaren kommer inte längre kunna logga in, men deras projekt och anteckningar kommer att bevaras.
+            </p>
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowRemoveConfirm(null)}
+                disabled={removingUserId !== null}
+                className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50"
+              >
+                Avbryt
+              </button>
+              <button
+                onClick={() => handleRemoveUser(showRemoveConfirm)}
+                disabled={removingUserId !== null}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-300 flex items-center justify-center"
+              >
+                {removingUserId === showRemoveConfirm ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  'Ta bort'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

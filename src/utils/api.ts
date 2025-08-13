@@ -619,3 +619,21 @@ export const getInviteDetails = async (token: string): Promise<any> => {
 
   return response.json();
 };
+export const removeUserFromOrganization = async (organizationId: string, userId: string): Promise<void> => {
+  const token = getToken();
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/organizations/${organizationId}/members/${userId}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || `Failed to remove user: ${response.statusText}`);
+  }
+};

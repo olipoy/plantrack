@@ -176,6 +176,32 @@ app.get('/api/organizations/:id/members', authenticateToken, async (req, res) =>
   }
 });
 
+// Remove user from organization
+app.delete('/api/organizations/:id/members/:userId', authenticateToken, async (req, res) => {
+  try {
+    const { id: organizationId, userId } = req.params;
+    
+    // Check if current user is admin of this organization
+    const organization = await organizationDb.getOrganizationById(organizationId, req.user.id);
+    if (!organization || organization.role !== 'admin') {
+      return res.status(403).json({ error: 'Only organization admins can remove users' });
+    }
+    
+    // Prevent removing yourself
+    if (userId === req.user.id) {
+      return res.status(400).json({ error: 'Cannot remove yourself from the organization' });
+    }
+    
+    // Remove user from organization
+    await organizationDb.removeUserFromOrganization(organizationId, userId);
+    
+    res.json({ message: 'User removed successfully' });
+  } catch (error) {
+    console.error('Remove user from organization error:', error);
+    res.status(500).json({ error: 'Failed to remove user from organization' });
+  }
+});
+
 // Create organization invite
 app.post('/api/organizations/:id/invite', authenticateToken, async (req, res) => {
   try {
