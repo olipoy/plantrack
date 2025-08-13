@@ -114,7 +114,13 @@ function MainApp() {
     setSelectedProject(updatedProject);
     
     console.log('Project state updated, selectedProject updated');
-    // Don't clear pendingEmailData here to avoid interference
+    
+    // Force AI Assistant to refresh its data by triggering a re-render
+    // This ensures the AI Assistant gets the updated notes immediately
+    setTimeout(() => {
+      console.log('Triggering AI Assistant data refresh after project update');
+      setProjects(prev => [...prev]); // Trigger re-render to refresh AI Assistant
+    }, 100);
   };
 
   const handleProjectDelete = async () => {
