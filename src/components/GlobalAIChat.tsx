@@ -36,7 +36,15 @@ export const GlobalAIChat: React.FC<GlobalAIChatProps> = ({ projects }) => {
   const checkHealth = async () => {
     try {
       const health = await checkServerHealth();
-      setServerStatus(health.status === 'ok' && health.openai ? 'online' : 'offline');
+      console.log('Health check response:', health);
+      
+      if (health.status === 'ok' && health.openai) {
+        setServerStatus('online');
+        setError('');
+      } else {
+        setServerStatus('offline');
+        setError(health.openai === false ? 'OpenAI API-nyckel saknas eller är ogiltig' : 'Servern är inte tillgänglig');
+      }
       if (health.status !== 'ok' || !health.openai) {
         setError('OpenAI API-nyckel saknas eller servern är inte tillgänglig');
       }
@@ -44,6 +52,7 @@ export const GlobalAIChat: React.FC<GlobalAIChatProps> = ({ projects }) => {
       setServerStatus('offline');
       setError('Kan inte ansluta till servern. Kontrollera att backend-servern körs på port 3001.');
     }
+    console.log('Health check completed, status:', serverStatus);
   };
 
   const handleSend = async () => {

@@ -1468,12 +1468,20 @@ app.post('/api/debug-note', authenticateToken, async (req, res) => {
 
 // Health check
 app.get('/api/health', (req, res) => {
+  console.log('Health check requested');
+  console.log('Environment check:', {
+    openai: !!process.env.OPENAI_API_KEY,
+    sendgrid: !!process.env.SENDGRID_API_KEY,
+    database: !!process.env.DATABASE_URL,
+    nodeEnv: NODE_ENV
+  });
+  
   res.json({ 
     status: 'ok', 
     openai: !!process.env.OPENAI_API_KEY,
     sendgrid: !!process.env.SENDGRID_API_KEY,
     database: !!process.env.DATABASE_URL,
-    s3: !!s3,
+    s3: !!s3Client,
     environment: NODE_ENV
   });
 });

@@ -9,7 +9,10 @@ const getApiBaseUrl = () => {
   
   // In production, check for explicit API URL first
   if (import.meta.env.VITE_API_URL) {
-    return `${import.meta.env.VITE_API_URL}/api`;
+    const apiUrl = import.meta.env.VITE_API_URL;
+    // Clean up the URL to avoid double slashes
+    const cleanUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
+    return `${cleanUrl}/api`;
   }
   
   // Fallback to same origin (for Railway deployment where frontend and backend are served together)
