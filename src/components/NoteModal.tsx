@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Send, Loader2, CheckCircle, AlertCircle, Play, Share2, Copy } from 'lucide-react';
 import { Note } from '../types';
 import { createNoteShare } from '../utils/api';
+import { loadEmailHistory, saveEmailToHistory, filterEmailHistory } from '../utils/emailHistory';
 
 interface NoteModalProps {
   note: Note;
@@ -28,6 +29,24 @@ export const NoteModal: React.FC<NoteModalProps> = ({
   const [shareUrl, setShareUrl] = useState('');
   const [isCreatingShare, setIsCreatingShare] = useState(false);
   const [shareSuccess, setShareSuccess] = useState(false);
+  const [emailHistory, setEmailHistory] = useState<string[]>([]);
+  const [showEmailDropdown, setShowEmailDropdown] = useState(false);
+  const [filteredEmails, setFilteredEmails] = useState<string[]>([]);
+
+  // Load email history when email form is shown
+  React.useEffect(() => {
+    if (showEmailForm) {
+      const history = loadEmailHistory();
+      setEmailHistory(history);
+      setFilteredEmails(history);
+    }
+  }, [showEmailForm]);
+
+  // Filter emails when input changes
+  React.useEffect(() => {
+    const filtered = filterEmailHistory(email, emailHistory);
+    setFilteredEmails(filtered);
+  }, [email, emailHistory]);
 
   if (!isOpen) return null;
 
@@ -72,6 +91,9 @@ export const NoteModal: React.FC<NoteModalProps> = ({
       if (onEmailSent) {
         onEmailSent(note.id);
       }
+      
+      // Save email to history
+      saveEmailToHistory(email);
       
       // Auto-close after success
       setTimeout(() => {
@@ -270,16 +292,42 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                         <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                           E-postadress
                         </label>
-                        <input
-                          type="email"
-                          id="email"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          placeholder="mottagare@email.se"
-                          required
-                          disabled={isSending}
-                        />
+                        <div className="relative">
+                          <input
+                            type="email"
+                            id="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            onFocus={() => setShowEmailDropdown(true)}
+                            onBlur={() => {
+                              // Delay hiding to allow clicking on dropdown items
+                              setTimeout(() => setShowEmailDropdown(false), 150);
+                            }}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="mottagare@email.se"
+                            required
+                            disabled={isSending}
+                          />
+                          
+                          {/* Email History Dropdown */}
+                          {showEmailDropdown && filteredEmails.length > 0 && (
+                            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                              {filteredEmails.map((historyEmail, index) => (
+                                <button
+                                  key={index}
+                                  type="button"
+                                  onClick={() => {
+                                    setEmail(historyEmail);
+                                    setShowEmailDropdown(false);
+                                  }}
+                                  className="w-full text-left px-4 py-3 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none border-b border-gray-100 last:border-b-0 text-sm"
+                                >
+                                  {historyEmail}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       <div>

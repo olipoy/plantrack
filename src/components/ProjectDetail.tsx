@@ -4,6 +4,7 @@ import { Note } from '../types';
 import { sendEmailWithPDF, sendEmailWithAttachment } from '../utils/api';
 import { CameraView } from './CameraView';
 import { NoteModal } from './NoteModal';
+import { loadEmailHistory, saveEmailToHistory, filterEmailHistory } from '../utils/emailHistory';
 
 interface ProjectDetailProps {
   project: { id: string; name: string; [key: string]: any };
@@ -33,6 +34,24 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const [emailCallCount, setEmailCallCount] = useState(0);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [showNoteModal, setShowNoteModal] = useState(false);
+  const [emailHistory, setEmailHistory] = useState<string[]>([]);
+  const [showEmailDropdown, setShowEmailDropdown] = useState(false);
+  const [filteredEmails, setFilteredEmails] = useState<string[]>([]);
+
+  // Load email history when modal is shown
+  React.useEffect(() => {
+    if (showModal) {
+      const history = loadEmailHistory();
+      setEmailHistory(history);
+      setFilteredEmails(history);
+    }
+  }, [showModal]);
+
+  // Filter emails when input changes
+  React.useEffect(() => {
+    const filtered = filterEmailHistory(emailRecipient, emailHistory);
+    setFilteredEmails(filtered);
+  }, [emailRecipient, emailHistory]);
 
   const handleNoteEmailSent = (noteId: string) => {
     console.log('=== handleNoteEmailSent called ===');
@@ -249,6 +268,10 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
       }
       
       setEmailSuccess(true);
+      
+      // Save email to history
+      saveEmailToHistory(emailRecipient);
+      
       setEmailCallCount(0); // Reset counter on success
       
       // Auto-close after success
@@ -411,16 +434,42 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                     <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                       E-postadress
                     </label>
-                    <input
-                      type="email"
-                      id="email"
-                      value={emailRecipient}
-                      onChange={(e) => setEmailRecipient(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="mottagare@email.se"
-                      required
-                      disabled={isSendingEmail}
-                    />
+                    <div className="relative">
+                      <input
+                        type="email"
+                        id="email"
+                        value={emailRecipient}
+                        onChange={(e) => setEmailRecipient(e.target.value)}
+                        onFocus={() => setShowEmailDropdown(true)}
+                        onBlur={() => {
+                          // Delay hiding to allow clicking on dropdown items
+                          setTimeout(() => setShowEmailDropdown(false), 150);
+                        }}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="mottagare@email.se"
+                        required
+                        disabled={isSendingEmail}
+                      />
+                      
+                      {/* Email History Dropdown */}
+                      {showEmailDropdown && filteredEmails.length > 0 && (
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                          {filteredEmails.map((historyEmail, index) => (
+                            <button
+                              key={index}
+                              type="button"
+                              onClick={() => {
+                                setEmailRecipient(historyEmail);
+                                setShowEmailDropdown(false);
+                              }}
+                              className="w-full text-left px-4 py-3 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none border-b border-gray-100 last:border-b-0 text-sm"
+                            >
+                              {historyEmail}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div>

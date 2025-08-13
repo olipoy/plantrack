@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Send, FileText, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { Note } from '../types';
 import { generateIndividualReport, submitIndividualReport } from '../utils/api';
+import { loadEmailHistory, saveEmailToHistory, filterEmailHistory } from '../utils/emailHistory';
 
 interface IndividualReportModalProps {
   noteId: string;
@@ -24,6 +25,9 @@ export const IndividualReportModal: React.FC<IndividualReportModalProps> = ({
   const [email, setEmail] = useState('');
   const [subject, setSubject] = useState('');
   const [customMessage, setCustomMessage] = useState('');
+  const [emailHistory, setEmailHistory] = useState<string[]>([]);
+  const [showEmailDropdown, setShowEmailDropdown] = useState(false);
+  const [filteredEmails, setFilteredEmails] = useState<string[]>([]);
 
   useEffect(() => {
     // Auto-generate report when modal opens
@@ -31,7 +35,18 @@ export const IndividualReportModal: React.FC<IndividualReportModalProps> = ({
     
     // Set default subject
     setSubject(`Inspektionsrapport - Enskild post - ${new Date().toLocaleDateString('sv-SE')}`);
+    
+    // Load email history
+    const history = loadEmailHistory();
+    setEmailHistory(history);
+    setFilteredEmails(history);
   }, [noteId]);
+
+  // Filter emails when input changes
+  useEffect(() => {
+    const filtered = filterEmailHistory(email, emailHistory);
+    setFilteredEmails(filtered);
+  }, [email, emailHistory]);
 
   const generateReport = async () => {
     setIsGenerating(true);
@@ -62,6 +77,9 @@ export const IndividualReportModal: React.FC<IndividualReportModalProps> = ({
     try {
       await submitIndividualReport(noteId, email.trim(), subject.trim(), customMessage.trim() || undefined);
       setSuccess(true);
+      
+      // Save email to history
+      saveEmailToHistory(email);
       
       // Auto-close after success
       setTimeout(() => {
@@ -170,15 +188,41 @@ export const IndividualReportModal: React.FC<IndividualReportModalProps> = ({
                   <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                     E-postadress
                   </label>
-                  <input
-                    type="email"
-                    id="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="mottagare@email.se"
-                    required
-                  />
+                 <div className="relative">
+                   <input
+                     type="email"
+                     id="email"
+                     value={email}
+                     onChange={(e) => setEmail(e.target.value)}
+                     onFocus={() => setShowEmailDropdown(true)}
+                     onBlur={() => {
+                       // Delay hiding to allow clicking on dropdown items
+                       setTimeout(() => setShowEmailDropdown(false), 150);
+                     }}
+                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                     placeholder="mottagare@email.se"
+                     required
+                   />
+                   
+                   {/* Email History Dropdown */}
+                   {showEmailDropdown && filteredEmails.length > 0 && (
+                     <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                       {filteredEmails.map((historyEmail, index) => (
+                         <button
+                           key={index}
+                           type="button"
+                           onClick={() => {
+                             setEmail(historyEmail);
+                             setShowEmailDropdown(false);
+                           }}
+                           className="w-full text-left px-4 py-3 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none border-b border-gray-100 last:border-b-0 text-sm"
+                         >
+                           {historyEmail}
+                         </button>
+                       ))}
+                     </div>
+                   )}
+                 </div>
                 </div>
 
                 <div>
