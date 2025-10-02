@@ -224,6 +224,36 @@ export const updateNoteLabel = async (
   return response.json();
 };
 
+export const updateNoteDetails = async (
+  noteId: string,
+  updates: {
+    imageLabel?: string;
+    content?: string;
+    delomrade?: string;
+    transcription?: string;
+  }
+): Promise<any> => {
+  const token = getToken();
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/notes/${noteId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(updates),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to update note: ${response.statusText}`);
+  }
+
+  return response.json();
+};
+
 export const generateIndividualReport = async (
   noteId: string
 ): Promise<{ report: string }> => {

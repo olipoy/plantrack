@@ -17,6 +17,7 @@ export interface Note {
   content: string;
   transcription?: string;
   imageLabel?: string;
+  delomrade?: string;
   isLabelLoading?: boolean;
   timestamp: Date;
   mediaUrl?: string | null;

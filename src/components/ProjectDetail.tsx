@@ -88,6 +88,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
             content: note.content,
             transcription: note.transcription,
             imageLabel: note.image_label,
+            delomrade: note.delomrade,
             timestamp: new Date(note.created_at),
             submitted: note.submitted || false,
             submittedAt: note.submitted_at ? new Date(note.submitted_at) : undefined,

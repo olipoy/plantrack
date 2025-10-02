@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Check, X, Edit3 } from 'lucide-react';
+import { ArrowLeft, Check, X, CreditCard as Edit3 } from 'lucide-react';
 import { Note } from '../types';
 import { uploadFile } from '../utils/api';
 import { ensureSizeLimit, formatFileSize, getVideoDuration } from '../utils/videoCompression';
@@ -23,6 +23,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
   const [transcription, setTranscription] = useState('');
   const [imageLabel, setImageLabel] = useState('');
   const [editableContent, setEditableContent] = useState('');
+  const [delomrade, setDelomrade] = useState('');
   const [isEditingContent, setIsEditingContent] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
   const [compressionProgress, setCompressionProgress] = useState('');
@@ -266,31 +267,47 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
     }
   };
 
-  const handleSaveAndSend = () => {
+  const handleSaveAndSend = async () => {
     if (!uploadResponse) return;
     if (isSaving) return; // Prevent multiple calls
 
     setIsSaving(true);
 
-    // Create note object with edited content
-    const note: Note = {
-      id: uploadResponse.noteId, // Use the ID from upload response
-      type: mode,
-      content: editableContent,
-      transcription: mode === 'video' ? editableContent : transcription,
-      imageLabel: mode === 'photo' ? editableContent : imageLabel,
-      timestamp: new Date(),
-      mediaUrl: uploadResponse.mediaUrl,
-      fileName: uploadResponse.fileName,
-      mimeType: uploadResponse.mimeType,
-      fileSize: uploadResponse.fileSize
-    };
+    try {
+      // Update the note in database with edited content and delomrade
+      const { updateNoteDetails } = await import('../utils/api');
+      await updateNoteDetails(uploadResponse.noteId, {
+        imageLabel: mode === 'photo' ? editableContent : imageLabel,
+        content: editableContent,
+        delomrade: delomrade,
+        transcription: mode === 'video' ? editableContent : transcription
+      });
 
-    console.log('Saving note with edited content:', note);
-    console.log('Note ID from upload response:', uploadResponse.noteId);
-    
-    // Just save the note, don't auto-send email
-    onSave(note);
+      // Create note object with edited content
+      const note: Note = {
+        id: uploadResponse.noteId, // Use the ID from upload response
+        type: mode,
+        content: editableContent,
+        transcription: mode === 'video' ? editableContent : transcription,
+        imageLabel: mode === 'photo' ? editableContent : imageLabel,
+        delomrade: delomrade,
+        timestamp: new Date(),
+        mediaUrl: uploadResponse.mediaUrl,
+        fileName: uploadResponse.fileName,
+        mimeType: uploadResponse.mimeType,
+        fileSize: uploadResponse.fileSize
+      };
+
+      console.log('Saving note with edited content and delomrade:', note);
+      console.log('Note ID from upload response:', uploadResponse.noteId);
+
+      // Just save the note, don't auto-send email
+      onSave(note);
+    } catch (error) {
+      console.error('Failed to update note:', error);
+      setError(error instanceof Error ? error.message : 'Failed to save note');
+      setIsSaving(false);
+    }
   };
 
   const handleDiscard = () => {
@@ -300,6 +317,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
     setCapturedMedia(null);
     setPreviewUrl(null);
     setEditableContent('');
+    setDelomrade('');
     setTranscription('');
     setImageLabel('');
     setUploadResponse(null);
@@ -511,10 +529,26 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
 
             {/* Content Editor */}
             <div className="bg-white p-6 border-t border-gray-200">
+              {/* Delområde Field */}
+              <div className="mb-4">
+                <label htmlFor="delomrade" className="block text-sm font-medium text-gray-700 mb-2">
+                  Delområde
+                </label>
+                <input
+                  type="text"
+                  id="delomrade"
+                  value={delomrade}
+                  onChange={(e) => setDelomrade(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="T.ex. Kök, Ventilationspump..."
+                />
+              </div>
+
+              {/* Kommentar Field (renamed from Bildtext) */}
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-lg font-semibold text-gray-900">
-                    {mode === 'photo' ? 'Bildtext' : 'Transkription'}
+                    Kommentar
                   </h3>
                   <button
                     onClick={() => setIsEditingContent(!isEditingContent)}

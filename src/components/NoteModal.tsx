@@ -220,11 +220,21 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                   </div>
                 )}
 
+                {/* Delområde */}
+                {note.delomrade && (
+                  <div className="bg-blue-50 rounded-lg p-4 mb-4">
+                    <h3 className="text-sm font-medium text-blue-900 mb-1">
+                      Delområde
+                    </h3>
+                    <p className="text-blue-800">{note.delomrade}</p>
+                  </div>
+                )}
+
                 {/* Content/Transcription */}
                 {getDisplayContent() && (
                   <div className="bg-gray-50 rounded-lg p-4">
                     <h3 className="text-sm font-medium text-gray-700 mb-2">
-                      {note.type === 'photo' ? 'Bildtext' : 'Transkription'}
+                      Kommentar
                     </h3>
                     <p className="text-gray-800 whitespace-pre-wrap">{getDisplayContent()}</p>
                   </div>

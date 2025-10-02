@@ -345,7 +345,7 @@ const projectDb = {
 // Note-related database functions
 const noteDb = {
   // Create a new note
-  async createNote(projectId, type, content, transcription, imageLabel = null, fileKey = null, orgId = null) {
+  async createNote(projectId, type, content, transcription, imageLabel = null, fileKey = null, orgId = null, delomrade = null) {
     if (!orgId) {
       // Get organization from project
       const projectResult = await query('SELECT org_id FROM projects WHERE id = $1', [projectId]);
@@ -354,10 +354,10 @@ const noteDb = {
       }
       orgId = projectResult.rows[0].org_id;
     }
-    
+
     const result = await query(
-      'INSERT INTO notes (project_id, type, content, transcription, image_label, file_key, org_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-      [projectId, type, content, transcription, imageLabel, fileKey, orgId]
+      'INSERT INTO notes (project_id, type, content, transcription, image_label, file_key, org_id, delomrade) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+      [projectId, type, content, transcription, imageLabel, fileKey, orgId, delomrade]
     );
     return result.rows[0];
   },
@@ -383,6 +383,7 @@ const noteDb = {
           content: note.content,
           transcription: note.transcription,
           image_label: note.image_label,
+          delomrade: note.delomrade,
           created_at: note.created_at,
           submitted: note.submitted || false,
           submitted_at: note.submitted_at,
@@ -424,15 +425,61 @@ const noteDb = {
     if (!orgId) {
       return null;
     }
-    
+
     // First verify the note belongs to the user's project
     const result = await query(
-      `UPDATE notes 
+      `UPDATE notes
        SET image_label = $1
-       WHERE id = $2 
+       WHERE id = $2
        AND org_id = $3
        RETURNING *`,
       [newLabel, noteId, orgId]
+    );
+    return result.rows[0];
+  },
+
+  // Update note details (label, content, delomrade)
+  async updateNoteDetails(noteId, userId, updates) {
+    const orgId = await organizationDb.getUserPrimaryOrganization(userId);
+    if (!orgId) {
+      return null;
+    }
+
+    const setClauses = [];
+    const values = [];
+    let paramCount = 1;
+
+    if (updates.imageLabel !== undefined) {
+      setClauses.push(`image_label = $${paramCount++}`);
+      values.push(updates.imageLabel);
+    }
+    if (updates.content !== undefined) {
+      setClauses.push(`content = $${paramCount++}`);
+      values.push(updates.content);
+    }
+    if (updates.delomrade !== undefined) {
+      setClauses.push(`delomrade = $${paramCount++}`);
+      values.push(updates.delomrade);
+    }
+    if (updates.transcription !== undefined) {
+      setClauses.push(`transcription = $${paramCount++}`);
+      values.push(updates.transcription);
+    }
+
+    if (setClauses.length === 0) {
+      return null;
+    }
+
+    values.push(noteId);
+    values.push(orgId);
+
+    const result = await query(
+      `UPDATE notes
+       SET ${setClauses.join(', ')}
+       WHERE id = $${paramCount++}
+       AND org_id = $${paramCount++}
+       RETURNING *`,
+      values
     );
     return result.rows[0];
   },

@@ -585,11 +585,53 @@ app.put('/api/notes/:id/label', authenticateToken, async (req, res) => {
   }
 });
 
+// Update note details (label, content, delomrade, transcription)
+app.put('/api/notes/:id', authenticateToken, async (req, res) => {
+  try {
+    const { imageLabel, content, delomrade, transcription } = req.body;
+    const noteId = req.params.id;
+
+    console.log('Updating note details:', { noteId, imageLabel, content, delomrade, transcription, userId: req.user.id });
+
+    if (!noteId) {
+      return res.status(400).json({ error: 'Note ID is required' });
+    }
+
+    const updates = {};
+    if (imageLabel !== undefined) updates.imageLabel = imageLabel;
+    if (content !== undefined) updates.content = content;
+    if (delomrade !== undefined) updates.delomrade = delomrade;
+    if (transcription !== undefined) updates.transcription = transcription;
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'No updates provided' });
+    }
+
+    // Update note in database
+    const updatedNote = await noteDb.updateNoteDetails(noteId, req.user.id, updates);
+
+    if (!updatedNote) {
+      console.log('Note not found for user');
+      return res.status(404).json({ error: 'Note not found' });
+    }
+
+    console.log('Note updated successfully:', updatedNote);
+    res.json(updatedNote);
+
+  } catch (error) {
+    console.error('Update note error:', error);
+    res.status(500).json({
+      error: 'Failed to update note',
+      details: error.message
+    });
+  }
+});
+
 // Delete project
 app.delete('/api/projects/:id', authenticateToken, async (req, res) => {
   try {
     const deletedProject = await projectDb.deleteProject(req.params.id, req.user.id);
-    
+
     if (!deletedProject) {
       return res.status(404).json({ error: 'Project not found' });
     }
