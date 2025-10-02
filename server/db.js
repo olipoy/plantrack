@@ -345,7 +345,7 @@ const projectDb = {
 // Note-related database functions
 const noteDb = {
   // Create a new note
-  async createNote(projectId, type, content, transcription, imageLabel = null, fileKey = null, orgId = null, delomrade = null) {
+  async createNote(projectId, type, kommentar, transcription, imageLabel = null, fileKey = null, orgId = null, delomrade = null) {
     if (!orgId) {
       // Get organization from project
       const projectResult = await query('SELECT org_id FROM projects WHERE id = $1', [projectId]);
@@ -356,8 +356,8 @@ const noteDb = {
     }
 
     const result = await query(
-      'INSERT INTO notes (project_id, type, content, transcription, image_label, file_key, org_id, delomrade) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
-      [projectId, type, content, transcription, imageLabel, fileKey, orgId, delomrade]
+      'INSERT INTO notes (project_id, type, kommentar, transcription, image_label, file_key, org_id, delomrade) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+      [projectId, type, kommentar, transcription, imageLabel, fileKey, orgId, delomrade]
     );
     return result.rows[0];
   },
@@ -380,7 +380,7 @@ const noteDb = {
         const formattedNote = {
           id: note.id,
           type: note.type,
-          content: note.content,
+          kommentar: note.kommentar,
           transcription: note.transcription,
           image_label: note.image_label,
           delomrade: note.delomrade,
@@ -453,9 +453,9 @@ const noteDb = {
       setClauses.push(`image_label = $${paramCount++}`);
       values.push(updates.imageLabel);
     }
-    if (updates.content !== undefined) {
-      setClauses.push(`content = $${paramCount++}`);
-      values.push(updates.content);
+    if (updates.kommentar !== undefined) {
+      setClauses.push(`kommentar = $${paramCount++}`);
+      values.push(updates.kommentar);
     }
     if (updates.delomrade !== undefined) {
       setClauses.push(`delomrade = $${paramCount++}`);

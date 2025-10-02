@@ -22,9 +22,9 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
   const [error, setError] = useState('');
   const [transcription, setTranscription] = useState('');
   const [imageLabel, setImageLabel] = useState('');
-  const [editableContent, setEditableContent] = useState('');
+  const [editableKommentar, setEditableKommentar] = useState('');
   const [delomrade, setDelomrade] = useState('');
-  const [isEditingContent, setIsEditingContent] = useState(false);
+  const [isEditingKommentar, setIsEditingKommentar] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
   const [compressionProgress, setCompressionProgress] = useState('');
   const [uploadResponse, setUploadResponse] = useState<any>(null);
@@ -256,7 +256,8 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
       setUploadResponse(response);
       setTranscription(response.transcription || '');
       setImageLabel(response.imageLabel || '');
-      setEditableContent(response.transcription || response.imageLabel || (mode === 'photo' ? 'Foto taget' : 'Videoinspelning'));
+      // Pre-fill kommentar with image_label for photos, empty for videos
+      setEditableKommentar(mode === 'photo' ? (response.imageLabel || '') : '');
       setCurrentMode('edit');
 
     } catch (error) {
@@ -274,22 +275,22 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
     setIsSaving(true);
 
     try {
-      // Update the note in database with edited content and delomrade
+      // Update the note in database with edited kommentar and delomrade
       const { updateNoteDetails } = await import('../utils/api');
       await updateNoteDetails(uploadResponse.noteId, {
-        imageLabel: mode === 'photo' ? editableContent : imageLabel,
-        content: editableContent,
+        imageLabel: imageLabel, // Keep original AI-generated label
+        kommentar: editableKommentar,
         delomrade: delomrade,
-        transcription: mode === 'video' ? editableContent : transcription
+        transcription: transcription // Keep original transcription
       });
 
-      // Create note object with edited content
+      // Create note object with edited kommentar
       const note: Note = {
         id: uploadResponse.noteId, // Use the ID from upload response
         type: mode,
-        content: editableContent,
-        transcription: mode === 'video' ? editableContent : transcription,
-        imageLabel: mode === 'photo' ? editableContent : imageLabel,
+        kommentar: editableKommentar,
+        transcription: transcription,
+        imageLabel: imageLabel,
         delomrade: delomrade,
         timestamp: new Date(),
         mediaUrl: uploadResponse.mediaUrl,
@@ -298,7 +299,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
         fileSize: uploadResponse.fileSize
       };
 
-      console.log('Saving note with edited content and delomrade:', note);
+      console.log('Saving note with edited kommentar and delomrade:', note);
       console.log('Note ID from upload response:', uploadResponse.noteId);
 
       // Just save the note, don't auto-send email
@@ -316,7 +317,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
     }
     setCapturedMedia(null);
     setPreviewUrl(null);
-    setEditableContent('');
+    setEditableKommentar('');
     setDelomrade('');
     setTranscription('');
     setImageLabel('');
@@ -544,37 +545,51 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
                 />
               </div>
 
-              {/* Kommentar Field (renamed from Bildtext) */}
+              {/* Kommentar Field */}
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-lg font-semibold text-gray-900">
                     Kommentar
                   </h3>
                   <button
-                    onClick={() => setIsEditingContent(!isEditingContent)}
+                    onClick={() => setIsEditingKommentar(!isEditingKommentar)}
                     className="flex items-center text-blue-600 hover:text-blue-700 text-sm font-medium"
                   >
                     <Edit3 className="w-4 h-4 mr-1" />
-                    {isEditingContent ? 'Spara' : 'Redigera'}
+                    {isEditingKommentar ? 'Spara' : 'Redigera'}
                   </button>
                 </div>
 
-                {isEditingContent ? (
+                {isEditingKommentar ? (
                   <textarea
-                    value={editableContent}
-                    onChange={(e) => setEditableContent(e.target.value)}
+                    value={editableKommentar}
+                    onChange={(e) => setEditableKommentar(e.target.value)}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                     rows={4}
-                    placeholder={mode === 'photo' ? 'Beskriv vad som syns på bilden...' : 'Redigera transkriptionen...'}
+                    placeholder="Lägg till kommentar..."
                   />
                 ) : (
                   <div className="bg-gray-50 rounded-lg p-3 min-h-[100px] border border-gray-200">
                     <p className="text-gray-800 whitespace-pre-wrap">
-                      {editableContent || (mode === 'photo' ? 'Ingen bildtext genererad' : 'Ingen transkription tillgänglig')}
+                      {editableKommentar || 'Ingen kommentar'}
                     </p>
                   </div>
                 )}
               </div>
+
+              {/* Show AI suggestion and transcription as read-only info */}
+              {mode === 'photo' && imageLabel && (
+                <div className="mb-4 bg-blue-50 rounded-lg p-3">
+                  <p className="text-xs font-medium text-blue-900 mb-1">AI-genererad etikett:</p>
+                  <p className="text-sm text-blue-800">{imageLabel}</p>
+                </div>
+              )}
+              {mode === 'video' && transcription && (
+                <div className="mb-4 bg-purple-50 rounded-lg p-3">
+                  <p className="text-xs font-medium text-purple-900 mb-1">Transkription:</p>
+                  <p className="text-sm text-purple-800 whitespace-pre-wrap">{transcription}</p>
+                </div>
+              )}
 
               {/* File info */}
               {capturedMedia && (

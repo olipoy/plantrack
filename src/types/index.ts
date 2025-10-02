@@ -14,7 +14,7 @@ export interface Project {
 export interface Note {
   id: string;
   type: 'photo' | 'video' | 'text';
-  content: string;
+  kommentar: string;
   transcription?: string;
   imageLabel?: string;
   delomrade?: string;

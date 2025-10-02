@@ -585,13 +585,13 @@ app.put('/api/notes/:id/label', authenticateToken, async (req, res) => {
   }
 });
 
-// Update note details (label, content, delomrade, transcription)
+// Update note details (label, kommentar, delomrade, transcription)
 app.put('/api/notes/:id', authenticateToken, async (req, res) => {
   try {
-    const { imageLabel, content, delomrade, transcription } = req.body;
+    const { imageLabel, kommentar, delomrade, transcription } = req.body;
     const noteId = req.params.id;
 
-    console.log('Updating note details:', { noteId, imageLabel, content, delomrade, transcription, userId: req.user.id });
+    console.log('Updating note details:', { noteId, imageLabel, kommentar, delomrade, transcription, userId: req.user.id });
 
     if (!noteId) {
       return res.status(400).json({ error: 'Note ID is required' });
@@ -599,7 +599,7 @@ app.put('/api/notes/:id', authenticateToken, async (req, res) => {
 
     const updates = {};
     if (imageLabel !== undefined) updates.imageLabel = imageLabel;
-    if (content !== undefined) updates.content = content;
+    if (kommentar !== undefined) updates.kommentar = kommentar;
     if (delomrade !== undefined) updates.delomrade = delomrade;
     if (transcription !== undefined) updates.transcription = transcription;
 
@@ -865,10 +865,12 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
     }
 
     // Save note to database
+    // For photos: kommentar is pre-filled with image_label
+    // For videos: kommentar starts empty (transcription is stored separately)
     const note = await noteDb.createNote(
       projectId,
       noteType,
-      noteType === 'photo' ? (imageLabel || 'Foto taget') : 'Videoinspelning',
+      noteType === 'photo' ? (imageLabel || '') : '',
       transcription,
       imageLabel,
       s3Key // Pass the S3 key to be stored in file_key column

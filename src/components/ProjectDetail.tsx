@@ -85,7 +85,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
           notes: (freshProject.notes || []).map((note: any) => ({
             id: note.id,
             type: note.type,
-            content: note.content,
+            kommentar: note.kommentar || '',
             transcription: note.transcription,
             imageLabel: note.image_label,
             delomrade: note.delomrade,
@@ -93,9 +93,9 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
             submitted: note.submitted || false,
             submittedAt: note.submitted_at ? new Date(note.submitted_at) : undefined,
             individualReport: note.individual_report,
-            fileUrl: note.files && note.files.length > 0 ? note.files[0].file_url : undefined,
-            fileName: note.files && note.files.length > 0 ? note.files[0].file_name : undefined,
-            fileSize: note.files && note.files.length > 0 ? note.files[0].file_size : undefined
+            mediaUrl: note.mediaUrl,
+            fileName: note.fileName,
+            fileSize: note.fileSize
           })),
           updatedAt: new Date()
         };

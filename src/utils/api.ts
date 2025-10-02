@@ -228,7 +228,7 @@ export const updateNoteDetails = async (
   noteId: string,
   updates: {
     imageLabel?: string;
-    content?: string;
+    kommentar?: string;
     delomrade?: string;
     transcription?: string;
   }
