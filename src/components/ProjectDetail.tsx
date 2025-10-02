@@ -371,30 +371,49 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
               <div className="space-y-3">
                 {project.notes
                   .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-                  .map((note: Note) => (
-                  <div 
-                    key={note.id} 
-                    onClick={() => handleNoteClick(note)}
-                    className="border border-gray-200 rounded-lg p-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-colors"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center">
-                        <span className="text-sm font-medium text-gray-700">
-                          {note.type === 'photo' ? '📷 Foto' : '🎥 Video'}
-                        </span>
-                        {note.submitted && (
-                          <>
-                            <Check className="w-4 h-4 text-green-600 ml-2" />
-                          </>
+                  .map((note: Note) => {
+                    const truncateText = (text: string, maxLength: number) => {
+                      if (!text) return '';
+                      if (text.length <= maxLength) return text;
+                      return text.substring(0, maxLength) + '…';
+                    };
+
+                    return (
+                      <div
+                        key={note.id}
+                        onClick={() => handleNoteClick(note)}
+                        className="border border-gray-200 rounded-lg p-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center">
+                            <span className="text-sm font-medium text-gray-700">
+                              {note.type === 'photo' ? '📷 Foto' : '🎥 Video'}
+                            </span>
+                            {note.submitted && (
+                              <Check className="w-4 h-4 text-green-600 ml-2" />
+                            )}
+                          </div>
+                          <span className="text-xs text-gray-500">
+                            {note.timestamp.toLocaleString()}
+                          </span>
+                        </div>
+
+                        {/* Delområde */}
+                        {note.delomrade && (
+                          <p className="text-sm text-gray-700 font-medium mb-1">
+                            {note.delomrade}
+                          </p>
+                        )}
+
+                        {/* Kommentar (truncated to 100 chars) */}
+                        {note.kommentar && (
+                          <p className="text-sm text-gray-600">
+                            {truncateText(note.kommentar, 100)}
+                          </p>
                         )}
                       </div>
-                      <span className="text-xs text-gray-500">
-                        {note.timestamp.toLocaleString()}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-800">{note.content}</p>
-                  </div>
-                ))}
+                    );
+                  })}
               </div>
             </div>
           )}
