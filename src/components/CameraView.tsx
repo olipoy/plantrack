@@ -510,26 +510,26 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
       {/* Edit Mode - Preview with editable content */}
       {currentMode === 'edit' && previewUrl && (
         <>
-          <div className="flex-1 flex flex-col">
+          <div className="flex-1 flex flex-col overflow-hidden">
             {/* Media Preview */}
-            <div className="flex-1 flex items-center justify-center bg-black p-4">
+            <div className="flex-shrink-0 h-1/2 flex items-center justify-center bg-black p-4">
               {mode === 'photo' ? (
-                <img 
-                  src={previewUrl} 
-                  alt="Preview" 
+                <img
+                  src={previewUrl}
+                  alt="Preview"
                   className="max-w-full max-h-full object-contain rounded-lg"
                 />
               ) : (
-                <video 
-                  src={previewUrl} 
-                  controls 
+                <video
+                  src={previewUrl}
+                  controls
                   className="max-w-full max-h-full object-contain rounded-lg"
                 />
               )}
             </div>
 
-            {/* Content Editor */}
-            <div className="bg-white p-6 border-t border-gray-200">
+            {/* Content Editor - Scrollable */}
+            <div className="flex-1 bg-white p-6 border-t border-gray-200 overflow-y-auto">
               {/* Delområde Field */}
               <div className="mb-4">
                 <label htmlFor="delomrade" className="block text-sm font-medium text-gray-700 mb-2">
