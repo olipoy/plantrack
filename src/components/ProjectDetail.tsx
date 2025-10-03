@@ -384,33 +384,34 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                         onClick={() => handleNoteClick(note)}
                         className="border border-gray-200 rounded-lg p-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-colors"
                       >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center">
-                            <span className="text-sm font-medium text-gray-700">
-                              {note.type === 'photo' ? '📷 Foto' : '🎥 Video'}
-                            </span>
-                            {note.submitted && (
-                              <Check className="w-4 h-4 text-green-600 ml-2" />
-                            )}
-                          </div>
-                          <span className="text-xs text-gray-500">
-                            {note.timestamp.toLocaleString()}
+                        {/* Line 1: Media type with icon */}
+                        <div className="flex items-center mb-2">
+                          <span className="text-sm font-medium text-gray-700">
+                            {note.type === 'photo' ? '📷 Foto' : '🎥 Video'}
                           </span>
+                          {note.submitted && (
+                            <Check className="w-4 h-4 text-green-600 ml-2" />
+                          )}
                         </div>
 
-                        {/* Delområde */}
+                        {/* Line 2: Delområde (if not empty) */}
                         {note.delomrade && (
                           <p className="text-sm text-gray-700 font-medium mb-1">
                             {note.delomrade}
                           </p>
                         )}
 
-                        {/* Kommentar (truncated to 100 chars) */}
+                        {/* Line 3: Kommentar (truncated to 100 chars, if not empty) */}
                         {note.kommentar && (
-                          <p className="text-sm text-gray-600">
+                          <p className="text-sm text-gray-600 mb-2">
                             {truncateText(note.kommentar, 100)}
                           </p>
                         )}
+
+                        {/* Line 4: Timestamp */}
+                        <p className="text-xs text-gray-500">
+                          {note.timestamp.toLocaleString()}
+                        </p>
                       </div>
                     );
                   })}

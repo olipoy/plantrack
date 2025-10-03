@@ -205,6 +205,8 @@ function MainApp() {
             id: note.id,
             type: note.type,
             content: note.content,
+            kommentar: note.kommentar,
+            delomrade: note.delomrade,
             transcription: note.transcription,
             imageLabel: note.image_label,
             isLabelLoading: note.type === 'photo' && !note.image_label,
