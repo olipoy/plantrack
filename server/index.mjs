@@ -826,7 +826,7 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
         });
 
         imageLabel = response.choices[0].message.content?.trim() || '';
-        
+
         // Clean up the label
         imageLabel = imageLabel.toLowerCase();
         console.log('Image recognition completed');
@@ -837,10 +837,10 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
     } else if (noteType === 'video') {
       try {
         console.log('Starting video transcription...');
-        
+
         // Create a readable stream from the video file for OpenAI Whisper
         const videoStream = createReadStream(tempFilePath);
-        
+
         const response = await openai.audio.transcriptions.create({
           file: videoStream,
           model: 'whisper-1',
@@ -855,6 +855,30 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
         console.error('Video transcription failed:', error);
         transcription = 'Videoinspelning (transkription misslyckades)';
       }
+    } else if (noteType === 'text') {
+      // Handle text notes with optional voice recording
+      if (file.mimetype.startsWith('audio/')) {
+        try {
+          console.log('Starting audio transcription for text note...');
+
+          const audioStream = createReadStream(tempFilePath);
+
+          const response = await openai.audio.transcriptions.create({
+            file: audioStream,
+            model: 'whisper-1',
+            language: 'sv',
+            response_format: 'text',
+            temperature: 0.2
+          });
+
+          transcription = response?.trim() || '';
+          console.log('Audio transcription completed:', transcription.substring(0, 100));
+        } catch (error) {
+          console.error('Audio transcription failed:', error);
+          transcription = 'Ljudinspelning (transkription misslyckades)';
+        }
+      }
+      // If it's a text file, no AI processing needed
     }
 
     // Clean up temporary file
