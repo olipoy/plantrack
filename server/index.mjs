@@ -732,7 +732,7 @@ const upload = multer({
     fileSize: 100 * 1024 * 1024, // 100MB limit
   },
   fileFilter: (req, file, cb) => {
-    const allowedTypes = ['audio/', 'video/', 'image/'];
+    const allowedTypes = ['audio/', 'video/', 'image/', 'text/'];
     const isAllowed = allowedTypes.some(type => file.mimetype.startsWith(type));
     cb(null, isAllowed);
   }
@@ -749,7 +749,13 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
     const file = req.file;
     const userId = req.user.id;
 
+    console.log('Upload request body:', req.body);
+    console.log('Upload file:', file ? { name: file.originalname, type: file.mimetype, size: file.size } : 'NO FILE');
+    console.log('ProjectId:', projectId);
+    console.log('NoteType:', noteType);
+
     if (!file || !projectId || !noteType) {
+      console.error('Missing fields - file:', !!file, 'projectId:', !!projectId, 'noteType:', !!noteType);
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
@@ -890,11 +896,21 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
 
     // Save note to database
     // For photos: kommentar is pre-filled with image_label
-    // For videos: kommentar starts empty (transcription is stored separately)
+    // For videos: kommentar starts with transcription
+    // For text: kommentar starts with transcription (if voice) or empty (will be set by frontend)
+    let initialKommentar = '';
+    if (noteType === 'photo') {
+      initialKommentar = imageLabel || '';
+    } else if (noteType === 'video') {
+      initialKommentar = transcription || '';
+    } else if (noteType === 'text') {
+      initialKommentar = transcription || '';
+    }
+
     const note = await noteDb.createNote(
       projectId,
       noteType,
-      noteType === 'photo' ? (imageLabel || '') : '',
+      initialKommentar,
       transcription,
       imageLabel,
       s3Key // Pass the S3 key to be stored in file_key column
