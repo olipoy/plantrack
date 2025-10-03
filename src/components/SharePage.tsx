@@ -177,11 +177,11 @@ export const SharePage: React.FC = () => {
               </div>
             )}
 
-            {/* Caption/Transcription */}
+            {/* Caption */}
             {shareData.caption && (
               <div className="bg-gray-50 rounded-lg p-4">
                 <h3 className="text-sm font-medium text-gray-700 mb-2">
-                  {shareData.type === 'photo' ? 'Bildtext' : shareData.type === 'video' ? 'Transkription' : 'Innehåll'}
+                  Kommentar
                 </h3>
                 <p className="text-gray-800 whitespace-pre-wrap">{shareData.caption}</p>
               </div>

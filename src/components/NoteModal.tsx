@@ -234,25 +234,6 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                   </div>
                 )}
 
-                {/* AI-Generated Label (for photos) */}
-                {note.type === 'photo' && note.imageLabel && (
-                  <div className="bg-purple-50 rounded-lg p-4 mb-4">
-                    <h3 className="text-sm font-medium text-purple-900 mb-1">
-                      AI-genererad etikett
-                    </h3>
-                    <p className="text-purple-800">{note.imageLabel}</p>
-                  </div>
-                )}
-
-                {/* Transcription (for videos) */}
-                {note.type === 'video' && note.transcription && (
-                  <div className="bg-green-50 rounded-lg p-4 mb-4">
-                    <h3 className="text-sm font-medium text-green-900 mb-1">
-                      Transkription
-                    </h3>
-                    <p className="text-green-800 whitespace-pre-wrap">{note.transcription}</p>
-                  </div>
-                )}
               </div>
 
               {/* Email Form or Send Button */}

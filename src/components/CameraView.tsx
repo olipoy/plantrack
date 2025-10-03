@@ -256,8 +256,8 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
       setUploadResponse(response);
       setTranscription(response.transcription || '');
       setImageLabel(response.imageLabel || '');
-      // Pre-fill kommentar with image_label for photos, empty for videos
-      setEditableKommentar(mode === 'photo' ? (response.imageLabel || '') : '');
+      // Pre-fill kommentar with AI-generated content: image_label for photos, transcription for videos
+      setEditableKommentar(mode === 'photo' ? (response.imageLabel || '') : (response.transcription || ''));
       setCurrentMode('edit');
 
     } catch (error) {
@@ -577,19 +577,6 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
                 )}
               </div>
 
-              {/* Show AI suggestion and transcription as read-only info */}
-              {mode === 'photo' && imageLabel && (
-                <div className="mb-4 bg-blue-50 rounded-lg p-3">
-                  <p className="text-xs font-medium text-blue-900 mb-1">AI-genererad etikett:</p>
-                  <p className="text-sm text-blue-800">{imageLabel}</p>
-                </div>
-              )}
-              {mode === 'video' && transcription && (
-                <div className="mb-4 bg-purple-50 rounded-lg p-3">
-                  <p className="text-xs font-medium text-purple-900 mb-1">Transkription:</p>
-                  <p className="text-sm text-purple-800 whitespace-pre-wrap">{transcription}</p>
-                </div>
-              )}
 
               {/* File info */}
               {capturedMedia && (
