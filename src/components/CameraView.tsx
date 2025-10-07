@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Check, X, CreditCard as Edit3 } from 'lucide-react';
+import { ArrowLeft, Check, X, CreditCard as Edit3, Mic, Square, Loader2 } from 'lucide-react';
 import { Note } from '../types';
 import { uploadFile } from '../utils/api';
 import { ensureSizeLimit, formatFileSize, getVideoDuration } from '../utils/videoCompression';
@@ -29,12 +29,19 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
   const [compressionProgress, setCompressionProgress] = useState('');
   const [uploadResponse, setUploadResponse] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
-  
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [voiceRecordingTime, setVoiceRecordingTime] = useState(0);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const voiceRecorderRef = useRef<MediaRecorder | null>(null);
+  const voiceChunksRef = useRef<Blob[]>([]);
+  const voiceIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const voiceStreamRef = useRef<MediaStream | null>(null);
 
   // Initialize camera on mount
   useEffect(() => {
@@ -77,6 +84,12 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
     }
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
+    }
+    if (voiceStreamRef.current) {
+      voiceStreamRef.current.getTracks().forEach(track => track.stop());
+    }
+    if (voiceIntervalRef.current) {
+      clearInterval(voiceIntervalRef.current);
     }
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
@@ -333,6 +346,96 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const startVoiceRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      voiceStreamRef.current = stream;
+
+      const recorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm'
+      });
+
+      voiceRecorderRef.current = recorder;
+      voiceChunksRef.current = [];
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          voiceChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(voiceChunksRef.current, { type: 'audio/webm' });
+        await handleVoiceUpload(audioBlob);
+      };
+
+      recorder.start();
+      setIsRecordingVoice(true);
+      setVoiceRecordingTime(0);
+      setError('');
+
+      voiceIntervalRef.current = setInterval(() => {
+        setVoiceRecordingTime(prev => prev + 1);
+      }, 1000);
+
+    } catch (error) {
+      console.error('Failed to start voice recording:', error);
+      setError('Kunde inte starta röstinspelning. Kontrollera mikrofonbehörigheter.');
+    }
+  };
+
+  const stopVoiceRecording = () => {
+    if (voiceRecorderRef.current && isRecordingVoice) {
+      voiceRecorderRef.current.stop();
+      setIsRecordingVoice(false);
+
+      if (voiceIntervalRef.current) {
+        clearInterval(voiceIntervalRef.current);
+      }
+
+      if (voiceStreamRef.current) {
+        voiceStreamRef.current.getTracks().forEach(track => track.stop());
+      }
+    }
+  };
+
+  const handleVoiceUpload = async (audioBlob: Blob) => {
+    setIsTranscribing(true);
+    setError('');
+
+    try {
+      const fileName = `voice_${Date.now()}.webm`;
+      const file = new File([audioBlob], fileName, { type: 'audio/webm' });
+
+      console.log('Uploading voice note for transcription:', {
+        name: fileName,
+        type: file.type,
+        size: file.size,
+        projectId
+      });
+
+      const response = await uploadFile(file, projectId, 'text');
+
+      console.log('Voice transcription response:', response);
+
+      if (response.transcription) {
+        setEditableKommentar(prev => prev ? `${prev}\n\n${response.transcription}` : response.transcription);
+      }
+
+    } catch (error) {
+      console.error('Voice transcription failed:', error);
+      setError(error instanceof Error ? error.message : 'Kunde inte transkribera röstanteckning');
+    } finally {
+      setIsTranscribing(false);
+    }
+  };
+
+  const formatVoiceTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   if (isUploading) {
     return (
       <div className="fixed inset-0 bg-black flex items-center justify-center z-50">
@@ -543,6 +646,49 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="T.ex. Kök, Ventilationspump..."
                 />
+              </div>
+
+              {/* Voice Recording Section */}
+              <div className="mb-4 bg-white rounded-lg p-4 border border-gray-200">
+                <h3 className="text-sm font-medium text-gray-700 mb-3">Röstanteckning</h3>
+
+                {isRecordingVoice && (
+                  <div className="mb-3 text-center">
+                    <div className="inline-flex items-center px-4 py-2 bg-red-50 rounded-lg">
+                      <div className="w-3 h-3 bg-red-600 rounded-full animate-pulse mr-2"></div>
+                      <span className="text-red-600 font-medium">{formatVoiceTime(voiceRecordingTime)}</span>
+                    </div>
+                  </div>
+                )}
+
+                <button
+                  onClick={isRecordingVoice ? stopVoiceRecording : startVoiceRecording}
+                  disabled={isTranscribing || isSaving}
+                  className={`w-full flex items-center justify-center p-3 rounded-lg transition-colors ${
+                    isRecordingVoice
+                      ? 'bg-red-600 text-white hover:bg-red-700'
+                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  {isRecordingVoice ? (
+                    <>
+                      <Square className="w-4 h-4 mr-2" />
+                      Stoppa inspelning
+                    </>
+                  ) : (
+                    <>
+                      <Mic className="w-4 h-4 mr-2" />
+                      Spela in röst
+                    </>
+                  )}
+                </button>
+
+                {isTranscribing && (
+                  <div className="mt-3 flex items-center justify-center text-blue-600">
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    <span className="text-sm">Transkriberar...</span>
+                  </div>
+                )}
               </div>
 
               {/* Kommentar Field */}
