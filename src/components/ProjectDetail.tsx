@@ -54,32 +54,72 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
     setFilteredEmails(filtered);
   }, [emailRecipient, emailHistory]);
 
+  const handleNoteUpdated = (noteId: string, updates: { kommentar?: string; delomrade?: string }) => {
+    console.log('=== handleNoteUpdated called ===');
+    console.log('Note ID:', noteId);
+    console.log('Updates:', updates);
+
+    // Update the note in local state
+    const updatedProject = {
+      ...project,
+      notes: project.notes.map((note: Note) =>
+        note.id === noteId
+          ? { ...note, ...updates }
+          : note
+      ),
+      updatedAt: new Date()
+    };
+
+    onProjectUpdate(updatedProject);
+
+    // Update the selected note if it's currently displayed
+    if (selectedNote && selectedNote.id === noteId) {
+      setSelectedNote({ ...selectedNote, ...updates });
+    }
+  };
+
+  const handleNoteDeleted = (noteId: string) => {
+    console.log('=== handleNoteDeleted called ===');
+    console.log('Note ID:', noteId);
+
+    // Remove the note from local state
+    const updatedProject = {
+      ...project,
+      notes: project.notes.filter((note: Note) => note.id !== noteId),
+      updatedAt: new Date()
+    };
+
+    onProjectUpdate(updatedProject);
+    setShowNoteModal(false);
+    setSelectedNote(null);
+  };
+
   const handleNoteEmailSent = (noteId: string) => {
     console.log('=== handleNoteEmailSent called ===');
     console.log('Note ID:', noteId);
     console.log('Current project notes:', project.notes.map(n => ({ id: n.id, submitted: n.submitted })));
-    
+
     // Update the note's submitted status in local state
     const updatedProject = {
       ...project,
-      notes: project.notes.map((note: Note) => 
-        note.id === noteId 
+      notes: project.notes.map((note: Note) =>
+        note.id === noteId
           ? { ...note, submitted: true, submittedAt: new Date() }
           : note
       ),
       updatedAt: new Date()
     };
-    
+
     console.log('Updated project notes:', updatedProject.notes.map(n => ({ id: n.id, submitted: n.submitted })));
     onProjectUpdate(updatedProject);
-    
+
     // Force reload the project from backend to get the latest database state
     setTimeout(async () => {
       try {
         const { getProjectById } = await import('../utils/api');
         const freshProject = await getProjectById(project.id);
         console.log('Reloaded project from backend:', freshProject.notes?.map(n => ({ id: n.id, submitted: n.submitted })));
-        
+
         // Convert to frontend format and update
         const formattedProject = {
           ...project,
@@ -601,6 +641,8 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
           isOpen={showNoteModal}
           onClose={handleCloseNoteModal}
           onEmailSent={handleNoteEmailSent}
+          onNoteUpdated={handleNoteUpdated}
+          onNoteDeleted={handleNoteDeleted}
         />
       )}
     </div>

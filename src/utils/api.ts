@@ -667,3 +667,22 @@ export const removeUserFromOrganization = async (organizationId: string, userId:
     throw new Error(error.error || `Failed to remove user: ${response.statusText}`);
   }
 };
+
+export const deleteNote = async (noteId: string): Promise<void> => {
+  const token = getToken();
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/notes/${noteId}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || `Failed to delete note: ${response.statusText}`);
+  }
+};

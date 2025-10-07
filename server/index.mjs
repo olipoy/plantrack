@@ -627,6 +627,37 @@ app.put('/api/notes/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// Delete note
+app.delete('/api/notes/:id', authenticateToken, async (req, res) => {
+  try {
+    const noteId = req.params.id;
+
+    console.log('Deleting note:', { noteId, userId: req.user.id });
+
+    if (!noteId) {
+      return res.status(400).json({ error: 'Note ID is required' });
+    }
+
+    // Delete note from database
+    const deletedNote = await noteDb.deleteNote(noteId, req.user.id);
+
+    if (!deletedNote) {
+      console.log('Note not found for user');
+      return res.status(404).json({ error: 'Note not found' });
+    }
+
+    console.log('Note deleted successfully:', deletedNote);
+    res.json({ success: true, message: 'Note deleted successfully' });
+
+  } catch (error) {
+    console.error('Delete note error:', error);
+    res.status(500).json({
+      error: 'Failed to delete note',
+      details: error.message
+    });
+  }
+});
+
 // Delete project
 app.delete('/api/projects/:id', authenticateToken, async (req, res) => {
   try {

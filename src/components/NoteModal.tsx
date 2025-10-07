@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { X, Send, Loader2, CheckCircle, AlertCircle, Play, Share2, Copy } from 'lucide-react';
+import { X, Send, Loader2, CheckCircle, AlertCircle, Play, Share2, Copy, Edit2, Trash2, Save } from 'lucide-react';
 import { Note } from '../types';
-import { createNoteShare } from '../utils/api';
+import { createNoteShare, updateNoteDetails, deleteNote } from '../utils/api';
 import { loadEmailHistory, saveEmailToHistory, filterEmailHistory } from '../utils/emailHistory';
 
 interface NoteModalProps {
@@ -10,6 +10,8 @@ interface NoteModalProps {
   isOpen: boolean;
   onClose: () => void;
   onEmailSent?: (noteId: string) => void;
+  onNoteUpdated?: (noteId: string, updates: { kommentar?: string; delomrade?: string }) => void;
+  onNoteDeleted?: (noteId: string) => void;
 }
 
 export const NoteModal: React.FC<NoteModalProps> = ({
@@ -17,7 +19,9 @@ export const NoteModal: React.FC<NoteModalProps> = ({
   projectName,
   isOpen,
   onClose,
-  onEmailSent
+  onEmailSent,
+  onNoteUpdated,
+  onNoteDeleted
 }) => {
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [email, setEmail] = useState('');
@@ -32,6 +36,12 @@ export const NoteModal: React.FC<NoteModalProps> = ({
   const [emailHistory, setEmailHistory] = useState<string[]>([]);
   const [showEmailDropdown, setShowEmailDropdown] = useState(false);
   const [filteredEmails, setFilteredEmails] = useState<string[]>([]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editableKommentar, setEditableKommentar] = useState(note.kommentar || '');
+  const [editableDelomrade, setEditableDelomrade] = useState(note.delomrade || '');
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Load email history when email form is shown
   React.useEffect(() => {
@@ -148,6 +158,70 @@ export const NoteModal: React.FC<NoteModalProps> = ({
     return note.kommentar || '';
   };
 
+  const handleSaveEdit = async () => {
+    if (!note.id) {
+      setError('Antecknings-ID saknas');
+      return;
+    }
+
+    setIsSaving(true);
+    setError('');
+
+    try {
+      await updateNoteDetails(note.id, {
+        kommentar: editableKommentar,
+        delomrade: editableDelomrade
+      });
+
+      if (onNoteUpdated) {
+        onNoteUpdated(note.id, {
+          kommentar: editableKommentar,
+          delomrade: editableDelomrade
+        });
+      }
+
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Failed to save note:', error);
+      setError(error instanceof Error ? error.message : 'Kunde inte spara ändringar');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditableKommentar(note.kommentar || '');
+    setEditableDelomrade(note.delomrade || '');
+    setIsEditing(false);
+    setError('');
+  };
+
+  const handleDelete = async () => {
+    if (!note.id) {
+      setError('Antecknings-ID saknas');
+      return;
+    }
+
+    setIsDeleting(true);
+    setError('');
+
+    try {
+      await deleteNote(note.id);
+
+      if (onNoteDeleted) {
+        onNoteDeleted(note.id);
+      }
+
+      onClose();
+    } catch (error) {
+      console.error('Failed to delete note:', error);
+      setError(error instanceof Error ? error.message : 'Kunde inte radera anteckning');
+      setShowDeleteConfirm(false);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
@@ -159,12 +233,32 @@ export const NoteModal: React.FC<NoteModalProps> = ({
               {note.timestamp.toLocaleDateString('sv-SE')} • {note.timestamp.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center space-x-2">
+            {!isEditing && !showDeleteConfirm && (
+              <>
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                  title="Redigera anteckning"
+                >
+                  <Edit2 className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Radera anteckning"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
+              </>
+            )}
+            <button
+              onClick={onClose}
+              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         <div className="overflow-y-auto max-h-[calc(90vh-80px)]">
@@ -215,22 +309,125 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                 )}
 
                 {/* Delområde */}
-                {note.delomrade && (
-                  <div className="bg-blue-50 rounded-lg p-4 mb-4">
-                    <h3 className="text-sm font-medium text-blue-900 mb-1">
+                {(isEditing || note.delomrade) && (
+                  <div className={`rounded-lg p-4 mb-4 ${isEditing ? 'bg-white border-2 border-blue-200' : 'bg-blue-50'}`}>
+                    <h3 className="text-sm font-medium text-blue-900 mb-2">
                       Delområde
                     </h3>
-                    <p className="text-blue-800">{note.delomrade}</p>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={editableDelomrade}
+                        onChange={(e) => setEditableDelomrade(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="T.ex. Kök, Ventilationspump..."
+                      />
+                    ) : (
+                      <p className="text-blue-800">{note.delomrade}</p>
+                    )}
                   </div>
                 )}
 
                 {/* Kommentar */}
-                {getDisplayKommentar() && (
-                  <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                {(isEditing || getDisplayKommentar()) && (
+                  <div className={`rounded-lg p-4 mb-4 ${isEditing ? 'bg-white border-2 border-blue-200' : 'bg-gray-50'}`}>
                     <h3 className="text-sm font-medium text-gray-700 mb-2">
                       Kommentar
                     </h3>
-                    <p className="text-gray-800 whitespace-pre-wrap">{getDisplayKommentar()}</p>
+                    {isEditing ? (
+                      <textarea
+                        value={editableKommentar}
+                        onChange={(e) => setEditableKommentar(e.target.value)}
+                        rows={4}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                        placeholder="Lägg till kommentar..."
+                      />
+                    ) : (
+                      <p className="text-gray-800 whitespace-pre-wrap">{getDisplayKommentar()}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Edit Action Buttons */}
+                {isEditing && (
+                  <div className="flex space-x-3 mb-4">
+                    <button
+                      onClick={handleCancelEdit}
+                      disabled={isSaving}
+                      className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      Avbryt
+                    </button>
+                    <button
+                      onClick={handleSaveEdit}
+                      disabled={isSaving}
+                      className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center"
+                    >
+                      {isSaving ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          Sparar...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4 mr-2" />
+                          Spara ändringar
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+
+                {/* Delete Confirmation */}
+                {showDeleteConfirm && (
+                  <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4 mb-4">
+                    <div className="flex items-start mb-3">
+                      <AlertCircle className="w-5 h-5 text-red-600 mr-2 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <h3 className="text-sm font-semibold text-red-900 mb-1">
+                          Radera anteckning?
+                        </h3>
+                        <p className="text-sm text-red-800">
+                          Denna åtgärd kan inte ångras. Anteckningen kommer att raderas permanent.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex space-x-3">
+                      <button
+                        onClick={() => setShowDeleteConfirm(false)}
+                        disabled={isDeleting}
+                        className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        Avbryt
+                      </button>
+                      <button
+                        onClick={handleDelete}
+                        disabled={isDeleting}
+                        className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center"
+                      >
+                        {isDeleting ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                            Raderar...
+                          </>
+                        ) : (
+                          <>
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Radera anteckning
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Error Message for Edit/Delete */}
+                {error && (isEditing || showDeleteConfirm) && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                    <div className="flex items-center">
+                      <AlertCircle className="w-5 h-5 text-red-600 mr-2" />
+                      <p className="text-sm text-red-800">{error}</p>
+                    </div>
                   </div>
                 )}
 
