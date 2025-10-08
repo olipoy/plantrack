@@ -19,7 +19,7 @@ globalThis.File = File;
 
 // Import authentication and database modules (ESM)
 import { authenticateToken, registerUser, loginUser } from './auth.js';
-import { organizationDb, userDb, projectDb, noteDb, summaryDb, createNoteShare, findActiveShareForNote, getShareByToken, generateSignedUrl } from './db.js';
+import { organizationDb, userDb, projectDb, noteDb, summaryDb, reportDb, createNoteShare, findActiveShareForNote, getShareByToken, generateSignedUrl } from './db.js';
 
 // Load environment variables
 dotenv.config();
@@ -671,6 +671,267 @@ app.delete('/api/projects/:id', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Delete project error:', error);
     res.status(500).json({ error: 'Failed to delete project' });
+  }
+});
+
+// Generate project report (PDF)
+app.post('/api/projects/:id/generate-report', authenticateToken, async (req, res) => {
+  try {
+    const projectId = req.params.id;
+    const userId = req.user.id;
+
+    console.log('Generating report for project:', projectId);
+
+    // Get project with notes
+    const project = await projectDb.getProjectById(projectId, userId);
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Get all notes for the project
+    const notes = await noteDb.getNotesByProject(projectId, userId);
+    console.log(`Found ${notes.length} notes for report`);
+
+    // Import PDFKit dynamically
+    const PDFDocument = (await import('pdfkit')).default;
+    const doc = new PDFDocument({ size: 'A4', margin: 50 });
+
+    const fileName = `${project.name.replace(/[^a-z0-9]/gi, '_')}_${Date.now()}.pdf`;
+    let pdfBuffer = [];
+
+    doc.on('data', chunk => pdfBuffer.push(chunk));
+
+    const pdfPromise = new Promise((resolve, reject) => {
+      doc.on('end', () => resolve(Buffer.concat(pdfBuffer)));
+      doc.on('error', reject);
+    });
+
+    // Header
+    doc.fontSize(20).text('Inspektionsrapport', { align: 'center' });
+    doc.moveDown();
+
+    // Project info
+    doc.fontSize(12);
+    doc.text(`Projektets namn: ${project.name}`);
+    doc.text(`Adress: ${project.location || 'Ej angiven'}`);
+    doc.text(`Datum för inspektion: ${new Date(project.project_date).toLocaleDateString('sv-SE')}`);
+    doc.text(`Namn på inspektör: ${project.inspector || 'Ej angiven'}`);
+    doc.moveDown(2);
+
+    // Notes table
+    if (notes.length > 0) {
+      doc.fontSize(14).text('Inspektionsanteckningar', { underline: true });
+      doc.moveDown();
+
+      for (const note of notes) {
+        const startY = doc.y;
+
+        // Delområde
+        doc.fontSize(11).text('Delområde:', { continued: false });
+        doc.fontSize(10).text(note.delomrade || 'Ej angiven');
+        doc.moveDown(0.5);
+
+        // Kommentar
+        doc.fontSize(11).text('Kommentar:', { continued: false });
+        const kommentar = note.kommentar || note.transcription || 'Ingen kommentar';
+        doc.fontSize(10).text(kommentar, { width: 450 });
+        doc.moveDown(0.5);
+
+        // Image handling
+        if (note.file_url) {
+          try {
+            // For S3 storage, get signed URL
+            let imageUrl = note.file_url;
+            if (note.file_key) {
+              imageUrl = await generateSignedUrl(note.file_key);
+            }
+
+            if (note.type === 'photo' && imageUrl) {
+              doc.fontSize(10).text('Bild på anmärkningen:');
+              // Note: Image embedding requires downloading the image first
+              // This is a placeholder - we'll need to fetch and embed the image
+              doc.fontSize(9).fillColor('blue').text(imageUrl, { link: imageUrl });
+              doc.fillColor('black');
+            } else if (note.type === 'video') {
+              doc.fontSize(10).text('Videoinspelning bifogad');
+            }
+          } catch (err) {
+            console.error('Error processing media:', err);
+          }
+        }
+
+        doc.moveDown(1.5);
+
+        // Add a line separator
+        doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+        doc.moveDown();
+
+        // Check if we need a new page
+        if (doc.y > 700) {
+          doc.addPage();
+        }
+      }
+    } else {
+      doc.fontSize(10).text('Inga inspektionsanteckningar registrerade.');
+    }
+
+    doc.end();
+
+    const pdfData = await pdfPromise;
+
+    // Store PDF in S3 or filesystem
+    let reportUrl;
+
+    if (isS3Available()) {
+      // Upload to S3
+      const fileKey = `reports/${userId}/${fileName}`;
+      const uploadParams = {
+        Bucket: getBucketName(),
+        Key: fileKey,
+        Body: pdfData,
+        ContentType: 'application/pdf'
+      };
+
+      await s3Client.send(new PutObjectCommand(uploadParams));
+      reportUrl = `s3://${fileKey}`;
+      console.log('Report uploaded to S3:', reportUrl);
+    } else {
+      // Save to local filesystem
+      const reportPath = join(uploadsDir, fileName);
+      await fs.writeFile(reportPath, pdfData);
+      reportUrl = `/uploads/${fileName}`;
+      console.log('Report saved to filesystem:', reportPath);
+    }
+
+    // Save report metadata to database
+    const report = await reportDb.createReport(
+      projectId,
+      userId,
+      reportUrl,
+      fileName,
+      pdfData.length
+    );
+
+    // Generate signed URL if using S3
+    if (reportUrl.startsWith('s3://')) {
+      const fileKey = reportUrl.replace('s3://', '');
+      report.signed_url = await generateSignedUrl(fileKey);
+    } else {
+      report.signed_url = reportUrl;
+    }
+
+    res.json({
+      success: true,
+      report: {
+        id: report.id,
+        fileName: report.file_name,
+        fileSize: report.file_size,
+        createdAt: report.created_at,
+        url: report.signed_url
+      }
+    });
+
+  } catch (error) {
+    console.error('Generate report error:', error);
+    res.status(500).json({
+      error: 'Failed to generate report',
+      details: error.message
+    });
+  }
+});
+
+// Get all reports for a project
+app.get('/api/projects/:id/reports', authenticateToken, async (req, res) => {
+  try {
+    const projectId = req.params.id;
+    const reports = await reportDb.getReportsByProject(projectId, req.user.id);
+
+    res.json(reports);
+  } catch (error) {
+    console.error('Get reports error:', error);
+    res.status(500).json({ error: 'Failed to get reports' });
+  }
+});
+
+// Delete a report
+app.delete('/api/reports/:id', authenticateToken, async (req, res) => {
+  try {
+    const reportId = req.params.id;
+    const deletedReport = await reportDb.deleteReport(reportId, req.user.id);
+
+    if (!deletedReport) {
+      return res.status(404).json({ error: 'Report not found' });
+    }
+
+    res.json({ success: true, message: 'Report deleted successfully' });
+  } catch (error) {
+    console.error('Delete report error:', error);
+    res.status(500).json({ error: 'Failed to delete report' });
+  }
+});
+
+// Send report via email
+app.post('/api/reports/:id/send-email', authenticateToken, async (req, res) => {
+  try {
+    const { to, subject, message } = req.body;
+    const reportId = req.params.id;
+
+    if (!to || !subject) {
+      return res.status(400).json({ error: 'Email address and subject are required' });
+    }
+
+    // Get the report
+    const report = await reportDb.getReportById(reportId, req.user.id);
+    if (!report) {
+      return res.status(404).json({ error: 'Report not found' });
+    }
+
+    // Download the report file
+    let pdfBuffer;
+    if (report.report_url.startsWith('s3://')) {
+      const fileKey = report.report_url.replace('s3://', '');
+      const stream = await getObjectStream(fileKey);
+      const chunks = [];
+      for await (const chunk of stream) {
+        chunks.push(chunk);
+      }
+      pdfBuffer = Buffer.concat(chunks);
+    } else {
+      const filePath = join(uploadsDir, path.basename(report.report_url));
+      pdfBuffer = await fs.readFile(filePath);
+    }
+
+    // Send email with SendGrid
+    if (!process.env.SENDGRID_API_KEY) {
+      throw new Error('SendGrid API key not configured');
+    }
+
+    const emailData = {
+      to,
+      from: process.env.FROM_EMAIL || 'noreply@inspection.app',
+      subject,
+      text: message || 'Se bifogad inspektionsrapport.',
+      html: `<p>${message || 'Se bifogad inspektionsrapport.'}</p>`,
+      attachments: [
+        {
+          content: pdfBuffer.toString('base64'),
+          filename: report.file_name,
+          type: 'application/pdf',
+          disposition: 'attachment'
+        }
+      ]
+    };
+
+    await sgMail.send(emailData);
+
+    res.json({ success: true, message: 'Email sent successfully' });
+
+  } catch (error) {
+    console.error('Send report email error:', error);
+    res.status(500).json({
+      error: 'Failed to send email',
+      details: error.message
+    });
   }
 });
 

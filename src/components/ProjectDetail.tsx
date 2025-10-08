@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, X, Send, Loader2, CheckCircle, AlertCircle, Check } from 'lucide-react';
+import { ArrowLeft, X, Send, Loader2, CheckCircle, AlertCircle, Check, FileText, Trash2, Mail, ExternalLink } from 'lucide-react';
 import { Note } from '../types';
-import { sendEmailWithPDF, sendEmailWithAttachment } from '../utils/api';
+import { sendEmailWithPDF, sendEmailWithAttachment, generateProjectReport, getProjectReports, deleteReport, sendReportEmail } from '../utils/api';
 import { CameraView } from './CameraView';
 import { NoteModal } from './NoteModal';
 import { TextNoteModal } from './TextNoteModal';
@@ -38,6 +38,15 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const [emailHistory, setEmailHistory] = useState<string[]>([]);
   const [showEmailDropdown, setShowEmailDropdown] = useState(false);
   const [filteredEmails, setFilteredEmails] = useState<string[]>([]);
+  const [reports, setReports] = useState<any[]>([]);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [showReportEmailModal, setShowReportEmailModal] = useState(false);
+  const [selectedReport, setSelectedReport] = useState<any>(null);
+  const [reportEmail, setReportEmail] = useState('');
+  const [reportEmailSubject, setReportEmailSubject] = useState('');
+  const [reportEmailMessage, setReportEmailMessage] = useState('');
+  const [isSendingReportEmail, setIsSendingReportEmail] = useState(false);
+  const [reportEmailSuccess, setReportEmailSuccess] = useState(false);
 
   // Load email history when modal is shown
   React.useEffect(() => {
@@ -53,6 +62,20 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
     const filtered = filterEmailHistory(emailRecipient, emailHistory);
     setFilteredEmails(filtered);
   }, [emailRecipient, emailHistory]);
+
+  // Load reports when component mounts
+  React.useEffect(() => {
+    const loadReports = async () => {
+      try {
+        const projectReports = await getProjectReports(project.id);
+        setReports(projectReports);
+      } catch (error) {
+        console.error('Failed to load reports:', error);
+      }
+    };
+
+    loadReports();
+  }, [project.id]);
 
   const handleNoteUpdated = (noteId: string, updates: { kommentar?: string; delomrade?: string }) => {
     console.log('=== handleNoteUpdated called ===');
@@ -200,6 +223,69 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const handleCloseNoteModal = () => {
     setShowNoteModal(false);
     setSelectedNote(null);
+  };
+
+  const handleGenerateReport = async () => {
+    setIsGeneratingReport(true);
+    try {
+      const result = await generateProjectReport(project.id);
+      const updatedReports = await getProjectReports(project.id);
+      setReports(updatedReports);
+    } catch (error) {
+      console.error('Failed to generate report:', error);
+      alert(`Kunde inte skapa rapport: ${error instanceof Error ? error.message : 'Okänt fel'}`);
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
+
+  const handleDeleteReport = async (reportId: string) => {
+    if (!confirm('Är du säker på att du vill radera denna rapport?')) {
+      return;
+    }
+
+    try {
+      await deleteReport(reportId);
+      setReports(reports.filter(r => r.id !== reportId));
+    } catch (error) {
+      console.error('Failed to delete report:', error);
+      alert(`Kunde inte radera rapport: ${error instanceof Error ? error.message : 'Okänt fel'}`);
+    }
+  };
+
+  const handleOpenReportEmailModal = (report: any) => {
+    setSelectedReport(report);
+    setReportEmail('');
+    setReportEmailSubject(`${project.name} - Inspektionsrapport`);
+    setReportEmailMessage('Se bifogad inspektionsrapport.');
+    setReportEmailSuccess(false);
+    setShowReportEmailModal(true);
+  };
+
+  const handleSendReportEmail = async () => {
+    if (!selectedReport) return;
+
+    setIsSendingReportEmail(true);
+    try {
+      await sendReportEmail(
+        selectedReport.id,
+        reportEmail,
+        reportEmailSubject,
+        reportEmailMessage
+      );
+      saveEmailToHistory(reportEmail);
+      setReportEmailSuccess(true);
+      setTimeout(() => {
+        setShowReportEmailModal(false);
+        setReportEmailSuccess(false);
+        setSelectedReport(null);
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to send report email:', error);
+      alert(`Kunde inte skicka e-post: ${error instanceof Error ? error.message : 'Okänt fel'}`);
+    } finally {
+      setIsSendingReportEmail(false);
+    }
   };
 
   if (currentView === 'camera-photo') {
@@ -477,6 +563,93 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
               </div>
             </div>
           )}
+
+          {/* Reports Section */}
+          <div className="bg-white rounded-lg p-4 shadow-sm">
+            <h2 className="text-lg font-semibold text-gray-900 mb-3">Rapporter</h2>
+
+            {/* Generate Report Button */}
+            <button
+              onClick={handleGenerateReport}
+              disabled={isGeneratingReport}
+              className="w-full bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center mb-4"
+            >
+              {isGeneratingReport ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                  Skapar rapport...
+                </>
+              ) : (
+                <>
+                  <FileText className="w-5 h-5 mr-2" />
+                  Skapa rapport
+                </>
+              )}
+            </button>
+
+            {/* Reports List */}
+            {reports.length > 0 && (
+              <div className="space-y-3">
+                {reports.map((report) => (
+                  <div
+                    key={report.id}
+                    className="border border-gray-200 rounded-lg p-4"
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1">
+                        <div className="flex items-center mb-1">
+                          <FileText className="w-4 h-4 text-blue-600 mr-2" />
+                          <span className="text-sm font-medium text-gray-900">
+                            {report.file_name}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500">
+                          {new Date(report.created_at).toLocaleString('sv-SE')}
+                        </p>
+                        {report.file_size && (
+                          <p className="text-xs text-gray-500">
+                            {(report.file_size / 1024 / 1024).toFixed(2)} MB
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handleDeleteReport(report.id)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Radera rapport"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="flex space-x-2 mt-3">
+                      <a
+                        href={report.signed_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 flex items-center justify-center px-4 py-2 text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors text-sm"
+                      >
+                        <ExternalLink className="w-4 h-4 mr-1" />
+                        Visa rapport
+                      </a>
+                      <button
+                        onClick={() => handleOpenReportEmailModal(report)}
+                        className="flex-1 flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                      >
+                        <Mail className="w-4 h-4 mr-1" />
+                        Skicka via e-post
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {reports.length === 0 && !isGeneratingReport && (
+              <p className="text-sm text-gray-500 text-center py-4">
+                Inga rapporter skapade ännu.
+              </p>
+            )}
+          </div>
         </div>
       </div>
 
@@ -644,6 +817,110 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
           onNoteUpdated={handleNoteUpdated}
           onNoteDeleted={handleNoteDeleted}
         />
+      )}
+
+      {/* Report Email Modal */}
+      {showReportEmailModal && selectedReport && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-900">Skicka rapport</h2>
+              <button
+                onClick={() => setShowReportEmailModal(false)}
+                disabled={isSendingReportEmail}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {reportEmailSuccess ? (
+                <div className="text-center">
+                  <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">E-post skickad!</h3>
+                  <p className="text-gray-600">Rapporten har skickats till {reportEmail}</p>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label htmlFor="reportEmail" className="block text-sm font-medium text-gray-700 mb-2">
+                      E-postadress
+                    </label>
+                    <input
+                      type="email"
+                      id="reportEmail"
+                      value={reportEmail}
+                      onChange={(e) => setReportEmail(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="mottagare@email.se"
+                      required
+                      disabled={isSendingReportEmail}
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="reportEmailSubject" className="block text-sm font-medium text-gray-700 mb-2">
+                      Ämnesrad
+                    </label>
+                    <input
+                      type="text"
+                      id="reportEmailSubject"
+                      value={reportEmailSubject}
+                      onChange={(e) => setReportEmailSubject(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Ämne för e-posten"
+                      required
+                      disabled={isSendingReportEmail}
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="reportEmailMessage" className="block text-sm font-medium text-gray-700 mb-2">
+                      Meddelande (valfritt)
+                    </label>
+                    <textarea
+                      id="reportEmailMessage"
+                      value={reportEmailMessage}
+                      onChange={(e) => setReportEmailMessage(e.target.value)}
+                      rows={3}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                      placeholder="Meddelande..."
+                      disabled={isSendingReportEmail}
+                    />
+                  </div>
+
+                  <div className="flex space-x-3">
+                    <button
+                      onClick={() => setShowReportEmailModal(false)}
+                      disabled={isSendingReportEmail}
+                      className="flex-1 px-6 py-3 text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50"
+                    >
+                      Avbryt
+                    </button>
+                    <button
+                      onClick={handleSendReportEmail}
+                      disabled={isSendingReportEmail || !reportEmail.trim() || !reportEmailSubject.trim()}
+                      className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                    >
+                      {isSendingReportEmail ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          Skickar...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-4 h-4 mr-2" />
+                          Skicka
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

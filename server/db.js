@@ -659,6 +659,80 @@ const revokeShareByToken = async (token) => {
   return result.rows[0];
 };
 
+// Project reports database functions
+const reportDb = {
+  // Create a new project report
+  async createReport(projectId, userId, reportUrl, fileName, fileSize) {
+    const result = await query(
+      `INSERT INTO project_reports (project_id, created_by, report_url, file_name, file_size)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [projectId, userId, reportUrl, fileName, fileSize]
+    );
+    return result.rows[0];
+  },
+
+  // Get all reports for a project
+  async getReportsByProject(projectId, userId) {
+    const result = await query(
+      `SELECT pr.*
+       FROM project_reports pr
+       JOIN projects p ON pr.project_id = p.id
+       WHERE pr.project_id = $1 AND p.user_id = $2
+       ORDER BY pr.created_at DESC`,
+      [projectId, userId]
+    );
+
+    // Generate signed URLs for S3 storage
+    const reports = await Promise.all(result.rows.map(async (report) => {
+      if (report.report_url && report.report_url.startsWith('s3://')) {
+        const fileKey = report.report_url.replace('s3://', '');
+        report.signed_url = await generateSignedUrl(fileKey);
+      } else {
+        report.signed_url = report.report_url;
+      }
+      return report;
+    }));
+
+    return reports;
+  },
+
+  // Get a single report
+  async getReportById(reportId, userId) {
+    const result = await query(
+      `SELECT pr.*
+       FROM project_reports pr
+       JOIN projects p ON pr.project_id = p.id
+       WHERE pr.id = $1 AND p.user_id = $2`,
+      [reportId, userId]
+    );
+
+    const report = result.rows[0];
+    if (report && report.report_url && report.report_url.startsWith('s3://')) {
+      const fileKey = report.report_url.replace('s3://', '');
+      report.signed_url = await generateSignedUrl(fileKey);
+    } else if (report) {
+      report.signed_url = report.report_url;
+    }
+
+    return report;
+  },
+
+  // Delete a report
+  async deleteReport(reportId, userId) {
+    const result = await query(
+      `DELETE FROM project_reports pr
+       USING projects p
+       WHERE pr.id = $1
+       AND pr.project_id = p.id
+       AND p.user_id = $2
+       RETURNING pr.*`,
+      [reportId, userId]
+    );
+    return result.rows[0];
+  }
+};
+
 // Named exports
 export {
   query,
@@ -668,6 +742,7 @@ export {
   projectDb,
   noteDb,
   summaryDb,
+  reportDb,
   createNoteShare,
   findActiveShareForNote,
   getShareByToken,

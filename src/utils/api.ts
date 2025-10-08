@@ -686,3 +686,91 @@ export const deleteNote = async (noteId: string): Promise<void> => {
     throw new Error(error.error || `Failed to delete note: ${response.statusText}`);
   }
 };
+
+// Project Reports API functions
+export const generateProjectReport = async (projectId: string): Promise<any> => {
+  const token = getToken();
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/projects/${projectId}/generate-report`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || `Failed to generate report: ${response.statusText}`);
+  }
+
+  return response.json();
+};
+
+export const getProjectReports = async (projectId: string): Promise<any[]> => {
+  const token = getToken();
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/projects/${projectId}/reports`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to get reports: ${response.statusText}`);
+  }
+
+  return response.json();
+};
+
+export const deleteReport = async (reportId: string): Promise<void> => {
+  const token = getToken();
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/reports/${reportId}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || `Failed to delete report: ${response.statusText}`);
+  }
+};
+
+export const sendReportEmail = async (
+  reportId: string,
+  to: string,
+  subject: string,
+  message?: string
+): Promise<any> => {
+  const token = getToken();
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/reports/${reportId}/send-email`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ to, subject, message }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || `Failed to send report email: ${response.statusText}`);
+  }
+
+  return response.json();
+};
