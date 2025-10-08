@@ -12,6 +12,8 @@ import { v4 as uuidv4 } from 'uuid';
 import sgMail from '@sendgrid/mail';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getObjectStream, presign, isS3Available, getBucketName } from './s3.js';
+import https from 'https';
+import http from 'http';
 
 // Polyfill for OpenAI library File upload support
 import { File } from 'node:buffer';
@@ -674,6 +676,25 @@ app.delete('/api/projects/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// Helper function to fetch image from URL
+async function fetchImageAsBuffer(url) {
+  return new Promise((resolve, reject) => {
+    const protocol = url.startsWith('https') ? https : http;
+
+    protocol.get(url, (response) => {
+      if (response.statusCode !== 200) {
+        reject(new Error(`Failed to fetch image: ${response.statusCode}`));
+        return;
+      }
+
+      const chunks = [];
+      response.on('data', (chunk) => chunks.push(chunk));
+      response.on('end', () => resolve(Buffer.concat(chunks)));
+      response.on('error', reject);
+    }).on('error', reject);
+  });
+}
+
 // Generate project report (PDF)
 app.post('/api/projects/:id/generate-report', authenticateToken, async (req, res) => {
   try {
@@ -721,55 +742,120 @@ app.post('/api/projects/:id/generate-report', authenticateToken, async (req, res
     // Notes table
     if (notes.length > 0) {
       doc.fontSize(14).text('Inspektionsanteckningar', { underline: true });
-      doc.moveDown();
+      doc.moveDown(1);
 
+      // Table dimensions
+      const tableTop = doc.y;
+      const colDelomrade = 50;
+      const colKommentar = 150;
+      const colBild = 380;
+      const colWidthDelomrade = 90;
+      const colWidthKommentar = 220;
+      const colWidthBild = 150;
+      const rowHeight = 20;
+
+      // Table header
+      doc.fontSize(10).fillColor('black');
+      doc.rect(colDelomrade, doc.y, colWidthDelomrade, rowHeight).stroke();
+      doc.text('Delområde', colDelomrade + 5, doc.y - rowHeight + 5, { width: colWidthDelomrade - 10 });
+
+      doc.rect(colKommentar, doc.y - rowHeight, colWidthKommentar, rowHeight).stroke();
+      doc.text('Kommentar', colKommentar + 5, doc.y - rowHeight + 5, { width: colWidthKommentar - 10 });
+
+      doc.rect(colBild, doc.y - rowHeight, colWidthBild, rowHeight).stroke();
+      doc.text('Bild', colBild + 5, doc.y - rowHeight + 5, { width: colWidthBild - 10 });
+
+      doc.moveDown(1);
+
+      // Process each note
       for (const note of notes) {
         const startY = doc.y;
+        let imageBuffer = null;
+        let imageHeight = 0;
 
-        // Delområde
-        doc.fontSize(11).text('Delområde:', { continued: false });
-        doc.fontSize(10).text(note.delomrade || 'Ej angiven');
-        doc.moveDown(0.5);
-
-        // Kommentar
-        doc.fontSize(11).text('Kommentar:', { continued: false });
-        const kommentar = note.kommentar || note.transcription || 'Ingen kommentar';
-        doc.fontSize(10).text(kommentar, { width: 450 });
-        doc.moveDown(0.5);
-
-        // Image handling
-        if (note.file_url) {
+        // Try to fetch and prepare image
+        if (note.type === 'photo' && note.file_url) {
           try {
-            // For S3 storage, get signed URL
             let imageUrl = note.file_url;
             if (note.file_key) {
               imageUrl = await generateSignedUrl(note.file_key);
             }
 
-            if (note.type === 'photo' && imageUrl) {
-              doc.fontSize(10).text('Bild på anmärkningen:');
-              // Note: Image embedding requires downloading the image first
-              // This is a placeholder - we'll need to fetch and embed the image
-              doc.fontSize(9).fillColor('blue').text(imageUrl, { link: imageUrl });
-              doc.fillColor('black');
-            } else if (note.type === 'video') {
-              doc.fontSize(10).text('Videoinspelning bifogad');
-            }
+            imageBuffer = await fetchImageAsBuffer(imageUrl);
+            // Reserve space for image (max 100px height)
+            imageHeight = 100;
           } catch (err) {
-            console.error('Error processing media:', err);
+            console.error('Error fetching image:', err);
           }
         }
 
-        doc.moveDown(1.5);
+        // Calculate row height based on content
+        const kommentar = note.kommentar || note.transcription || 'Ingen kommentar';
+        const delomrade = note.delomrade || 'Ej angiven';
 
-        // Add a line separator
-        doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
-        doc.moveDown();
+        // Estimate text height
+        const textHeight = Math.max(
+          doc.heightOfString(delomrade, { width: colWidthDelomrade - 10 }),
+          doc.heightOfString(kommentar, { width: colWidthKommentar - 10 })
+        );
+
+        const calculatedRowHeight = Math.max(textHeight + 10, imageHeight + 10, 30);
 
         // Check if we need a new page
-        if (doc.y > 700) {
+        if (doc.y + calculatedRowHeight > 750) {
           doc.addPage();
         }
+
+        const currentY = doc.y;
+
+        // Draw Delområde cell
+        doc.rect(colDelomrade, currentY, colWidthDelomrade, calculatedRowHeight).stroke();
+        doc.fontSize(9).text(delomrade, colDelomrade + 5, currentY + 5, {
+          width: colWidthDelomrade - 10,
+          align: 'left'
+        });
+
+        // Draw Kommentar cell
+        doc.rect(colKommentar, currentY, colWidthKommentar, calculatedRowHeight).stroke();
+        doc.fontSize(9).text(kommentar, colKommentar + 5, currentY + 5, {
+          width: colWidthKommentar - 10,
+          align: 'left'
+        });
+
+        // Draw Bild cell
+        doc.rect(colBild, currentY, colWidthBild, calculatedRowHeight).stroke();
+
+        if (imageBuffer) {
+          try {
+            // Embed image in PDF
+            const imgX = colBild + 5;
+            const imgY = currentY + 5;
+            const maxImgWidth = colWidthBild - 10;
+            const maxImgHeight = calculatedRowHeight - 10;
+
+            doc.image(imageBuffer, imgX, imgY, {
+              fit: [maxImgWidth, maxImgHeight],
+              align: 'center',
+              valign: 'center'
+            });
+          } catch (err) {
+            console.error('Error embedding image in PDF:', err);
+            doc.fontSize(8).text('Bild kunde ej laddas', colBild + 5, currentY + 5, {
+              width: colWidthBild - 10
+            });
+          }
+        } else if (note.type === 'video') {
+          doc.fontSize(8).text('Video bifogad', colBild + 5, currentY + 5, {
+            width: colWidthBild - 10
+          });
+        } else {
+          doc.fontSize(8).text('-', colBild + 5, currentY + 5, {
+            width: colWidthBild - 10
+          });
+        }
+
+        // Move to next row
+        doc.y = currentY + calculatedRowHeight;
       }
     } else {
       doc.fontSize(10).text('Inga inspektionsanteckningar registrerade.');
