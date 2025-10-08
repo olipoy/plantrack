@@ -269,8 +269,8 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
       setUploadResponse(response);
       setTranscription(response.transcription || '');
       setImageLabel(response.imageLabel || '');
-      // Pre-fill kommentar with AI-generated content: image_label for photos, transcription for videos
-      setEditableKommentar(mode === 'photo' ? (response.imageLabel || '') : (response.transcription || ''));
+      // Leave kommentar empty - user will fill it manually via typing or voice
+      setEditableKommentar('');
       setCurrentMode('edit');
 
     } catch (error) {
