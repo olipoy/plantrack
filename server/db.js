@@ -543,16 +543,71 @@ const noteDb = {
     if (!orgId) {
       return null;
     }
-    
+
     // First verify the note belongs to the user's project
     const result = await query(
-      `DELETE FROM notes 
-       WHERE id = $1 
+      `DELETE FROM notes
+       WHERE id = $1
        AND org_id = $2
        RETURNING id`,
       [noteId, orgId]
     );
     return result.rows[0];
+  },
+
+  // Get all notes for a project (with user verification)
+  async getNotesByProject(projectId, userId) {
+    console.log('Getting notes for project with user verification:', projectId, userId);
+
+    // Verify user has access to this project
+    const projectResult = await query(
+      `SELECT p.* FROM projects p
+       WHERE p.id = $1 AND p.user_id = $2`,
+      [projectId, userId]
+    );
+
+    if (projectResult.rows.length === 0) {
+      console.log('User does not have access to project');
+      return [];
+    }
+
+    const result = await query(
+      `SELECT n.*
+       FROM notes n
+       WHERE n.project_id = $1
+       ORDER BY n.created_at DESC`,
+      [projectId]
+    );
+
+    console.log('Database notes query result:', result.rows.length, 'notes found');
+
+    // Generate signed URLs and format response for notes with file_key
+    const notesWithUrls = await Promise.all(
+      result.rows.map(async (note) => {
+        const formattedNote = {
+          id: note.id,
+          type: note.type,
+          kommentar: note.kommentar,
+          transcription: note.transcription,
+          image_label: note.image_label,
+          delomrade: note.delomrade,
+          created_at: note.created_at,
+          submitted: note.submitted || false,
+          submitted_at: note.submitted_at,
+          individual_report: note.individual_report,
+          file_key: note.file_key,
+          file_url: null
+        };
+
+        if (note.file_key) {
+          formattedNote.file_url = await generateSignedUrl(note.file_key);
+        }
+
+        return formattedNote;
+      })
+    );
+
+    return notesWithUrls;
   }
 };
 
