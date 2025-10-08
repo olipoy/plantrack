@@ -728,44 +728,69 @@ app.post('/api/projects/:id/generate-report', authenticateToken, async (req, res
     });
 
     // Header
-    doc.fontSize(20).text('Inspektionsrapport', { align: 'center' });
-    doc.moveDown();
-
-    // Project info
-    doc.fontSize(12);
-    doc.text(`Projektets namn: ${project.name}`);
-    doc.text(`Adress: ${project.location || 'Ej angiven'}`);
-    doc.text(`Datum för inspektion: ${new Date(project.project_date).toLocaleDateString('sv-SE')}`);
-    doc.text(`Namn på inspektör: ${project.inspector || 'Ej angiven'}`);
+    doc.fontSize(22)
+       .font('Helvetica-Bold')
+       .text('Inspektionsrapport', { align: 'center' });
     doc.moveDown(2);
+
+    // Project info section
+    doc.font('Helvetica')
+       .fontSize(11);
+
+    doc.font('Helvetica-Bold').text('Projektets namn: ', { continued: true })
+       .font('Helvetica').text(project.name);
+
+    doc.font('Helvetica-Bold').text('Adress: ', { continued: true })
+       .font('Helvetica').text(project.location || 'Ej angiven');
+
+    doc.font('Helvetica-Bold').text('Datum för inspektion: ', { continued: true })
+       .font('Helvetica').text(new Date(project.project_date).toLocaleDateString('sv-SE'));
+
+    doc.font('Helvetica-Bold').text('Namn på inspektör: ', { continued: true })
+       .font('Helvetica').text(project.inspector || 'Ej angiven');
+
+    doc.moveDown(2.5);
 
     // Notes table
     if (notes.length > 0) {
-      doc.fontSize(14).text('Inspektionsanteckningar', { underline: true });
-      doc.moveDown(1);
+      doc.fontSize(14)
+         .font('Helvetica-Bold')
+         .text('Inspektionsanteckningar', { underline: true });
+      doc.font('Helvetica');
+      doc.moveDown(1.5);
 
       // Table dimensions
-      const tableTop = doc.y;
       const colDelomrade = 50;
       const colKommentar = 150;
       const colBild = 380;
       const colWidthDelomrade = 90;
       const colWidthKommentar = 220;
       const colWidthBild = 150;
-      const rowHeight = 20;
+      const headerHeight = 25;
 
-      // Table header
-      doc.fontSize(10).fillColor('black');
-      doc.rect(colDelomrade, doc.y, colWidthDelomrade, rowHeight).stroke();
-      doc.text('Delområde', colDelomrade + 5, doc.y - rowHeight + 5, { width: colWidthDelomrade - 10 });
+      // Draw table header background (light gray)
+      const headerY = doc.y;
+      doc.fillColor('#f0f0f0')
+         .rect(colDelomrade, headerY, colWidthDelomrade + colWidthKommentar + colWidthBild, headerHeight)
+         .fill();
 
-      doc.rect(colKommentar, doc.y - rowHeight, colWidthKommentar, rowHeight).stroke();
-      doc.text('Kommentar', colKommentar + 5, doc.y - rowHeight + 5, { width: colWidthKommentar - 10 });
+      // Draw header borders
+      doc.fillColor('black')
+         .rect(colDelomrade, headerY, colWidthDelomrade, headerHeight).stroke()
+         .rect(colKommentar, headerY, colWidthKommentar, headerHeight).stroke()
+         .rect(colBild, headerY, colWidthBild, headerHeight).stroke();
 
-      doc.rect(colBild, doc.y - rowHeight, colWidthBild, rowHeight).stroke();
-      doc.text('Bild', colBild + 5, doc.y - rowHeight + 5, { width: colWidthBild - 10 });
+      // Draw header text
+      doc.fontSize(10)
+         .fillColor('black')
+         .font('Helvetica-Bold')
+         .text('Delområde', colDelomrade + 5, headerY + 8, { width: colWidthDelomrade - 10, align: 'left' })
+         .text('Kommentar', colKommentar + 5, headerY + 8, { width: colWidthKommentar - 10, align: 'left' })
+         .text('Bild', colBild + 5, headerY + 8, { width: colWidthBild - 10, align: 'left' })
+         .font('Helvetica');
 
-      doc.moveDown(1);
+      // Move cursor below header
+      doc.y = headerY + headerHeight;
 
       // Process each note
       for (const note of notes) {
