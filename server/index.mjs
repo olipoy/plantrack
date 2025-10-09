@@ -1757,9 +1757,11 @@ app.post('/api/send-email-note', authenticateToken, async (req, res) => {
       console.error('Failed to create share URL:', error);
     }
 
-    // Determine if this is a video (don't attach videos, only provide link)
+    // Determine note type and whether to attach files
     const isVideo = note.type === 'video';
-    
+    const isPhoto = note.type === 'photo';
+    const isText = note.type === 'text';
+
     // Compose email message with share URL
     let emailMessage = message || '';
     if (shareUrl) {
@@ -1768,17 +1770,21 @@ app.post('/api/send-email-note', authenticateToken, async (req, res) => {
       }
       if (isVideo) {
         emailMessage += `Visa video: ${shareUrl}`;
-      } else {
+      } else if (isPhoto) {
         emailMessage += `Visa bild: ${shareUrl}`;
+      } else if (isText) {
+        emailMessage += `Visa anteckning: ${shareUrl}`;
+      } else {
+        emailMessage += `Visa innehåll: ${shareUrl}`;
       }
     }
 
-    // For images, get the file from S3 and attach it
-    // For videos, we only include the share link
+    // For photos, get the file from S3 and attach it
+    // For videos and text notes, we only include the share link
     let attachmentContent = null;
     let attachmentInfo = null;
-    
-    if (!isVideo && note.file_key) {
+
+    if (isPhoto && note.file_key) {
       try {
         console.log('Getting file from S3 for attachment:', note.file_key);
         const s3Object = await getObjectStream(note.file_key);
@@ -1811,10 +1817,10 @@ app.post('/api/send-email-note', authenticateToken, async (req, res) => {
       }
     }
     
-    // If no attachment could be retrieved for an image, inform user
-    if (!isVideo && !attachmentContent) {
+    // If no attachment could be retrieved for a photo, inform user
+    if (isPhoto && !attachmentContent) {
       if (note.file_key) {
-        emailMessage += '\n\nObs: Kunde inte bifoga filen, men du kan visa den via länken ovan.';
+        emailMessage += '\n\nObs: Kunde inte bifoga bilden, men du kan visa den via länken ovan.';
       } else {
         emailMessage += '\n\nObs: Detta är en äldre anteckning utan bifogad fil.';
       }

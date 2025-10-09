@@ -25,7 +25,15 @@ export const NoteModal: React.FC<NoteModalProps> = ({
 }) => {
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [email, setEmail] = useState('');
-  const [subject, setSubject] = useState(`${projectName} - ${note.type === 'photo' ? 'Foto' : 'Video'}`);
+  const getNoteTypeLabel = () => {
+    switch (note.type) {
+      case 'photo': return 'Foto';
+      case 'video': return 'Video';
+      case 'text': return 'Textanteckning';
+      default: return 'Anteckning';
+    }
+  };
+  const [subject, setSubject] = useState(`${projectName} - ${getNoteTypeLabel()}`);
   const [message, setMessage] = useState(note.content || '');
   const [isSending, setIsSending] = useState(false);
   const [emailSuccess, setEmailSuccess] = useState(false);
