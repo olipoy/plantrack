@@ -190,7 +190,7 @@ export const TextNoteModal: React.FC<TextNoteModalProps> = ({
           >
             <ArrowLeft className="w-6 h-6" />
           </button>
-          <h1 className="text-xl font-bold text-gray-900">Textanteckning</h1>
+          <h1 className="text-xl font-bold text-gray-900">Anteckning</h1>
           <div className="w-10" />
         </div>
       </div>
@@ -200,7 +200,7 @@ export const TextNoteModal: React.FC<TextNoteModalProps> = ({
         <div className="space-y-4">
           {/* Voice Recording Section */}
           <div className="bg-white rounded-lg p-4 shadow-sm">
-            <h3 className="text-sm font-medium text-gray-700 mb-3">Röstanteckning</h3>
+            <h3 className="text-sm font-medium text-gray-700 mb-3">Tala in anteckning</h3>
 
             {isRecording && (
               <div className="mb-3 text-center">
@@ -258,9 +258,7 @@ export const TextNoteModal: React.FC<TextNoteModalProps> = ({
 
           {/* Text Input */}
           <div className="bg-white rounded-lg p-4 shadow-sm">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Kommentar
-            </label>
+            <h3 className="text-sm font-medium text-gray-700 mb-3">Skriv anteckning</h3>
             <textarea
               value={textContent}
               onChange={(e) => setTextContent(e.target.value)}

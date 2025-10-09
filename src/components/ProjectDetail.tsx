@@ -476,7 +476,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
           {/* Camera Actions */}
           <div className="bg-white rounded-lg p-4 shadow-sm">
             <h2 className="text-lg font-semibold text-gray-900 mb-3">Lägg till dokumentation</h2>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => setCurrentView('camera-photo')}
                 className="flex flex-col items-center p-4 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
@@ -485,18 +485,11 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                 <span className="text-sm font-medium">Ta foto</span>
               </button>
               <button
-                onClick={() => setCurrentView('camera-video')}
-                className="flex flex-col items-center p-4 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-colors"
-              >
-                <div className="w-8 h-8 mb-2">🎥</div>
-                <span className="text-sm font-medium">Spela in video</span>
-              </button>
-              <button
                 onClick={() => setCurrentView('text-note')}
                 className="flex flex-col items-center p-4 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors"
               >
                 <div className="w-8 h-8 mb-2">📝</div>
-                <span className="text-sm font-medium">Text</span>
+                <span className="text-sm font-medium">Skriv anteckning</span>
               </button>
             </div>
           </div>
