@@ -51,12 +51,14 @@ export const NoteModal: React.FC<NoteModalProps> = ({
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // Load email history when email form is shown
+  // Load email history and reset subject when email form is shown
   React.useEffect(() => {
     if (showEmailForm) {
       const history = loadEmailHistory();
       setEmailHistory(history);
       setFilteredEmails(history);
+      // Reset subject line with correct note type
+      setSubject(`${projectName} - ${getNoteTypeLabel()}`);
     }
   }, [showEmailForm]);
 
@@ -571,11 +573,11 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                         />
                       </div>
 
-                      {/* File info */}
-                      {note.fileName && (
+                      {/* File info - only show for photos and videos, not text notes */}
+                      {note.fileName && note.type !== 'text' && (
                         <div className="bg-blue-50 rounded-lg p-3">
                           <p className="text-blue-800 text-sm">
-                            📎 {note.type === 'photo' ? 'Foto' : 'Video'}: {note.fileName || 'Okänt filnamn'}
+                            📎 {formatNoteType(note.type)}: {note.fileName || 'Okänt filnamn'}
                           </p>
                           {note.fileSize && (
                             <p className="text-blue-600 text-xs">
