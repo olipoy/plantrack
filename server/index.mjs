@@ -1017,8 +1017,14 @@ app.post('/api/reports/:id/send-email', authenticateToken, async (req, res) => {
 
     // Send email with SendGrid
     if (!process.env.SENDGRID_API_KEY) {
-      throw new Error('SendGrid API key not configured');
+      console.error('SendGrid API key not configured');
+      return res.status(500).json({
+        error: 'Email service not configured. Please add SENDGRID_API_KEY to your environment variables in Railway.'
+      });
     }
+
+    // Ensure SendGrid is initialized with the API key
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
     const emailData = {
       to,
@@ -1036,12 +1042,22 @@ app.post('/api/reports/:id/send-email', authenticateToken, async (req, res) => {
       ]
     };
 
+    console.log('Sending email to:', to, 'with attachment:', report.file_name);
     await sgMail.send(emailData);
 
     res.json({ success: true, message: 'Email sent successfully' });
 
   } catch (error) {
     console.error('Send report email error:', error);
+
+    // Check if it's a SendGrid authentication error
+    if (error.code === 401 || error.message?.includes('Unauthorized')) {
+      return res.status(500).json({
+        error: 'SendGrid authentication failed. Please verify your SENDGRID_API_KEY in Railway environment variables.',
+        details: 'The API key may be invalid or missing proper permissions.'
+      });
+    }
+
     res.status(500).json({
       error: 'Failed to send email',
       details: error.message

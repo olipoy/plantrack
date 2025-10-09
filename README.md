@@ -44,6 +44,10 @@ JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
 # Required: OpenAI Configuration
 OPENAI_API_KEY=your_openai_api_key_here
 
+# Required: SendGrid Configuration (for email functionality)
+SENDGRID_API_KEY=your_sendgrid_api_key_here
+FROM_EMAIL=noreply@yourdomain.com
+
 # Production API URL (optional - leave empty for Railway deployment)
 # VITE_API_URL=https://your-railway-domain.railway.app
 
@@ -96,6 +100,10 @@ npm start
 
 ```env
 OPENAI_API_KEY=your_openai_api_key_here
+SENDGRID_API_KEY=your_sendgrid_api_key_here
+FROM_EMAIL=noreply@yourdomain.com
+DATABASE_URL=your_database_url_from_railway
+JWT_SECRET=your-super-secret-jwt-key
 NODE_ENV=production
 PORT=3001
 FRONTEND_URL=https://your-railway-domain.railway.app
@@ -113,6 +121,10 @@ Railway will automatically:
 
 **Required for Railway:**
 - `OPENAI_API_KEY` - Your OpenAI API key
+- `SENDGRID_API_KEY` - Your SendGrid API key (for email functionality)
+- `FROM_EMAIL` - The sender email address (must be verified in SendGrid)
+- `DATABASE_URL` - PostgreSQL database URL (provided by Railway)
+- `JWT_SECRET` - Secret key for JWT token generation
 - `NODE_ENV=production` - Enables production mode
 - `FRONTEND_URL` - Your Railway domain (for CORS)
 
