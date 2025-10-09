@@ -1001,9 +1001,12 @@ app.post('/api/reports/:id/send-email', authenticateToken, async (req, res) => {
     let pdfBuffer;
     if (report.report_url.startsWith('s3://')) {
       const fileKey = report.report_url.replace('s3://', '');
-      const stream = await getObjectStream(fileKey);
+      const s3Object = await getObjectStream(fileKey);
+      if (!s3Object) {
+        return res.status(500).json({ error: 'Failed to retrieve report file' });
+      }
       const chunks = [];
-      for await (const chunk of stream) {
+      for await (const chunk of s3Object.stream) {
         chunks.push(chunk);
       }
       pdfBuffer = Buffer.concat(chunks);
