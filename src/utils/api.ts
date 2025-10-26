@@ -118,6 +118,51 @@ export const uploadFile = async (
   });
 };
 
+export const transcribeAudio = async (
+  audioFile: File
+): Promise<{ success: boolean; transcription: string }> => {
+  return new Promise((resolve, reject) => {
+    const token = getToken();
+    if (!token) {
+      reject(new Error('Authentication required'));
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', audioFile);
+
+    const xhr = new XMLHttpRequest();
+
+    xhr.addEventListener('load', () => {
+      if (xhr.status === 200) {
+        try {
+          const response = JSON.parse(xhr.responseText);
+          resolve(response);
+        } catch (error) {
+          reject(new Error('Invalid response format'));
+        }
+      } else if (xhr.status === 401) {
+        reject(new Error('Authentication expired. Please log in again.'));
+      } else {
+        try {
+          const errorResponse = JSON.parse(xhr.responseText);
+          reject(new Error(errorResponse.error || `Transcription failed with status ${xhr.status}`));
+        } catch {
+          reject(new Error(`Transcription failed with status ${xhr.status}`));
+        }
+      }
+    });
+
+    xhr.addEventListener('error', () => {
+      reject(new Error('Network error during transcription'));
+    });
+
+    xhr.open('POST', `${API_BASE_URL}/transcribe-audio`);
+    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.send(formData);
+  });
+};
+
 export const sendChatMessage = async (
   message: string,
   projects: any[],

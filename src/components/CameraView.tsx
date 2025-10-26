@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Check, X, CreditCard as Edit3, Mic, Square, Loader2 } from 'lucide-react';
 import { Note } from '../types';
-import { uploadFile } from '../utils/api';
+import { uploadFile, transcribeAudio } from '../utils/api';
 import { ensureSizeLimit, formatFileSize, getVideoDuration } from '../utils/videoCompression';
 
 interface CameraViewProps {
@@ -407,14 +407,14 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
       const fileName = `voice_${Date.now()}.webm`;
       const file = new File([audioBlob], fileName, { type: 'audio/webm' });
 
-      console.log('Uploading voice note for transcription:', {
+      console.log('Transcribing voice comment:', {
         name: fileName,
         type: file.type,
-        size: file.size,
-        projectId
+        size: file.size
       });
 
-      const response = await uploadFile(file, projectId, 'text');
+      // Use transcribeAudio instead of uploadFile to avoid creating a separate text note
+      const response = await transcribeAudio(file);
 
       console.log('Voice transcription response:', response);
 

@@ -1163,6 +1163,68 @@ const upload = multer({
 // Store chat history in memory (in production, use a database)
 const chatHistory = new Map();
 
+// Transcribe audio without creating a note (for voice comments on photos)
+app.post('/api/transcribe-audio', authenticateToken, upload.single('file'), async (req, res) => {
+  try {
+    console.log('=== TRANSCRIBE AUDIO START ===');
+    const file = req.file;
+
+    if (!file || !file.mimetype.startsWith('audio/')) {
+      return res.status(400).json({ error: 'Audio file is required' });
+    }
+
+    try {
+      console.log('Starting audio transcription...');
+      const audioStream = createReadStream(file.path);
+
+      const response = await openai.audio.transcriptions.create({
+        file: audioStream,
+        model: 'whisper-1',
+        language: 'sv',
+        response_format: 'text',
+        temperature: 0.2
+      });
+
+      const transcription = response?.trim() || '';
+      console.log('Audio transcription completed:', transcription.substring(0, 100));
+
+      // Clean up temporary file
+      try {
+        await fs.unlink(file.path);
+      } catch (error) {
+        console.warn('Failed to clean up temporary file:', error);
+      }
+
+      return res.json({
+        success: true,
+        transcription
+      });
+
+    } catch (error) {
+      console.error('Audio transcription failed:', error);
+
+      // Clean up temporary file
+      try {
+        await fs.unlink(file.path);
+      } catch (unlinkError) {
+        console.warn('Failed to clean up temporary file:', unlinkError);
+      }
+
+      return res.status(500).json({
+        error: 'Transcription failed',
+        details: error.message
+      });
+    }
+
+  } catch (error) {
+    console.error('Transcribe audio endpoint failed:', error);
+    return res.status(500).json({
+      error: 'Transcribe audio failed',
+      details: error.message
+    });
+  }
+});
+
 // Upload and transcribe endpoint
 app.post('/api/upload', authenticateToken, upload.single('file'), async (req, res) => {
   try {
