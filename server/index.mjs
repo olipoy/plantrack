@@ -774,11 +774,13 @@ app.post('/api/projects/:id/generate-report', authenticateToken, async (req, res
          .rect(colDelomrade, headerY, colWidthDelomrade + colWidthKommentar + colWidthBild, headerHeight)
          .fill();
 
-      // Draw header borders
+      // Draw header borders together to create continuous lines
       doc.fillColor('black')
-         .rect(colDelomrade, headerY, colWidthDelomrade, headerHeight).stroke()
-         .rect(colKommentar, headerY, colWidthKommentar, headerHeight).stroke()
-         .rect(colBild, headerY, colWidthBild, headerHeight).stroke();
+         .lineWidth(0.5)
+         .rect(colDelomrade, headerY, colWidthDelomrade, headerHeight)
+         .rect(colKommentar, headerY, colWidthKommentar, headerHeight)
+         .rect(colBild, headerY, colWidthBild, headerHeight)
+         .stroke();
 
       // Draw header text
       doc.fontSize(10)
@@ -833,22 +835,24 @@ app.post('/api/projects/:id/generate-report', authenticateToken, async (req, res
 
         const currentY = doc.y;
 
-        // Draw Delområde cell
-        doc.rect(colDelomrade, currentY, colWidthDelomrade, calculatedRowHeight).stroke();
+        // Draw all cell borders together to create a continuous table
+        doc.lineWidth(0.5);
+        doc.rect(colDelomrade, currentY, colWidthDelomrade, calculatedRowHeight);
+        doc.rect(colKommentar, currentY, colWidthKommentar, calculatedRowHeight);
+        doc.rect(colBild, currentY, colWidthBild, calculatedRowHeight);
+        doc.stroke();
+
+        // Draw Delområde text
         doc.fontSize(9).text(delomrade, colDelomrade + 5, currentY + 5, {
           width: colWidthDelomrade - 10,
           align: 'left'
         });
 
-        // Draw Kommentar cell
-        doc.rect(colKommentar, currentY, colWidthKommentar, calculatedRowHeight).stroke();
+        // Draw Kommentar text
         doc.fontSize(9).text(kommentar, colKommentar + 5, currentY + 5, {
           width: colWidthKommentar - 10,
           align: 'left'
         });
-
-        // Draw Bild cell
-        doc.rect(colBild, currentY, colWidthBild, calculatedRowHeight).stroke();
 
         if (imageBuffer) {
           try {
