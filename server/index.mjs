@@ -761,8 +761,8 @@ app.post('/api/projects/:id/generate-report', authenticateToken, async (req, res
 
       // Table dimensions
       const colDelomrade = 50;
-      const colKommentar = 150;
-      const colBild = 380;
+      const colKommentar = 140;
+      const colBild = 360;
       const colWidthDelomrade = 90;
       const colWidthKommentar = 220;
       const colWidthBild = 150;
