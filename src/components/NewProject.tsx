@@ -92,7 +92,7 @@ export const NewProject: React.FC<NewProjectProps> = ({ onBack, onProjectCreated
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !address.trim() || !date || !inspector.trim()) return;
+    if (!name.trim() || !date || !inspector.trim()) return;
 
     setIsSubmitting(true);
     
@@ -137,7 +137,7 @@ export const NewProject: React.FC<NewProjectProps> = ({ onBack, onProjectCreated
     });
   };
 
-  const isFormValid = name.trim() && address.trim() && date && inspector.trim();
+  const isFormValid = name.trim() && date && inspector.trim();
 
   return (
     <div className="flex flex-col h-full pb-16">
@@ -189,7 +189,6 @@ export const NewProject: React.FC<NewProjectProps> = ({ onBack, onProjectCreated
               onChange={(e) => handleAddressChange(e.target.value)}
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
               placeholder="Börja skriv adress..."
-              required
               autoComplete="off"
             />
             
