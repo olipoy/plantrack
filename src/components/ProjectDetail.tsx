@@ -489,7 +489,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                 className="flex flex-col items-center p-4 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors"
               >
                 <div className="w-8 h-8 mb-2">📝</div>
-                <span className="text-sm font-medium">Skriv anteckning</span>
+                <span className="text-sm font-medium">Anteckning</span>
               </button>
             </div>
           </div>
