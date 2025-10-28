@@ -527,6 +527,7 @@ export async function createNoteShare(
 export const createProject = async (
   name: string,
   location: string,
+  byggnad: string | undefined,
   date: Date,
   inspector: string
 ): Promise<any> => {
@@ -544,6 +545,7 @@ export const createProject = async (
     body: JSON.stringify({
       name,
       location,
+      byggnad,
       projectDate: date.toISOString(),
       inspector
     }),

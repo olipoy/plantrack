@@ -256,7 +256,7 @@ const userDb = {
 // Project-related database functions
 const projectDb = {
   // Create a new project
-  async createProject(userId, name, description, location, inspector, projectDate, orgId) {
+  async createProject(userId, name, description, location, byggnad, inspector, projectDate, orgId) {
     if (!orgId) {
       // Get user's primary organization
       orgId = await organizationDb.getUserPrimaryOrganization(userId);
@@ -264,12 +264,12 @@ const projectDb = {
         throw new Error('User must belong to an organization to create projects');
       }
     }
-    
+
     const result = await query(
-      `INSERT INTO projects (user_id, name, description, location, inspector, project_date, org_id) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7) 
-       RETURNING id, name, description, location, inspector, project_date, created_at, updated_at`,
-      [userId, name, description, location, inspector, projectDate, orgId]
+      `INSERT INTO projects (user_id, name, description, location, byggnad, inspector, project_date, org_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING id, name, description, location, byggnad, inspector, project_date, created_at, updated_at`,
+      [userId, name, description, location, byggnad, inspector, projectDate, orgId]
     );
     return result.rows[0];
   },

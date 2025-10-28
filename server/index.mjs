@@ -435,10 +435,10 @@ app.post('/api/invites/:token/accept', async (req, res) => {
 // Create new project
 app.post('/api/projects', authenticateToken, async (req, res) => {
   try {
-    const { name, description, location, inspector, projectDate } = req.body;
-    
-    console.log('Creating project:', { name, description, location, inspector, projectDate, userId: req.user.id });
-    
+    const { name, description, location, byggnad, inspector, projectDate } = req.body;
+
+    console.log('Creating project:', { name, description, location, byggnad, inspector, projectDate, userId: req.user.id });
+
     if (!name) {
       return res.status(400).json({ error: 'Project name is required' });
     }
@@ -448,6 +448,7 @@ app.post('/api/projects', authenticateToken, async (req, res) => {
       name,
       description || null,
       location || '',
+      byggnad || null,
       inspector || '',
       projectDate ? new Date(projectDate) : new Date()
     );
@@ -456,9 +457,9 @@ app.post('/api/projects', authenticateToken, async (req, res) => {
     res.status(201).json(project);
   } catch (error) {
     console.error('Create project error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to create project',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -742,6 +743,11 @@ app.post('/api/projects/:id/generate-report', authenticateToken, async (req, res
 
     doc.font('Helvetica-Bold').text('Adress: ', { continued: true })
        .font('Helvetica').text(project.location || 'Ej angiven');
+
+    if (project.byggnad) {
+      doc.font('Helvetica-Bold').text('Byggnad: ', { continued: true })
+         .font('Helvetica').text(project.byggnad);
+    }
 
     doc.font('Helvetica-Bold').text('Datum för inspektion: ', { continued: true })
        .font('Helvetica').text(new Date(project.project_date).toLocaleDateString('sv-SE'));

@@ -18,6 +18,7 @@ interface AddressSuggestion {
 export const NewProject: React.FC<NewProjectProps> = ({ onBack, onProjectCreated }) => {
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
+  const [byggnad, setByggnad] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [inspector, setInspector] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -97,9 +98,10 @@ export const NewProject: React.FC<NewProjectProps> = ({ onBack, onProjectCreated
     
     try {
       const projectData = await createProjectAPI(
-        name.trim(), 
-        address.trim(), 
-        new Date(date), 
+        name.trim(),
+        address.trim(),
+        byggnad.trim() || undefined,
+        new Date(date),
         inspector.trim()
       );
       
@@ -222,6 +224,24 @@ export const NewProject: React.FC<NewProjectProps> = ({ onBack, onProjectCreated
                 )}
               </div>
             )}
+          </div>
+
+          {/* Byggnad (optional) */}
+          <div>
+            <label htmlFor="byggnad" className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="flex items-center">
+                <Building className="w-4 h-4 mr-2 text-gray-500" />
+                Byggnad (valfritt)
+              </div>
+            </label>
+            <input
+              type="text"
+              id="byggnad"
+              value={byggnad}
+              onChange={(e) => setByggnad(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
+              placeholder="T.ex. Byggnad A, Hus 3"
+            />
           </div>
 
           {/* Date Picker */}
