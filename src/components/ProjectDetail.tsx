@@ -194,24 +194,31 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   };
 
   const handleNoteSave = (note: Note) => {
-    // Add the note to the project and update
     console.log('=== handleNoteSave DEBUG ===');
     console.log('Received note:', note);
     console.log('Note ID:', note.id);
     console.log('Note ID type:', typeof note.id);
     console.log('Current project notes count:', project.notes?.length || 0);
-    
+
+    // Check if note already exists in the project to prevent duplicates
+    const noteExists = project.notes?.some(existingNote => existingNote.id === note.id);
+
+    if (noteExists) {
+      console.log('Note already exists in project, skipping duplicate');
+      setCurrentView('detail');
+      return;
+    }
+
     const updatedProject = {
       ...project,
       notes: [...(project.notes || []), note],
       updatedAt: new Date()
     };
-    
+
     console.log('Updated project notes count:', updatedProject.notes.length);
     console.log('Final note being added:', note);
     onProjectUpdate(updatedProject);
-    
-    // Navigate back to project view first
+
     setCurrentView('detail');
   };
 
