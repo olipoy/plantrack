@@ -1039,6 +1039,7 @@ app.post('/api/reports/:id/send-email', authenticateToken, async (req, res) => {
     const emailData = {
       to,
       from: process.env.FROM_EMAIL || 'noreply@inspection.app',
+      replyTo: req.user.email,
       subject,
       text: message || 'Se bifogad inspektionsrapport.',
       html: `<p>${message || 'Se bifogad inspektionsrapport.'}</p>`,
@@ -1763,6 +1764,7 @@ app.post('/api/send-email', authenticateToken, async (req, res) => {
     const msg = {
       to,
       from: process.env.FROM_EMAIL || 'noreply@inspektionsassistent.se',
+      replyTo: req.user.email,
       subject,
       text: text || 'Se bifogad inspektionsrapport.',
       html: `
@@ -1902,6 +1904,7 @@ app.post('/api/send-email-note', authenticateToken, async (req, res) => {
     const msg = {
       to,
       from: process.env.FROM_EMAIL || 'noreply@inspektionsassistent.se',
+      replyTo: req.user.email,
       subject,
       text: emailMessage || 'Se bifogad fil från inspektionsassistenten.',
       html: `
@@ -2001,11 +2004,12 @@ app.post('/api/send-email-attachment', authenticateToken, async (req, res) => {
     const emailMessage = message || '';
     
     // Determine if this is a video (don't attach videos, only provide link)
-    
+
     // Prepare email
     const msg = {
       to,
       from: process.env.FROM_EMAIL || 'noreply@inspektionsassistent.se',
+      replyTo: req.user.email,
       subject,
       text: emailMessage || 'Se bifogad fil från inspektionsassistenten.',
       html: `
