@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Mic, Square, Loader2 } from 'lucide-react';
+import { ArrowLeft, Mic, Square, Loader2, Image } from 'lucide-react';
 import { Note } from '../types';
 import { uploadFile, updateNoteDetails } from '../utils/api';
 
@@ -23,11 +23,13 @@ export const TextNoteModal: React.FC<TextNoteModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [error, setError] = useState('');
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     return () => {
@@ -178,6 +180,67 @@ export const TextNoteModal: React.FC<TextNoteModalProps> = ({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const handlePhotoUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handlePhotoSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setError('Vänligen välj en bildfil');
+      return;
+    }
+
+    setIsUploadingPhoto(true);
+    setError('');
+
+    try {
+      console.log('Uploading photo from gallery:', {
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        projectId
+      });
+
+      const response = await uploadFile(file, projectId, 'photo');
+
+      console.log('Photo upload response:', response);
+
+      await updateNoteDetails(response.noteId, {
+        kommentar: textContent.trim() || undefined,
+        delomrade: delomrade.trim() || undefined
+      });
+
+      const note: Note = {
+        id: response.noteId,
+        type: 'photo',
+        kommentar: textContent.trim() || undefined,
+        delomrade: delomrade.trim() || undefined,
+        timestamp: new Date(),
+        mediaUrl: response.mediaUrl,
+        fileName: response.fileName,
+        mimeType: response.mimeType,
+        fileSize: response.fileSize
+      };
+
+      console.log('Saving photo note:', note);
+
+      onSave(note);
+      onBack();
+
+    } catch (error) {
+      console.error('Photo upload failed:', error);
+      setError(error instanceof Error ? error.message : 'Kunde inte ladda upp foto');
+    } finally {
+      setIsUploadingPhoto(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   return (
     <div className="h-full bg-gray-50 flex flex-col">
       {/* Header */}
@@ -269,6 +332,38 @@ export const TextNoteModal: React.FC<TextNoteModalProps> = ({
             />
           </div>
 
+          {/* Photo Upload Section */}
+          <div className="bg-white rounded-lg p-4 shadow-sm">
+            <h3 className="text-sm font-medium text-gray-700 mb-3">Ladda upp foto</h3>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handlePhotoSelect}
+              className="hidden"
+            />
+            <button
+              onClick={handlePhotoUploadClick}
+              disabled={isUploadingPhoto || isSaving || isTranscribing || isRecording}
+              className="w-full flex items-center justify-center p-4 rounded-xl bg-green-600 text-white hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isUploadingPhoto ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                  Laddar upp...
+                </>
+              ) : (
+                <>
+                  <Image className="w-5 h-5 mr-2" />
+                  Välj foto från galleri
+                </>
+              )}
+            </button>
+            <p className="text-xs text-gray-500 mt-2 text-center">
+              Fotot sparas med delområde och eventuell kommentar ovan
+            </p>
+          </div>
+
           {/* Error Message */}
           {error && (
             <div className="bg-red-50 rounded-lg p-4">
@@ -279,7 +374,7 @@ export const TextNoteModal: React.FC<TextNoteModalProps> = ({
           {/* Save Button */}
           <button
             onClick={handleSave}
-            disabled={isSaving || isTranscribing || isRecording || !textContent.trim()}
+            disabled={isSaving || isTranscribing || isRecording || isUploadingPhoto || !textContent.trim()}
             className="w-full bg-blue-600 text-white px-6 py-4 rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
           >
             {isSaving ? (

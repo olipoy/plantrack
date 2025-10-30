@@ -23,14 +23,13 @@ const API_BASE_URL = getApiBaseUrl();
 
 export interface UploadResponse {
   success: boolean;
-  fileUrl: string;
+  noteId: string;
+  mediaUrl: string;
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
   transcription?: string;
   imageLabel?: string;
-  filename: string;
-  originalName: string;
-  mimeType: string;
-  size: number;
-  noteId: string;
 }
 
 export interface ChatResponse {
