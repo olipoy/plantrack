@@ -1038,11 +1038,22 @@ app.post('/api/reports/:id/send-email', authenticateToken, async (req, res) => {
 
     const emailData = {
       to,
-      from: process.env.FROM_EMAIL || 'noreply@inspection.app',
+      from: {
+        email: 'info@plantrack.se',
+        name: 'PlanTrack'
+      },
       replyTo: req.user.email,
       subject,
       text: message || 'Se bifogad inspektionsrapport.',
-      html: `<p>${message || 'Se bifogad inspektionsrapport.'}</p>`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <p>${message || 'Se bifogad inspektionsrapport.'}</p>
+          <br>
+          <p style="font-size: 12px; color: #666; margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;">
+            Du kan svara på detta mejl om du har några frågor. Ditt svar kommer att skickas direkt till personen som skickade rapporten.
+          </p>
+        </div>
+      `,
       attachments: [
         {
           content: pdfBuffer.toString('base64'),
@@ -1763,7 +1774,10 @@ app.post('/api/send-email', authenticateToken, async (req, res) => {
 
     const msg = {
       to,
-      from: process.env.FROM_EMAIL || 'noreply@inspektionsassistent.se',
+      from: {
+        email: 'info@plantrack.se',
+        name: 'PlanTrack'
+      },
       replyTo: req.user.email,
       subject,
       text: text || 'Se bifogad inspektionsrapport.',
@@ -1775,6 +1789,9 @@ app.post('/api/send-email', authenticateToken, async (req, res) => {
           <p>Rapporten har genererats automatiskt av Inspektionsassistenten.</p>
           <br>
           <p>Med vänliga hälsningar,<br>Inspektionsassistenten</p>
+          <p style="font-size: 12px; color: #666; margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;">
+            Du kan svara på detta mejl om du har några frågor. Ditt svar kommer att skickas direkt till personen som skickade rapporten.
+          </p>
         </div>
       `,
       attachments: [
@@ -1903,7 +1920,10 @@ app.post('/api/send-email-note', authenticateToken, async (req, res) => {
     // Prepare email
     const msg = {
       to,
-      from: process.env.FROM_EMAIL || 'noreply@inspektionsassistent.se',
+      from: {
+        email: 'info@plantrack.se',
+        name: 'PlanTrack'
+      },
       replyTo: req.user.email,
       subject,
       text: emailMessage || 'Se bifogad fil från inspektionsassistenten.',
@@ -1915,6 +1935,9 @@ app.post('/api/send-email-note', authenticateToken, async (req, res) => {
           <p>Rapporten har genererats automatiskt av Inspektionsassistenten.</p>
           <br>
           <p>Med vänliga hälsningar,<br>Inspektionsassistenten</p>
+          <p style="font-size: 12px; color: #666; margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;">
+            Du kan svara på detta mejl om du har några frågor. Ditt svar kommer att skickas direkt till personen som skickade rapporten.
+          </p>
         </div>
       `,
     };
@@ -2008,7 +2031,10 @@ app.post('/api/send-email-attachment', authenticateToken, async (req, res) => {
     // Prepare email
     const msg = {
       to,
-      from: process.env.FROM_EMAIL || 'noreply@inspektionsassistent.se',
+      from: {
+        email: 'info@plantrack.se',
+        name: 'PlanTrack'
+      },
       replyTo: req.user.email,
       subject,
       text: emailMessage || 'Se bifogad fil från inspektionsassistenten.',
@@ -2020,6 +2046,9 @@ app.post('/api/send-email-attachment', authenticateToken, async (req, res) => {
           <p>Rapporten har genererats automatiskt av Inspektionsassistenten.</p>
           <br>
           <p>Med vänliga hälsningar,<br>Inspektionsassistenten</p>
+          <p style="font-size: 12px; color: #666; margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;">
+            Du kan svara på detta mejl om du har några frågor. Ditt svar kommer att skickas direkt till personen som skickade rapporten.
+          </p>
         </div>
       `,
     };
