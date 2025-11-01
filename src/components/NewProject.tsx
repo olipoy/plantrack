@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Plus, MapPin, Calendar, User, Building } from 'lucide-react';
+import { ArrowLeft, Plus, MapPin, Calendar, User, Building, FileText, ChevronRight } from 'lucide-react';
 import { shortenAddress } from '../utils/storage';
 import { createProject as createProjectAPI } from '../utils/api';
 import { Project } from '../types';
@@ -15,7 +15,23 @@ interface AddressSuggestion {
   lon: string;
 }
 
+interface Template {
+  id: string;
+  name: string;
+  description: string;
+}
+
+const AVAILABLE_TEMPLATES: Template[] = [
+  {
+    id: 'inspektionsrapport',
+    name: 'Inspektionsrapport',
+    description: 'Standard inspektionsrapport med anteckningar, foton och videor'
+  }
+];
+
 export const NewProject: React.FC<NewProjectProps> = ({ onBack, onProjectCreated }) => {
+  const [step, setStep] = useState<'template' | 'details'>('template');
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('inspektionsrapport');
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [byggnad, setByggnad] = useState('');
@@ -95,16 +111,17 @@ export const NewProject: React.FC<NewProjectProps> = ({ onBack, onProjectCreated
     if (!name.trim() || !date || !inspector.trim()) return;
 
     setIsSubmitting(true);
-    
+
     try {
       const projectData = await createProjectAPI(
         name.trim(),
         address.trim(),
         byggnad.trim() || undefined,
         new Date(date),
-        inspector.trim()
+        inspector.trim(),
+        selectedTemplate
       );
-      
+
       // Convert backend response to frontend Project format
       const project: Project = {
         id: projectData.id,
@@ -117,7 +134,7 @@ export const NewProject: React.FC<NewProjectProps> = ({ onBack, onProjectCreated
         notes: [],
         aiSummary: projectData.ai_summary
       };
-      
+
       onProjectCreated(project);
     } catch (error) {
       console.error('Error creating project:', error);
@@ -139,12 +156,78 @@ export const NewProject: React.FC<NewProjectProps> = ({ onBack, onProjectCreated
 
   const isFormValid = name.trim() && date && inspector.trim();
 
+  const handleBackClick = () => {
+    if (step === 'details') {
+      setStep('template');
+    } else {
+      onBack();
+    }
+  };
+
+  // Template Selection Step
+  if (step === 'template') {
+    return (
+      <div className="flex flex-col h-full pb-16">
+        <div className="bg-white border-b border-gray-200 px-4 py-3">
+          <div className="flex items-center">
+            <button
+              onClick={onBack}
+              className="mr-3 p-2 -ml-2 text-gray-600 hover:text-gray-900 active:bg-gray-100 rounded-lg transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <h1 className="text-lg font-semibold text-gray-900">Välj mall</h1>
+          </div>
+        </div>
+
+        <div className="flex-1 p-4 overflow-y-auto">
+          <p className="text-gray-600 mb-6">Välj vilken typ av projekt du vill skapa</p>
+
+          <div className="space-y-3">
+            {AVAILABLE_TEMPLATES.map((template) => (
+              <button
+                key={template.id}
+                onClick={() => {
+                  setSelectedTemplate(template.id);
+                  setStep('details');
+                }}
+                className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
+                  selectedTemplate === template.id
+                    ? 'border-blue-600 bg-blue-50'
+                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                }`}
+              >
+                <div className="flex items-start">
+                  <FileText className={`w-6 h-6 mr-3 flex-shrink-0 mt-0.5 ${
+                    selectedTemplate === template.id ? 'text-blue-600' : 'text-gray-400'
+                  }`} />
+                  <div className="flex-1">
+                    <h3 className={`font-semibold text-lg mb-1 ${
+                      selectedTemplate === template.id ? 'text-blue-900' : 'text-gray-900'
+                    }`}>
+                      {template.name}
+                    </h3>
+                    <p className="text-sm text-gray-600">{template.description}</p>
+                  </div>
+                  <ChevronRight className={`w-5 h-5 ml-2 flex-shrink-0 ${
+                    selectedTemplate === template.id ? 'text-blue-600' : 'text-gray-400'
+                  }`} />
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Project Details Step
   return (
     <div className="flex flex-col h-full pb-16">
       <div className="bg-white border-b border-gray-200 px-4 py-3">
         <div className="flex items-center">
           <button
-            onClick={onBack}
+            onClick={handleBackClick}
             className="mr-3 p-2 -ml-2 text-gray-600 hover:text-gray-900 active:bg-gray-100 rounded-lg transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />

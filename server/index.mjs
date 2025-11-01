@@ -435,9 +435,9 @@ app.post('/api/invites/:token/accept', async (req, res) => {
 // Create new project
 app.post('/api/projects', authenticateToken, async (req, res) => {
   try {
-    const { name, description, location, byggnad, inspector, projectDate } = req.body;
+    const { name, description, location, byggnad, inspector, projectDate, template } = req.body;
 
-    console.log('Creating project:', { name, description, location, byggnad, inspector, projectDate, userId: req.user.id });
+    console.log('Creating project:', { name, description, location, byggnad, inspector, projectDate, template, userId: req.user.id });
 
     if (!name) {
       return res.status(400).json({ error: 'Project name is required' });
@@ -450,7 +450,9 @@ app.post('/api/projects', authenticateToken, async (req, res) => {
       location || '',
       byggnad || null,
       inspector || '',
-      projectDate ? new Date(projectDate) : new Date()
+      projectDate ? new Date(projectDate) : new Date(),
+      null,
+      template || null
     );
 
     console.log('Project created successfully:', project);

@@ -528,7 +528,8 @@ export const createProject = async (
   location: string,
   byggnad: string | undefined,
   date: Date,
-  inspector: string
+  inspector: string,
+  template?: string
 ): Promise<any> => {
   const token = getToken();
   if (!token) {
@@ -546,7 +547,8 @@ export const createProject = async (
       location,
       byggnad,
       projectDate: date.toISOString(),
-      inspector
+      inspector,
+      template
     }),
   });
 
