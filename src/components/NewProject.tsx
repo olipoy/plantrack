@@ -25,7 +25,7 @@ const AVAILABLE_TEMPLATES: Template[] = [
   {
     id: 'inspektionsrapport',
     name: 'Inspektionsrapport',
-    description: 'Standard inspektionsrapport med anteckningar, foton och videor'
+    description: 'Standard inspektionsrapport med anteckningar och foton'
   }
 ];
 
@@ -108,7 +108,7 @@ export const NewProject: React.FC<NewProjectProps> = ({ onBack, onProjectCreated
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !date || !inspector.trim()) return;
+    if (!name.trim()) return;
 
     setIsSubmitting(true);
 
@@ -154,7 +154,7 @@ export const NewProject: React.FC<NewProjectProps> = ({ onBack, onProjectCreated
     });
   };
 
-  const isFormValid = name.trim() && date && inspector.trim();
+  const isFormValid = name.trim();
 
   const handleBackClick = () => {
     if (step === 'details') {
@@ -243,7 +243,7 @@ export const NewProject: React.FC<NewProjectProps> = ({ onBack, onProjectCreated
             <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
               <div className="flex items-center">
                 <Building className="w-4 h-4 mr-2 text-gray-500" />
-                Projektnamn
+                Projektnamn *
               </div>
             </label>
             <input
@@ -313,7 +313,7 @@ export const NewProject: React.FC<NewProjectProps> = ({ onBack, onProjectCreated
             <label htmlFor="byggnad" className="block text-sm font-medium text-gray-700 mb-2">
               <div className="flex items-center">
                 <Building className="w-4 h-4 mr-2 text-gray-500" />
-                Byggnad (valfritt)
+                Byggnad
               </div>
             </label>
             <input
@@ -340,7 +340,6 @@ export const NewProject: React.FC<NewProjectProps> = ({ onBack, onProjectCreated
               value={date}
               onChange={(e) => setDate(e.target.value)}
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
-              required
             />
             <p className="text-sm text-gray-500 mt-1">
               {formatDateForDisplay(date)}
@@ -362,7 +361,6 @@ export const NewProject: React.FC<NewProjectProps> = ({ onBack, onProjectCreated
               onChange={(e) => setInspector(e.target.value)}
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
               placeholder="Ditt namn"
-              required
             />
           </div>
 
