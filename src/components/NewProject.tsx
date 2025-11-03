@@ -137,7 +137,8 @@ export const NewProject: React.FC<NewProjectProps> = ({ onBack, onProjectCreated
         createdAt: new Date(projectData.created_at),
         updatedAt: new Date(projectData.updated_at || projectData.created_at),
         notes: [],
-        aiSummary: projectData.ai_summary
+        aiSummary: projectData.ai_summary,
+        template: projectData.template_id || null
       };
 
       onProjectCreated(project);

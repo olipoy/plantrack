@@ -70,7 +70,8 @@ function MainApp() {
           updatedAt: new Date(p.updated_at || p.created_at),
           notes: [], // Notes will be loaded when project is selected
           aiSummary: p.ai_summary,
-          noteCount: p.note_count || 0
+          noteCount: p.note_count || 0,
+          template: p.template_id || null
         }));
         
         console.log('Formatted projects:', formattedProjects);
@@ -136,7 +137,8 @@ function MainApp() {
         createdAt: new Date(p.created_at),
         updatedAt: new Date(p.updated_at || p.created_at),
         notes: [],
-        aiSummary: p.ai_summary
+        aiSummary: p.ai_summary,
+        template: p.template_id || null
       }));
       setProjects(formattedProjects);
     } catch (error) {
@@ -220,7 +222,8 @@ function MainApp() {
             fileSize: note.fileSize || null
           })),
           aiSummary: fullProject.ai_summary,
-          noteCount: (fullProject.notes || []).length
+          noteCount: (fullProject.notes || []).length,
+          template: fullProject.template_id || null
         };
         
         console.log('Formatted project with notes:', formattedProject);
