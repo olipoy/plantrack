@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, X, Send, Loader2, CheckCircle, AlertCircle, Check, FileText, Trash2, Mail, ExternalLink } from 'lucide-react';
-import { Note } from '../types';
+import { Note, Section } from '../types';
 import { sendEmailWithPDF, sendEmailWithAttachment, generateProjectReport, getProjectReports, deleteReport, sendReportEmail } from '../utils/api';
 import { CameraView } from './CameraView';
 import { NoteModal } from './NoteModal';
 import { TextNoteModal } from './TextNoteModal';
+import { SectionView } from './SectionView';
 import { loadEmailHistory, saveEmailToHistory, filterEmailHistory } from '../utils/emailHistory';
+import { getProjectSections, organizeSectionsHierarchy } from '../utils/sections';
 
 interface ProjectDetailProps {
   project: { id: string; name: string; [key: string]: any };
@@ -47,6 +49,8 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const [reportEmailMessage, setReportEmailMessage] = useState('');
   const [isSendingReportEmail, setIsSendingReportEmail] = useState(false);
   const [reportEmailSuccess, setReportEmailSuccess] = useState(false);
+  const [sections, setSections] = useState<Section[]>([]);
+  const [isLoadingSections, setIsLoadingSections] = useState(false);
 
   // Load email history when modal is shown
   React.useEffect(() => {
@@ -76,6 +80,26 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
 
     loadReports();
   }, [project.id]);
+
+  // Load sections if project has a template
+  React.useEffect(() => {
+    const loadSections = async () => {
+      if (project.template) {
+        setIsLoadingSections(true);
+        try {
+          const projectSections = await getProjectSections(project.id);
+          const organizedSections = organizeSectionsHierarchy(projectSections);
+          setSections(organizedSections);
+        } catch (error) {
+          console.error('Failed to load sections:', error);
+        } finally {
+          setIsLoadingSections(false);
+        }
+      }
+    };
+
+    loadSections();
+  }, [project.id, project.template]);
 
   const handleNoteUpdated = (noteId: string, updates: { kommentar?: string; delomrade?: string }) => {
     console.log('=== handleNoteUpdated called ===');
@@ -501,67 +525,93 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
             </div>
           </div>
 
-          {/* Notes */}
-          {project.notes && project.notes.length > 0 && (
+          {/* Sections (for template-based projects) or Notes (for non-template projects) */}
+          {project.template ? (
             <div className="bg-white rounded-lg p-4 shadow-sm">
-              <h2 className="text-lg font-semibold text-gray-900 mb-3">Anteckningar</h2>
-              {/* Debug: Log note data */}
-              {console.log('=== DEBUG: Project notes data ===', project.notes.map(note => ({
-                id: note.id,
-                type: note.type,
-                submitted: note.submitted,
-                submittedAt: note.submittedAt,
-                content: note.content?.substring(0, 30)
-              })))}
-              <div className="space-y-3">
-                {project.notes
-                  .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-                  .map((note: Note) => {
-                    const truncateText = (text: string, maxLength: number) => {
-                      if (!text) return '';
-                      if (text.length <= maxLength) return text;
-                      return text.substring(0, maxLength) + '…';
-                    };
-
-                    return (
-                      <div
-                        key={note.id}
-                        onClick={() => handleNoteClick(note)}
-                        className="border border-gray-200 rounded-lg p-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-colors"
-                      >
-                        {/* Line 1: Media type with icon */}
-                        <div className="flex items-center mb-2">
-                          <span className="text-sm font-medium text-gray-700">
-                            {note.type === 'photo' ? '📷 Foto' : note.type === 'video' ? '🎥 Video' : '📝 Text'}
-                          </span>
-                          {note.submitted && (
-                            <Check className="w-4 h-4 text-green-600 ml-2" />
-                          )}
-                        </div>
-
-                        {/* Line 2: Delområde (if not empty) */}
-                        {note.delomrade && (
-                          <p className="text-sm text-gray-700 font-medium mb-1">
-                            {note.delomrade}
-                          </p>
-                        )}
-
-                        {/* Line 3: Kommentar (truncated to 100 chars, if not empty) */}
-                        {note.kommentar && (
-                          <p className="text-sm text-gray-600 mb-2">
-                            {truncateText(note.kommentar, 100)}
-                          </p>
-                        )}
-
-                        {/* Line 4: Timestamp */}
-                        <p className="text-xs text-gray-500">
-                          {note.timestamp.toLocaleString()}
-                        </p>
-                      </div>
-                    );
-                  })}
-              </div>
+              <h2 className="text-lg font-semibold text-gray-900 mb-3">Sektioner</h2>
+              {isLoadingSections ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                </div>
+              ) : sections.length > 0 ? (
+                <div className="space-y-2">
+                  {sections.map((section) => (
+                    <SectionView
+                      key={section.id}
+                      section={section}
+                      notes={project.notes || []}
+                      onNoteClick={handleNoteClick}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 text-center py-4">
+                  Inga sektioner tillgängliga.
+                </p>
+              )}
             </div>
+          ) : (
+            project.notes && project.notes.length > 0 && (
+              <div className="bg-white rounded-lg p-4 shadow-sm">
+                <h2 className="text-lg font-semibold text-gray-900 mb-3">Anteckningar</h2>
+                {/* Debug: Log note data */}
+                {console.log('=== DEBUG: Project notes data ===', project.notes.map(note => ({
+                  id: note.id,
+                  type: note.type,
+                  submitted: note.submitted,
+                  submittedAt: note.submittedAt,
+                  content: note.content?.substring(0, 30)
+                })))}
+                <div className="space-y-3">
+                  {project.notes
+                    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                    .map((note: Note) => {
+                      const truncateText = (text: string, maxLength: number) => {
+                        if (!text) return '';
+                        if (text.length <= maxLength) return text;
+                        return text.substring(0, maxLength) + '…';
+                      };
+
+                      return (
+                        <div
+                          key={note.id}
+                          onClick={() => handleNoteClick(note)}
+                          className="border border-gray-200 rounded-lg p-3 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                        >
+                          {/* Line 1: Media type with icon */}
+                          <div className="flex items-center mb-2">
+                            <span className="text-sm font-medium text-gray-700">
+                              {note.type === 'photo' ? '📷 Foto' : note.type === 'video' ? '🎥 Video' : '📝 Text'}
+                            </span>
+                            {note.submitted && (
+                              <Check className="w-4 h-4 text-green-600 ml-2" />
+                            )}
+                          </div>
+
+                          {/* Line 2: Delområde (if not empty) */}
+                          {note.delomrade && (
+                            <p className="text-sm text-gray-700 font-medium mb-1">
+                              {note.delomrade}
+                            </p>
+                          )}
+
+                          {/* Line 3: Kommentar (truncated to 100 chars, if not empty) */}
+                          {note.kommentar && (
+                            <p className="text-sm text-gray-600 mb-2">
+                              {truncateText(note.kommentar, 100)}
+                            </p>
+                          )}
+
+                          {/* Line 4: Timestamp */}
+                          <p className="text-xs text-gray-500">
+                            {note.timestamp.toLocaleString()}
+                          </p>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            )
           )}
 
           {/* Reports Section */}

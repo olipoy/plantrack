@@ -1,10 +1,10 @@
 import { TemplateSection, Section } from '../types';
-import { getAuthToken } from './auth';
+import { getToken } from './auth';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export async function getTemplateSections(templateId: string): Promise<TemplateSection[]> {
-  const token = getAuthToken();
+  const token = getToken();
   const response = await fetch(`${API_URL}/api/templates/${templateId}/sections`, {
     headers: {
       'Authorization': `Bearer ${token}`
@@ -19,7 +19,7 @@ export async function getTemplateSections(templateId: string): Promise<TemplateS
 }
 
 export async function getProjectSections(projectId: string): Promise<Section[]> {
-  const token = getAuthToken();
+  const token = getToken();
   const response = await fetch(`${API_URL}/api/projects/${projectId}/sections`, {
     headers: {
       'Authorization': `Bearer ${token}`
@@ -42,7 +42,7 @@ export async function createSection(
     orderIndex?: number;
   }
 ): Promise<Section> {
-  const token = getAuthToken();
+  const token = getToken();
   const response = await fetch(`${API_URL}/api/projects/${projectId}/sections`, {
     method: 'POST',
     headers: {
@@ -66,7 +66,7 @@ export async function updateSection(
     orderIndex?: number;
   }
 ): Promise<Section> {
-  const token = getAuthToken();
+  const token = getToken();
   const response = await fetch(`${API_URL}/api/sections/${sectionId}`, {
     method: 'PUT',
     headers: {
@@ -84,7 +84,7 @@ export async function updateSection(
 }
 
 export async function deleteSection(sectionId: string): Promise<void> {
-  const token = getAuthToken();
+  const token = getToken();
   const response = await fetch(`${API_URL}/api/sections/${sectionId}`, {
     method: 'DELETE',
     headers: {
