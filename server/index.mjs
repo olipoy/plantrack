@@ -679,6 +679,171 @@ app.delete('/api/projects/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// Section Routes (Protected)
+
+// Get template sections for a template
+app.get('/api/templates/:templateId/sections', authenticateToken, async (req, res) => {
+  try {
+    const { templateId } = req.params;
+
+    const result = await query(
+      `SELECT * FROM template_sections
+       WHERE template_id = $1
+       ORDER BY order_index ASC`,
+      [templateId]
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Get template sections error:', error);
+    res.status(500).json({ error: 'Failed to get template sections' });
+  }
+});
+
+// Get sections for a project
+app.get('/api/projects/:projectId/sections', authenticateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+
+    // Verify project access
+    const project = await projectDb.getProjectById(projectId, req.user.id);
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const result = await query(
+      `SELECT s.*, ts.name as template_section_name, ts.allow_subsections
+       FROM sections s
+       LEFT JOIN template_sections ts ON s.template_section_id = ts.id
+       WHERE s.project_id = $1
+       ORDER BY s.order_index ASC`,
+      [projectId]
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Get project sections error:', error);
+    res.status(500).json({ error: 'Failed to get project sections' });
+  }
+});
+
+// Create a section for a project
+app.post('/api/projects/:projectId/sections', authenticateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { templateSectionId, name, parentSectionId, orderIndex } = req.body;
+
+    // Verify project access
+    const project = await projectDb.getProjectById(projectId, req.user.id);
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    if (!name) {
+      return res.status(400).json({ error: 'Section name is required' });
+    }
+
+    const result = await query(
+      `INSERT INTO sections (project_id, template_section_id, name, parent_section_id, order_index)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [projectId, templateSectionId || null, name, parentSectionId || null, orderIndex || 0]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Create section error:', error);
+    res.status(500).json({ error: 'Failed to create section' });
+  }
+});
+
+// Update a section
+app.put('/api/sections/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, orderIndex } = req.body;
+
+    // Verify section access through project ownership
+    const sectionCheck = await query(
+      `SELECT s.*, p.user_id
+       FROM sections s
+       JOIN projects p ON s.project_id = p.id
+       WHERE s.id = $1`,
+      [id]
+    );
+
+    if (sectionCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Section not found' });
+    }
+
+    if (sectionCheck.rows[0].user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    const updates = [];
+    const values = [];
+    let paramCount = 1;
+
+    if (name !== undefined) {
+      updates.push(`name = $${paramCount}`);
+      values.push(name);
+      paramCount++;
+    }
+
+    if (orderIndex !== undefined) {
+      updates.push(`order_index = $${paramCount}`);
+      values.push(orderIndex);
+      paramCount++;
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No updates provided' });
+    }
+
+    values.push(id);
+    const result = await query(
+      `UPDATE sections SET ${updates.join(', ')} WHERE id = $${paramCount} RETURNING *`,
+      values
+    );
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Update section error:', error);
+    res.status(500).json({ error: 'Failed to update section' });
+  }
+});
+
+// Delete a section
+app.delete('/api/sections/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Verify section access through project ownership
+    const sectionCheck = await query(
+      `SELECT s.*, p.user_id
+       FROM sections s
+       JOIN projects p ON s.project_id = p.id
+       WHERE s.id = $1`,
+      [id]
+    );
+
+    if (sectionCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Section not found' });
+    }
+
+    if (sectionCheck.rows[0].user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    await query('DELETE FROM sections WHERE id = $1', [id]);
+
+    res.json({ success: true, message: 'Section deleted successfully' });
+  } catch (error) {
+    console.error('Delete section error:', error);
+    res.status(500).json({ error: 'Failed to delete section' });
+  }
+});
+
 // Helper function to fetch image from URL
 async function fetchImageAsBuffer(url) {
   return new Promise((resolve, reject) => {

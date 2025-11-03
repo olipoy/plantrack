@@ -9,6 +9,29 @@ export interface Project {
   notes: Note[];
   aiSummary?: string;
   noteCount?: number;
+  template?: string | null;
+}
+
+export interface TemplateSection {
+  id: string;
+  template_id: string;
+  name: string;
+  order_index: number;
+  allow_subsections: boolean;
+  created_at: Date;
+}
+
+export interface Section {
+  id: string;
+  project_id: string;
+  template_section_id?: string | null;
+  name: string;
+  parent_section_id?: string | null;
+  order_index: number;
+  created_at: Date;
+  template_section_name?: string;
+  allow_subsections?: boolean;
+  subsections?: Section[];
 }
 
 export interface Note {
@@ -27,6 +50,7 @@ export interface Note {
   submitted?: boolean;
   submittedAt?: Date;
   individualReport?: string;
+  section_id?: string | null;
 }
 
 export interface ChatMessage {

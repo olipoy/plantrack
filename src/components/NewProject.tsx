@@ -26,6 +26,11 @@ const AVAILABLE_TEMPLATES: Template[] = [
     id: 'inspektionsrapport',
     name: 'Inspektionsrapport',
     description: 'Standard inspektionsrapport med anteckningar och foton'
+  },
+  {
+    id: 'besiktningsprotokoll',
+    name: 'Besiktningsprotokoll',
+    description: 'Strukturerat besiktningsprotokoll med fördefinierade sektioner'
   }
 ];
 
