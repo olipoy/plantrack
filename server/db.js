@@ -266,9 +266,9 @@ const projectDb = {
     }
 
     const result = await query(
-      `INSERT INTO projects (user_id, name, description, location, byggnad, inspector, project_date, org_id, template)
+      `INSERT INTO projects (user_id, name, description, location, byggnad, inspector, project_date, org_id, template_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-       RETURNING id, name, description, location, byggnad, inspector, project_date, template, created_at, updated_at`,
+       RETURNING id, name, description, location, byggnad, inspector, project_date, template_id, created_at, updated_at`,
       [userId, name, description, location, byggnad, inspector, projectDate, orgId, template]
     );
     return result.rows[0];
