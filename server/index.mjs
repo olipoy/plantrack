@@ -465,8 +465,8 @@ app.post('/api/projects', authenticateToken, async (req, res) => {
         // Get template sections
         const templateSections = await query(
           `SELECT * FROM template_sections
-           WHERE template_name = $1
-           ORDER BY display_order ASC`,
+           WHERE template_id = $1
+           ORDER BY order_index ASC`,
           [template]
         );
 
