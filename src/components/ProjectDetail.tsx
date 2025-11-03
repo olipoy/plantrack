@@ -84,7 +84,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   // Load sections if project has a template
   React.useEffect(() => {
     const loadSections = async () => {
-      if (project.template_id) {
+      if (project.template) {
         setIsLoadingSections(true);
         try {
           const projectSections = await getProjectSections(project.id);
@@ -99,7 +99,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
     };
 
     loadSections();
-  }, [project.id, project.template_id]);
+  }, [project.id, project.template]);
 
   const handleNoteUpdated = (noteId: string, updates: { kommentar?: string; delomrade?: string }) => {
     console.log('=== handleNoteUpdated called ===');
@@ -526,7 +526,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
           </div>
 
           {/* Sections (for template-based projects) or Notes (for non-template projects) */}
-          {project.template_id ? (
+          {project.template ? (
             <div className="bg-white rounded-lg p-4 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-900 mb-3">Sektioner</h2>
               {isLoadingSections ? (
