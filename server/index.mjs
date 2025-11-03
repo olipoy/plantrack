@@ -456,6 +456,51 @@ app.post('/api/projects', authenticateToken, async (req, res) => {
     );
 
     console.log('Project created successfully:', project);
+
+    // Auto-create sections if template is provided
+    if (template) {
+      try {
+        console.log('Initializing sections for template:', template);
+
+        // Get template sections
+        const templateSections = await query(
+          `SELECT * FROM template_sections
+           WHERE template_name = $1
+           ORDER BY display_order ASC`,
+          [template]
+        );
+
+        console.log('Found template sections:', templateSections.rows.length);
+
+        // Create sections for this project
+        for (const templateSection of templateSections.rows) {
+          await query(
+            `INSERT INTO sections (
+              project_id,
+              parent_section_id,
+              name,
+              icon,
+              display_order,
+              allow_subsections
+            ) VALUES ($1, $2, $3, $4, $5, $6)`,
+            [
+              project.id,
+              null, // parent_section_id is null for template sections
+              templateSection.name,
+              templateSection.icon,
+              templateSection.display_order,
+              templateSection.allow_subsections
+            ]
+          );
+        }
+
+        console.log('Sections initialized successfully');
+      } catch (sectionError) {
+        console.error('Error initializing sections:', sectionError);
+        // Don't fail the project creation if sections fail
+      }
+    }
+
     res.status(201).json(project);
   } catch (error) {
     console.error('Create project error:', error);

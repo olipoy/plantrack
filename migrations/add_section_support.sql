@@ -4,24 +4,25 @@
   1. New Tables
     - `template_sections`
       - `id` (uuid, primary key)
-      - `template_id` (text) - matches template ID from frontend (e.g., 'besiktningsprotokoll')
+      - `template_name` (text) - matches template name from frontend (e.g., 'besiktningsprotokoll')
       - `name` (text) - section name (e.g., 'Fastighetsuppgifter')
-      - `order_index` (integer) - display order
+      - `icon` (text) - optional icon name
+      - `display_order` (integer) - display order
       - `allow_subsections` (boolean) - whether this section can have subsections
       - `created_at` (timestamp)
 
     - `sections`
       - `id` (uuid, primary key)
       - `project_id` (uuid, foreign key to projects)
-      - `template_section_id` (uuid, foreign key to template_sections) - nullable for custom subsections
-      - `name` (text) - section/subsection name
       - `parent_section_id` (uuid, foreign key to sections) - nullable, for subsections
-      - `order_index` (integer) - display order within parent
+      - `name` (text) - section/subsection name
+      - `icon` (text) - optional icon name
+      - `display_order` (integer) - display order within parent
+      - `allow_subsections` (boolean) - whether this section can have subsections
       - `created_at` (timestamp)
 
   2. Changes to Existing Tables
     - Add `section_id` (uuid, nullable) to `notes` table
-    - Add `section_id` (uuid, nullable) to `media` table
 
   3. Security
     - Enable RLS on new tables
@@ -34,9 +35,10 @@
 -- Create template_sections table
 CREATE TABLE IF NOT EXISTS template_sections (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  template_id text NOT NULL,
+  template_name text NOT NULL,
   name text NOT NULL,
-  order_index integer NOT NULL,
+  icon text,
+  display_order integer NOT NULL,
   allow_subsections boolean DEFAULT false,
   created_at timestamptz DEFAULT now()
 );
@@ -45,10 +47,11 @@ CREATE TABLE IF NOT EXISTS template_sections (
 CREATE TABLE IF NOT EXISTS sections (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  template_section_id uuid REFERENCES template_sections(id) ON DELETE SET NULL,
-  name text NOT NULL,
   parent_section_id uuid REFERENCES sections(id) ON DELETE CASCADE,
-  order_index integer NOT NULL DEFAULT 0,
+  name text NOT NULL,
+  icon text,
+  display_order integer NOT NULL DEFAULT 0,
+  allow_subsections boolean DEFAULT false,
   created_at timestamptz DEFAULT now()
 );
 
@@ -60,17 +63,6 @@ BEGIN
     WHERE table_name = 'notes' AND column_name = 'section_id'
   ) THEN
     ALTER TABLE notes ADD COLUMN section_id uuid REFERENCES sections(id) ON DELETE CASCADE;
-  END IF;
-END $$;
-
--- Add section_id to media table
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'media' AND column_name = 'section_id'
-  ) THEN
-    ALTER TABLE media ADD COLUMN section_id uuid REFERENCES sections(id) ON DELETE CASCADE;
   END IF;
 END $$;
 
@@ -86,7 +78,7 @@ CREATE POLICY "Authenticated users can view template sections"
   TO authenticated
   USING (true);
 
--- RLS Policies for sections (users can manage sections for their own projects)
+-- RLS Policies for sections (users can manage sections for their projects)
 CREATE POLICY "Users can view sections for their projects"
   ON sections FOR SELECT
   TO authenticated
@@ -94,7 +86,9 @@ CREATE POLICY "Users can view sections for their projects"
     EXISTS (
       SELECT 1 FROM projects
       WHERE projects.id = sections.project_id
-      AND projects.user_id = auth.uid()
+      AND projects.org_id IN (
+        SELECT organization_id FROM organization_users WHERE user_id = auth.uid()
+      )
     )
   );
 
@@ -105,7 +99,9 @@ CREATE POLICY "Users can create sections for their projects"
     EXISTS (
       SELECT 1 FROM projects
       WHERE projects.id = sections.project_id
-      AND projects.user_id = auth.uid()
+      AND projects.org_id IN (
+        SELECT organization_id FROM organization_users WHERE user_id = auth.uid()
+      )
     )
   );
 
@@ -116,14 +112,18 @@ CREATE POLICY "Users can update sections for their projects"
     EXISTS (
       SELECT 1 FROM projects
       WHERE projects.id = sections.project_id
-      AND projects.user_id = auth.uid()
+      AND projects.org_id IN (
+        SELECT organization_id FROM organization_users WHERE user_id = auth.uid()
+      )
     )
   )
   WITH CHECK (
     EXISTS (
       SELECT 1 FROM projects
       WHERE projects.id = sections.project_id
-      AND projects.user_id = auth.uid()
+      AND projects.org_id IN (
+        SELECT organization_id FROM organization_users WHERE user_id = auth.uid()
+      )
     )
   );
 
@@ -134,25 +134,26 @@ CREATE POLICY "Users can delete sections for their projects"
     EXISTS (
       SELECT 1 FROM projects
       WHERE projects.id = sections.project_id
-      AND projects.user_id = auth.uid()
+      AND projects.org_id IN (
+        SELECT organization_id FROM organization_users WHERE user_id = auth.uid()
+      )
     )
   );
 
 -- Insert template sections for Besiktningsprotokoll
-INSERT INTO template_sections (template_id, name, order_index, allow_subsections)
+INSERT INTO template_sections (template_name, name, icon, display_order, allow_subsections)
 VALUES
-  ('besiktningsprotokoll', 'Fastighetsuppgifter', 1, false),
-  ('besiktningsprotokoll', 'Byggnadsbeskrivning', 2, false),
-  ('besiktningsprotokoll', 'Besiktningsutlåtande', 3, false),
-  ('besiktningsprotokoll', 'Utvändigt', 4, true),
-  ('besiktningsprotokoll', 'Entréplan', 5, true),
-  ('besiktningsprotokoll', 'Övre plan', 6, true),
-  ('besiktningsprotokoll', 'Källarplan', 7, true)
+  ('besiktningsprotokoll', 'Fastighetsuppgifter', 'Home', 1, false),
+  ('besiktningsprotokoll', 'Byggnadsbeskrivning', 'Building', 2, false),
+  ('besiktningsprotokoll', 'Besiktningsutlåtande', 'FileText', 3, false),
+  ('besiktningsprotokoll', 'Utvändigt', 'Trees', 4, true),
+  ('besiktningsprotokoll', 'Entréplan', 'DoorOpen', 5, true),
+  ('besiktningsprotokoll', 'Övre plan', 'ArrowUp', 6, true),
+  ('besiktningsprotokoll', 'Källarplan', 'ArrowDown', 7, true)
 ON CONFLICT DO NOTHING;
 
 -- Create indexes for better performance
-CREATE INDEX IF NOT EXISTS idx_template_sections_template_id ON template_sections(template_id);
+CREATE INDEX IF NOT EXISTS idx_template_sections_template_name ON template_sections(template_name);
 CREATE INDEX IF NOT EXISTS idx_sections_project_id ON sections(project_id);
 CREATE INDEX IF NOT EXISTS idx_sections_parent_section_id ON sections(parent_section_id);
 CREATE INDEX IF NOT EXISTS idx_notes_section_id ON notes(section_id);
-CREATE INDEX IF NOT EXISTS idx_media_section_id ON media(section_id);
