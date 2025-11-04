@@ -294,16 +294,18 @@ const projectDb = {
   },
 
   // Get a specific project (with ownership check)
-  async getProjectById(projectId, userId) {
-    const orgId = await organizationDb.getUserPrimaryOrganization(userId);
+  async getProjectById(projectId, userId, orgId = null) {
+    if (!orgId) {
+      orgId = await organizationDb.getUserPrimaryOrganization(userId);
+    }
     if (!orgId) {
       return null;
     }
-    
+
     const result = await query(
       `SELECT p.*,
        (SELECT content FROM summaries WHERE project_id = p.id ORDER BY updated_at DESC LIMIT 1) as ai_summary
-       FROM projects p 
+       FROM projects p
        WHERE p.id = $1 AND p.org_id = $2`,
       [projectId, orgId]
     );

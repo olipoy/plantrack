@@ -41,15 +41,21 @@ const authenticateToken = async (req, res, next) => {
 
     // Verify token
     const decoded = verifyToken(token);
-    
+
     // Get user from database
     const user = await userDb.findUserById(decoded.userId);
     if (!user) {
       return res.status(401).json({ error: 'Invalid token - user not found' });
     }
 
-    // Attach user to request
-    req.user = user;
+    // Get user's organization
+    const orgId = await organizationDb.getUserPrimaryOrganization(user.id);
+
+    // Attach user to request with org_id
+    req.user = {
+      ...user,
+      org_id: orgId
+    };
     next();
   } catch (error) {
     console.error('Authentication error:', error);

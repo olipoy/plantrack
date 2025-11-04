@@ -763,10 +763,10 @@ app.get('/api/projects/:projectId/sections', authenticateToken, async (req, res)
   try {
     const { projectId } = req.params;
 
-    // Verify project access
-    const project = await projectDb.getProjectById(projectId, req.user.id);
+    // Verify project access using org_id from req.user
+    const project = await projectDb.getProjectById(projectId, req.user.id, req.user.org_id);
     if (!project) {
-      return res.status(404).json({ error: 'Project not found' });
+      return res.status(404).json({ error: 'Project not found or access denied' });
     }
 
     const result = await query(
@@ -778,6 +778,7 @@ app.get('/api/projects/:projectId/sections', authenticateToken, async (req, res)
       [projectId]
     );
 
+    console.log(`Sections for project ${projectId}:`, result.rows.length, 'found');
     res.json(result.rows);
   } catch (error) {
     console.error('Get project sections error:', error);
