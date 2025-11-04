@@ -477,14 +477,16 @@ app.post('/api/projects', authenticateToken, async (req, res) => {
           await query(
             `INSERT INTO sections (
               project_id,
+              template_section_id,
               parent_section_id,
               name,
               icon,
-              display_order,
+              order_index,
               allow_subsections
-            ) VALUES ($1, $2, $3, $4, $5, $6)`,
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
             [
               project.id,
+              templateSection.id,
               null, // parent_section_id is null for template sections
               templateSection.name,
               templateSection.icon,
