@@ -460,7 +460,9 @@ app.post('/api/projects', authenticateToken, async (req, res) => {
     // Auto-create sections if template is provided
     if (template) {
       try {
-        console.log('Initializing sections for template:', template);
+        console.log('========================================');
+        console.log('INITIALIZING SECTIONS FOR TEMPLATE:', template);
+        console.log('Project ID:', project.id);
 
         // Get template sections
         const templateSections = await query(
@@ -470,11 +472,14 @@ app.post('/api/projects', authenticateToken, async (req, res) => {
           [template]
         );
 
-        console.log('Found template sections:', templateSections.rows.length);
+        console.log('FOUND TEMPLATE SECTIONS:', templateSections.rows.length);
+        console.log('Template sections data:', JSON.stringify(templateSections.rows, null, 2));
 
         // Create sections for this project
         for (const templateSection of templateSections.rows) {
-          await query(
+          console.log('Inserting section:', templateSection.name);
+
+          const insertResult = await query(
             `INSERT INTO sections (
               project_id,
               template_section_id,
@@ -483,7 +488,8 @@ app.post('/api/projects', authenticateToken, async (req, res) => {
               icon,
               order_index,
               allow_subsections
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING *`,
             [
               project.id,
               templateSection.id,
@@ -494,11 +500,18 @@ app.post('/api/projects', authenticateToken, async (req, res) => {
               templateSection.allow_subsections
             ]
           );
+
+          console.log('Section inserted successfully:', insertResult.rows[0]?.name);
         }
 
-        console.log('Sections initialized successfully');
+        console.log('ALL SECTIONS INITIALIZED SUCCESSFULLY');
+        console.log('========================================');
       } catch (sectionError) {
-        console.error('Error initializing sections:', sectionError);
+        console.error('❌ ERROR INITIALIZING SECTIONS:');
+        console.error('Error message:', sectionError.message);
+        console.error('Error stack:', sectionError.stack);
+        console.error('Full error:', JSON.stringify(sectionError, null, 2));
+        console.error('========================================');
         // Don't fail the project creation if sections fail
       }
     }
