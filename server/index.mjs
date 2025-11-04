@@ -467,8 +467,8 @@ app.post('/api/projects', authenticateToken, async (req, res) => {
         // Get template sections
         const templateSections = await query(
           `SELECT * FROM template_sections
-           WHERE template_name = $1
-           ORDER BY display_order ASC`,
+           WHERE template_id = $1
+           ORDER BY order_index ASC`,
           [template]
         );
 
@@ -485,18 +485,16 @@ app.post('/api/projects', authenticateToken, async (req, res) => {
               template_section_id,
               parent_section_id,
               name,
-              icon,
               order_index,
               allow_subsections
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+            ) VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING *`,
             [
               project.id,
               templateSection.id,
               null, // parent_section_id is null for template sections
               templateSection.name,
-              templateSection.icon,
-              templateSection.display_order,
+              templateSection.order_index,
               templateSection.allow_subsections
             ]
           );
