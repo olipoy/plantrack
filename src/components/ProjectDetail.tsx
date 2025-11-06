@@ -504,26 +504,28 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
             </div>
           </div>
 
-          {/* Camera Actions */}
-          <div className="bg-white rounded-lg p-4 shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900 mb-3">Lägg till dokumentation</h2>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => setCurrentView('camera-photo')}
-                className="flex flex-col items-center p-4 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
-              >
-                <div className="w-8 h-8 mb-2">📷</div>
-                <span className="text-sm font-medium">Ta foto</span>
-              </button>
-              <button
-                onClick={() => setCurrentView('text-note')}
-                className="flex flex-col items-center p-4 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors"
-              >
-                <div className="w-8 h-8 mb-2">📝</div>
-                <span className="text-sm font-medium">Anteckning</span>
-              </button>
+          {/* Camera Actions - Hidden for Besiktningsprotokoll template */}
+          {project.template !== 'besiktningsprotokoll' && (
+            <div className="bg-white rounded-lg p-4 shadow-sm">
+              <h2 className="text-lg font-semibold text-gray-900 mb-3">Lägg till dokumentation</h2>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => setCurrentView('camera-photo')}
+                  className="flex flex-col items-center p-4 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                >
+                  <div className="w-8 h-8 mb-2">📷</div>
+                  <span className="text-sm font-medium">Ta foto</span>
+                </button>
+                <button
+                  onClick={() => setCurrentView('text-note')}
+                  className="flex flex-col items-center p-4 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors"
+                >
+                  <div className="w-8 h-8 mb-2">📝</div>
+                  <span className="text-sm font-medium">Anteckning</span>
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Sections (for template-based projects) or Notes (for non-template projects) */}
           {project.template === 'besiktningsprotokoll' ? (
