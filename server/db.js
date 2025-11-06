@@ -280,16 +280,22 @@ const projectDb = {
     if (!orgId) {
       return [];
     }
-    
+
     const result = await query(
-      `SELECT p.*, 
+      `SELECT p.id, p.user_id, p.name, p.description, p.location, p.byggnad, p.inspector,
+       p.project_date, p.template_id, p.org_id, p.created_at, p.updated_at,
        (SELECT COUNT(*) FROM notes WHERE project_id = p.id) as note_count,
        (SELECT content FROM summaries WHERE project_id = p.id ORDER BY updated_at DESC LIMIT 1) as ai_summary
-       FROM projects p 
-       WHERE p.org_id = $1 
+       FROM projects p
+       WHERE p.org_id = $1
        ORDER BY p.updated_at DESC`,
       [orgId]
     );
+    console.log('getUserProjects: Sample project with template_id:', result.rows[0] ? {
+      id: result.rows[0].id,
+      name: result.rows[0].name,
+      template_id: result.rows[0].template_id
+    } : 'No projects found');
     return result.rows;
   },
 
@@ -303,12 +309,14 @@ const projectDb = {
     }
 
     const result = await query(
-      `SELECT p.*,
+      `SELECT p.id, p.user_id, p.name, p.description, p.location, p.byggnad, p.inspector,
+       p.project_date, p.template_id, p.org_id, p.created_at, p.updated_at,
        (SELECT content FROM summaries WHERE project_id = p.id ORDER BY updated_at DESC LIMIT 1) as ai_summary
        FROM projects p
        WHERE p.id = $1 AND p.org_id = $2`,
       [projectId, orgId]
     );
+    console.log('getProjectById: Project template_id:', result.rows[0] ? result.rows[0].template_id : 'Project not found');
     return result.rows[0];
   },
 

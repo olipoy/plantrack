@@ -528,6 +528,11 @@ app.post('/api/projects', authenticateToken, async (req, res) => {
 app.get('/api/projects', authenticateToken, async (req, res) => {
   try {
     const projects = await projectDb.getUserProjects(req.user.id);
+    console.log('API /api/projects response - sample project:', projects[0] ? {
+      id: projects[0].id,
+      name: projects[0].name,
+      template_id: projects[0].template_id
+    } : 'No projects');
     res.json(projects);
   } catch (error) {
     console.error('Get projects error:', error);
@@ -547,7 +552,11 @@ app.get('/api/projects/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Project not found' });
     }
 
-    console.log('Project found:', project);
+    console.log('Project found:', {
+      id: project.id,
+      name: project.name,
+      template_id: project.template_id
+    });
 
     // Get notes for this project
     const notes = await noteDb.getProjectNotes(req.params.id);
