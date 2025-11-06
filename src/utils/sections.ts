@@ -1,7 +1,24 @@
 import { TemplateSection, Section } from '../types';
 import { getToken } from './auth';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const getApiBaseUrl = () => {
+  // In development, use local server
+  if (import.meta.env.DEV) {
+    return 'http://localhost:3001';
+  }
+
+  // In production, check for explicit API URL first
+  if (import.meta.env.VITE_API_URL) {
+    const apiUrl = import.meta.env.VITE_API_URL;
+    // Clean up the URL to avoid double slashes
+    return apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
+  }
+
+  // Fallback to same origin (for Railway deployment where frontend and backend are served together)
+  return '';
+};
+
+const API_URL = getApiBaseUrl();
 
 export async function getTemplateSections(templateId: string): Promise<TemplateSection[]> {
   const token = getToken();

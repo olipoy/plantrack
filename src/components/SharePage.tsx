@@ -26,7 +26,16 @@ export const SharePage: React.FC = () => {
 
     const loadShareData = async () => {
       try {
-        const API_BASE_URL = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
+        const getApiBaseUrl = () => {
+          if (import.meta.env.DEV) return 'http://localhost:3001/api';
+          if (import.meta.env.VITE_API_URL) {
+            const apiUrl = import.meta.env.VITE_API_URL;
+            const cleanUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
+            return `${cleanUrl}/api`;
+          }
+          return '/api';
+        };
+        const API_BASE_URL = getApiBaseUrl();
         const response = await fetch(`${API_BASE_URL}/share/${token}`);
         
         if (response.status === 404) {
