@@ -763,6 +763,9 @@ app.get('/api/projects/:projectId/sections', authenticateToken, async (req, res)
   try {
     const { projectId } = req.params;
 
+    console.log('DEBUG req.user.org_id:', req.user.org_id, 'type:', typeof req.user.org_id);
+    console.log('DEBUG req.user:', JSON.stringify(req.user, null, 2));
+
     // Verify project access using org_id from req.user
     const project = await projectDb.getProjectById(projectId, req.user.id, req.user.org_id);
     if (!project) {
