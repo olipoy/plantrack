@@ -14,6 +14,7 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getObjectStream, presign, isS3Available, getBucketName } from './s3.js';
 import https from 'https';
 import http from 'http';
+import ffmpeg from 'fluent-ffmpeg';
 
 // Polyfill for OpenAI library File upload support
 import { File } from 'node:buffer';
@@ -934,6 +935,35 @@ async function fetchImageAsBuffer(url) {
   });
 }
 
+/**
+ * Convert audio file to MP3 format using FFmpeg for better OpenAI compatibility
+ * @param {string} inputPath - Path to input audio file
+ * @returns {Promise<string>} - Path to converted MP3 file
+ */
+async function convertAudioToMP3(inputPath) {
+  return new Promise((resolve, reject) => {
+    const outputPath = inputPath.replace(/\.[^.]+$/, '_converted.mp3');
+
+    console.log('Converting audio to MP3:', inputPath, '->', outputPath);
+
+    ffmpeg(inputPath)
+      .toFormat('mp3')
+      .audioCodec('libmp3lame')
+      .audioChannels(1) // Mono for smaller file size
+      .audioFrequency(16000) // 16kHz sample rate (sufficient for speech)
+      .audioBitrate('64k') // Reasonable bitrate for voice
+      .on('end', () => {
+        console.log('Audio conversion completed');
+        resolve(outputPath);
+      })
+      .on('error', (err) => {
+        console.error('Audio conversion failed:', err);
+        reject(err);
+      })
+      .save(outputPath);
+  });
+}
+
 // Generate project report (PDF)
 app.post('/api/projects/:id/generate-report', authenticateToken, async (req, res) => {
   try {
@@ -1433,26 +1463,69 @@ app.post('/api/transcribe-audio', authenticateToken, upload.single('file'), asyn
       return res.status(400).json({ error: 'Audio file is required' });
     }
 
+    let audioFilePath = file.path;
+    let convertedFilePath = null;
+
     try {
       console.log('Starting audio transcription...');
-      const audioStream = createReadStream(file.path);
+      console.log('Original file:', { mimetype: file.mimetype, size: file.size, path: file.path });
 
-      const response = await openai.audio.transcriptions.create({
-        file: audioStream,
-        model: 'whisper-1',
-        language: 'sv',
-        response_format: 'text',
-        temperature: 0.2
-      });
+      // Try conversion if webm or if first attempt fails
+      let shouldConvert = file.mimetype.includes('webm') || file.mimetype.includes('ogg');
+      let transcription = '';
+      let transcriptionError = null;
 
-      const transcription = response?.trim() || '';
-      console.log('Audio transcription completed:', transcription.substring(0, 100));
+      if (!shouldConvert) {
+        // Try direct transcription first
+        try {
+          const audioStream = createReadStream(audioFilePath);
+          const response = await openai.audio.transcriptions.create({
+            file: audioStream,
+            model: 'whisper-1',
+            language: 'sv',
+            response_format: 'text',
+            temperature: 0.2
+          });
+          transcription = response?.trim() || '';
+          console.log('Direct audio transcription completed:', transcription.substring(0, 100));
+        } catch (directError) {
+          console.log('Direct transcription failed, will try conversion:', directError.message);
+          shouldConvert = true;
+          transcriptionError = directError;
+        }
+      }
 
-      // Clean up temporary file
+      // If we should convert or direct failed, try converting to MP3
+      if (shouldConvert && !transcription) {
+        console.log('Converting audio to MP3 for better compatibility...');
+        try {
+          convertedFilePath = await convertAudioToMP3(audioFilePath);
+          const convertedStream = createReadStream(convertedFilePath);
+
+          const response = await openai.audio.transcriptions.create({
+            file: convertedStream,
+            model: 'whisper-1',
+            language: 'sv',
+            response_format: 'text',
+            temperature: 0.2
+          });
+
+          transcription = response?.trim() || '';
+          console.log('Converted audio transcription completed:', transcription.substring(0, 100));
+        } catch (conversionError) {
+          console.error('Conversion and transcription failed:', conversionError);
+          throw transcriptionError || conversionError;
+        }
+      }
+
+      // Clean up temporary files
       try {
-        await fs.unlink(file.path);
+        await fs.unlink(audioFilePath);
+        if (convertedFilePath) {
+          await fs.unlink(convertedFilePath);
+        }
       } catch (error) {
-        console.warn('Failed to clean up temporary file:', error);
+        console.warn('Failed to clean up temporary files:', error);
       }
 
       return res.json({
@@ -1608,21 +1681,66 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
     } else if (noteType === 'text') {
       // Handle text notes with optional voice recording
       if (file.mimetype.startsWith('audio/')) {
+        let audioFilePath = tempFilePath;
+        let convertedFilePath = null;
+
         try {
           console.log('Starting audio transcription for text note...');
+          console.log('Audio file:', { mimetype: file.mimetype, size: file.size });
 
-          const audioStream = createReadStream(tempFilePath);
+          // Try conversion if webm or if first attempt fails
+          let shouldConvert = file.mimetype.includes('webm') || file.mimetype.includes('ogg');
+          let transcriptionError = null;
 
-          const response = await openai.audio.transcriptions.create({
-            file: audioStream,
-            model: 'whisper-1',
-            language: 'sv',
-            response_format: 'text',
-            temperature: 0.2
-          });
+          if (!shouldConvert) {
+            // Try direct transcription first
+            try {
+              const audioStream = createReadStream(audioFilePath);
+              const response = await openai.audio.transcriptions.create({
+                file: audioStream,
+                model: 'whisper-1',
+                language: 'sv',
+                response_format: 'text',
+                temperature: 0.2
+              });
+              transcription = response?.trim() || '';
+              console.log('Direct audio transcription completed:', transcription.substring(0, 100));
+            } catch (directError) {
+              console.log('Direct transcription failed, will try conversion:', directError.message);
+              shouldConvert = true;
+              transcriptionError = directError;
+            }
+          }
 
-          transcription = response?.trim() || '';
-          console.log('Audio transcription completed:', transcription.substring(0, 100));
+          // If we should convert or direct failed, try converting to MP3
+          if (shouldConvert && !transcription) {
+            console.log('Converting audio to MP3 for better compatibility...');
+            try {
+              convertedFilePath = await convertAudioToMP3(audioFilePath);
+              const convertedStream = createReadStream(convertedFilePath);
+
+              const response = await openai.audio.transcriptions.create({
+                file: convertedStream,
+                model: 'whisper-1',
+                language: 'sv',
+                response_format: 'text',
+                temperature: 0.2
+              });
+
+              transcription = response?.trim() || '';
+              console.log('Converted audio transcription completed:', transcription.substring(0, 100));
+
+              // Clean up converted file
+              try {
+                await fs.unlink(convertedFilePath);
+              } catch (cleanupError) {
+                console.warn('Failed to clean up converted file:', cleanupError);
+              }
+            } catch (conversionError) {
+              console.error('Conversion and transcription failed:', conversionError);
+              throw transcriptionError || conversionError;
+            }
+          }
         } catch (error) {
           console.error('Audio transcription failed:', error);
           transcription = 'Ljudinspelning (transkription misslyckades)';

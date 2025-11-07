@@ -55,18 +55,31 @@ export const TextNoteModal: React.FC<TextNoteModalProps> = ({
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
 
-      // Check for supported audio codec with fallbacks
-      let audioMimeType = 'audio/webm;codecs=opus';
-      if (!MediaRecorder.isTypeSupported(audioMimeType)) {
-        audioMimeType = 'audio/webm';
-      }
-      if (!MediaRecorder.isTypeSupported(audioMimeType)) {
+      // Check for supported audio codec with fallbacks (OpenAI Whisper compatible formats)
+      // Priority: mp4/m4a (better Android support) -> webm+opus -> webm -> fallback
+      let audioMimeType = '';
+      let audioExtension = 'webm';
+
+      // Try mp4/m4a first (best compatibility with OpenAI)
+      if (MediaRecorder.isTypeSupported('audio/mp4')) {
         audioMimeType = 'audio/mp4';
-      }
-      if (!MediaRecorder.isTypeSupported(audioMimeType)) {
-        // Last resort - let browser choose
+        audioExtension = 'm4a';
+      } else if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+        audioMimeType = 'audio/webm;codecs=opus';
+        audioExtension = 'webm';
+      } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+        audioMimeType = 'audio/webm';
+        audioExtension = 'webm';
+      } else if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
+        audioMimeType = 'audio/ogg;codecs=opus';
+        audioExtension = 'ogg';
+      } else {
+        // Last resort - let browser choose, assume webm
         audioMimeType = '';
+        audioExtension = 'webm';
       }
+
+      console.log('Voice recording format:', audioMimeType || 'browser-default', 'extension:', audioExtension);
 
       const recorderOptions = audioMimeType ? { mimeType: audioMimeType } : {};
       const mediaRecorder = new MediaRecorder(stream, recorderOptions);
@@ -81,9 +94,10 @@ export const TextNoteModal: React.FC<TextNoteModalProps> = ({
       };
 
       mediaRecorder.onstop = async () => {
-        const blobType = audioMimeType || 'audio/webm';
-        const audioBlob = new Blob(audioChunksRef.current, { type: blobType });
-        await handleAudioUpload(audioBlob);
+        const actualMimeType = audioMimeType || mediaRecorder.mimeType || 'audio/webm';
+        const actualExtension = audioExtension;
+        const audioBlob = new Blob(audioChunksRef.current, { type: actualMimeType });
+        await handleAudioUpload(audioBlob, actualMimeType, actualExtension);
       };
 
       mediaRecorder.start();
@@ -116,18 +130,19 @@ export const TextNoteModal: React.FC<TextNoteModalProps> = ({
     }
   };
 
-  const handleAudioUpload = async (audioBlob: Blob) => {
+  const handleAudioUpload = async (audioBlob: Blob, mimeType: string, extension: string) => {
     setIsTranscribing(true);
     setError('');
 
     try {
-      const fileName = `voice_${Date.now()}.webm`;
-      const file = new File([audioBlob], fileName, { type: 'audio/webm' });
+      const fileName = `voice_${Date.now()}.${extension}`;
+      const file = new File([audioBlob], fileName, { type: mimeType });
 
       console.log('Uploading voice note:', {
         name: fileName,
         type: file.type,
         size: file.size,
+        mimeType: mimeType,
         projectId
       });
 
