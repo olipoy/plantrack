@@ -55,9 +55,21 @@ export const TextNoteModal: React.FC<TextNoteModalProps> = ({
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
 
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm'
-      });
+      // Check for supported audio codec with fallbacks
+      let audioMimeType = 'audio/webm;codecs=opus';
+      if (!MediaRecorder.isTypeSupported(audioMimeType)) {
+        audioMimeType = 'audio/webm';
+      }
+      if (!MediaRecorder.isTypeSupported(audioMimeType)) {
+        audioMimeType = 'audio/mp4';
+      }
+      if (!MediaRecorder.isTypeSupported(audioMimeType)) {
+        // Last resort - let browser choose
+        audioMimeType = '';
+      }
+
+      const recorderOptions = audioMimeType ? { mimeType: audioMimeType } : {};
+      const mediaRecorder = new MediaRecorder(stream, recorderOptions);
 
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
@@ -69,7 +81,8 @@ export const TextNoteModal: React.FC<TextNoteModalProps> = ({
       };
 
       mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const blobType = audioMimeType || 'audio/webm';
+        const audioBlob = new Blob(audioChunksRef.current, { type: blobType });
         await handleAudioUpload(audioBlob);
       };
 

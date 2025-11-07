@@ -8,6 +8,7 @@ import { TextNoteModal } from './TextNoteModal';
 import { SectionView } from './SectionView';
 import { loadEmailHistory, saveEmailToHistory, filterEmailHistory } from '../utils/emailHistory';
 import { getProjectSections, organizeSectionsHierarchy } from '../utils/sections';
+import { safeFormatDate, safeFormatFileSize, safeUrl, isValidUrl } from '../utils/formatters';
 
 interface ProjectDetailProps {
   project: { id: string; name: string; [key: string]: any };
@@ -72,9 +73,13 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
     const loadReports = async () => {
       try {
         const projectReports = await getProjectReports(project.id);
-        setReports(projectReports);
+        // Validate reports array before setting state
+        const validReports = Array.isArray(projectReports) ? projectReports : [];
+        setReports(validReports);
       } catch (error) {
         console.error('Failed to load reports:', error);
+        // Set empty array on error to prevent crashes
+        setReports([]);
       }
     };
 
@@ -89,9 +94,13 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
         try {
           const projectSections = await getProjectSections(project.id);
           const organizedSections = organizeSectionsHierarchy(projectSections);
-          setSections(organizedSections);
+          // Validate sections array before setting state
+          const validSections = Array.isArray(organizedSections) ? organizedSections : [];
+          setSections(validSections);
         } catch (error) {
           console.error('Failed to load sections:', error);
+          // Set empty array on error to prevent crashes
+          setSections([]);
         } finally {
           setIsLoadingSections(false);
         }
@@ -261,7 +270,10 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
     try {
       const result = await generateProjectReport(project.id);
       const updatedReports = await getProjectReports(project.id);
-      setReports(updatedReports);
+
+      // Validate reports before setting state
+      const validReports = Array.isArray(updatedReports) ? updatedReports : [];
+      setReports(validReports);
     } catch (error) {
       console.error('Failed to generate report:', error);
       alert(`Kunde inte skapa rapport: ${error instanceof Error ? error.message : 'Okänt fel'}`);
@@ -656,11 +668,11 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                           </span>
                         </div>
                         <p className="text-xs text-gray-500">
-                          {new Date(report.created_at).toLocaleString('sv-SE')}
+                          {safeFormatDate(report.created_at, 'sv-SE', 'Okänt datum')}
                         </p>
                         {report.file_size && (
                           <p className="text-xs text-gray-500">
-                            {(report.file_size / 1024 / 1024).toFixed(2)} MB
+                            {safeFormatFileSize(report.file_size, 'Okänd storlek')}
                           </p>
                         )}
                       </div>
@@ -674,15 +686,22 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                     </div>
 
                     <div className="flex space-x-2 mt-3">
-                      <a
-                        href={report.signed_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 flex items-center justify-center px-4 py-2 text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors text-sm"
-                      >
-                        <ExternalLink className="w-4 h-4 mr-1" />
-                        Visa rapport
-                      </a>
+                      {isValidUrl(report.signed_url) ? (
+                        <a
+                          href={safeUrl(report.signed_url)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1 flex items-center justify-center px-4 py-2 text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors text-sm"
+                        >
+                          <ExternalLink className="w-4 h-4 mr-1" />
+                          Visa rapport
+                        </a>
+                      ) : (
+                        <div className="flex-1 flex items-center justify-center px-4 py-2 text-gray-400 border border-gray-300 rounded-lg bg-gray-50 text-sm">
+                          <AlertCircle className="w-4 h-4 mr-1" />
+                          URL saknas
+                        </div>
+                      )}
                       <button
                         onClick={() => handleOpenReportEmailModal(report)}
                         className="flex-1 flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"

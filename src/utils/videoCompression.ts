@@ -45,8 +45,26 @@ export const compressVideoBlob = async (
 
       // Set up MediaRecorder for compression
       const stream = canvas.captureStream(15); // 15 fps
+
+      // Check for supported video codec with fallbacks
+      let videoMimeType = 'video/webm;codecs=vp8,opus';
+      if (!MediaRecorder.isTypeSupported(videoMimeType)) {
+        videoMimeType = 'video/webm;codecs=vp9,opus';
+      }
+      if (!MediaRecorder.isTypeSupported(videoMimeType)) {
+        videoMimeType = 'video/webm;codecs=vp8';
+      }
+      if (!MediaRecorder.isTypeSupported(videoMimeType)) {
+        videoMimeType = 'video/webm';
+      }
+      if (!MediaRecorder.isTypeSupported(videoMimeType)) {
+        // Fallback failed - reject with clear error
+        reject(new Error('No supported video codec found for compression'));
+        return;
+      }
+
       const recorder = new MediaRecorder(stream, {
-        mimeType: 'video/webm;codecs=vp8,opus',
+        mimeType: videoMimeType,
         videoBitsPerSecond: calculateBitrate(width, height),
         audioBitsPerSecond: 64000
       });

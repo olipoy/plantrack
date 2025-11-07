@@ -351,9 +351,21 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       voiceStreamRef.current = stream;
 
-      const recorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm'
-      });
+      // Check for supported audio codec with fallbacks
+      let audioMimeType = 'audio/webm;codecs=opus';
+      if (!MediaRecorder.isTypeSupported(audioMimeType)) {
+        audioMimeType = 'audio/webm';
+      }
+      if (!MediaRecorder.isTypeSupported(audioMimeType)) {
+        audioMimeType = 'audio/mp4';
+      }
+      if (!MediaRecorder.isTypeSupported(audioMimeType)) {
+        // Last resort - let browser choose
+        audioMimeType = '';
+      }
+
+      const recorderOptions = audioMimeType ? { mimeType: audioMimeType } : {};
+      const recorder = new MediaRecorder(stream, recorderOptions);
 
       voiceRecorderRef.current = recorder;
       voiceChunksRef.current = [];
@@ -365,7 +377,8 @@ export const CameraView: React.FC<CameraViewProps> = ({ projectId, mode, onBack,
       };
 
       recorder.onstop = async () => {
-        const audioBlob = new Blob(voiceChunksRef.current, { type: 'audio/webm' });
+        const blobType = audioMimeType || 'audio/webm';
+        const audioBlob = new Blob(voiceChunksRef.current, { type: blobType });
         await handleVoiceUpload(audioBlob);
       };
 

@@ -127,18 +127,23 @@ export const NewProject: React.FC<NewProjectProps> = ({ onBack, onProjectCreated
         selectedTemplate
       );
 
-      // Convert backend response to frontend Project format
+      // Validate response data before processing
+      if (!projectData || !projectData.id) {
+        throw new Error('Invalid response from server');
+      }
+
+      // Convert backend response to frontend Project format with safe date parsing
       const project: Project = {
         id: projectData.id,
-        name: projectData.name,
-        location: projectData.location || '',
-        date: new Date(projectData.project_date || projectData.created_at),
-        inspector: projectData.inspector || '',
-        createdAt: new Date(projectData.created_at),
-        updatedAt: new Date(projectData.updated_at || projectData.created_at),
+        name: projectData.name || name.trim(),
+        location: projectData.location || address.trim(),
+        date: projectData.project_date ? new Date(projectData.project_date) : new Date(date),
+        inspector: projectData.inspector || inspector.trim(),
+        createdAt: projectData.created_at ? new Date(projectData.created_at) : new Date(),
+        updatedAt: projectData.updated_at ? new Date(projectData.updated_at) : new Date(),
         notes: [],
-        aiSummary: projectData.ai_summary,
-        template: projectData.template_id || null
+        aiSummary: projectData.ai_summary || undefined,
+        template: projectData.template_id || selectedTemplate || null
       };
 
       onProjectCreated(project);

@@ -9,6 +9,7 @@ import { AuthForm } from './components/AuthForm';
 import { InviteAcceptPage } from './components/InviteAcceptPage';
 import { OrganizationSettings } from './components/OrganizationSettings';
 import { SharePage } from './components/SharePage';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { populateWithMockData } from './utils/storage';
 import { getUserProjects, getProjectById } from './utils/api';
 import { ClipboardList, Plus, FolderOpen, Bot, LogOut, User, Settings, X } from 'lucide-react';
@@ -19,14 +20,16 @@ type Tab = 'projects' | 'ai';
 
 function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path="/invite/:token" element={<InviteAcceptPage />} />
-        <Route path="/share/:token" element={<SharePage />} />
-        <Route path="/login" element={<AuthForm onAuthSuccess={() => window.location.href = '/'} />} />
-        <Route path="/*" element={<MainApp />} />
-      </Routes>
-    </Router>
+    <ErrorBoundary>
+      <Router>
+        <Routes>
+          <Route path="/invite/:token" element={<InviteAcceptPage />} />
+          <Route path="/share/:token" element={<SharePage />} />
+          <Route path="/login" element={<AuthForm onAuthSuccess={() => window.location.href = '/'} />} />
+          <Route path="/*" element={<MainApp />} />
+        </Routes>
+      </Router>
+    </ErrorBoundary>
   );
 }
 
