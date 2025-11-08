@@ -1470,13 +1470,16 @@ app.post('/api/transcribe-audio', authenticateToken, upload.single('file'), asyn
       console.log('Starting audio transcription...');
       console.log('Original file:', { mimetype: file.mimetype, size: file.size, path: file.path });
 
-      // Try conversion if webm or if first attempt fails
-      let shouldConvert = file.mimetype.includes('webm') || file.mimetype.includes('ogg');
-      let transcription = '';
-      let transcriptionError = null;
+      // OpenAI Whisper API supports: flac, mp3, mp4, mpeg, mpga, m4a, ogg, wav, webm
+      // All these formats should be sent directly without conversion
+      const openAISupportedFormats = ['flac', 'mp3', 'mp4', 'mpeg', 'mpga', 'm4a', 'ogg', 'wav', 'webm'];
+      const isSupported = openAISupportedFormats.some(format => file.mimetype.includes(format));
 
-      if (!shouldConvert) {
-        // Try direct transcription first
+      let transcription = '';
+
+      if (isSupported) {
+        // Format is supported by OpenAI - send directly
+        console.log('Format is OpenAI-supported, transcribing directly...');
         try {
           const audioStream = createReadStream(audioFilePath);
           const response = await openai.audio.transcriptions.create({
@@ -1489,15 +1492,12 @@ app.post('/api/transcribe-audio', authenticateToken, upload.single('file'), asyn
           transcription = response?.trim() || '';
           console.log('Direct audio transcription completed:', transcription.substring(0, 100));
         } catch (directError) {
-          console.log('Direct transcription failed, will try conversion:', directError.message);
-          shouldConvert = true;
-          transcriptionError = directError;
+          console.error('Direct transcription failed:', directError);
+          throw directError;
         }
-      }
-
-      // If we should convert or direct failed, try converting to MP3
-      if (shouldConvert && !transcription) {
-        console.log('Converting audio to MP3 for better compatibility...');
+      } else {
+        // Unsupported format - need conversion (requires FFmpeg)
+        console.log('Format not directly supported, attempting MP3 conversion...');
         try {
           convertedFilePath = await convertAudioToMP3(audioFilePath);
           const convertedStream = createReadStream(convertedFilePath);
@@ -1514,7 +1514,8 @@ app.post('/api/transcribe-audio', authenticateToken, upload.single('file'), asyn
           console.log('Converted audio transcription completed:', transcription.substring(0, 100));
         } catch (conversionError) {
           console.error('Conversion and transcription failed:', conversionError);
-          throw transcriptionError || conversionError;
+          console.error('FFmpeg may not be installed. Supported formats: flac, mp3, mp4, mpeg, mpga, m4a, ogg, wav, webm');
+          throw conversionError;
         }
       }
 
@@ -1688,12 +1689,14 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
           console.log('Starting audio transcription for text note...');
           console.log('Audio file:', { mimetype: file.mimetype, size: file.size });
 
-          // Try conversion if webm or if first attempt fails
-          let shouldConvert = file.mimetype.includes('webm') || file.mimetype.includes('ogg');
-          let transcriptionError = null;
+          // OpenAI Whisper API supports: flac, mp3, mp4, mpeg, mpga, m4a, ogg, wav, webm
+          // All these formats should be sent directly without conversion
+          const openAISupportedFormats = ['flac', 'mp3', 'mp4', 'mpeg', 'mpga', 'm4a', 'ogg', 'wav', 'webm'];
+          const isSupported = openAISupportedFormats.some(format => file.mimetype.includes(format));
 
-          if (!shouldConvert) {
-            // Try direct transcription first
+          if (isSupported) {
+            // Format is supported by OpenAI - send directly
+            console.log('Format is OpenAI-supported, transcribing directly...');
             try {
               const audioStream = createReadStream(audioFilePath);
               const response = await openai.audio.transcriptions.create({
@@ -1706,15 +1709,12 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
               transcription = response?.trim() || '';
               console.log('Direct audio transcription completed:', transcription.substring(0, 100));
             } catch (directError) {
-              console.log('Direct transcription failed, will try conversion:', directError.message);
-              shouldConvert = true;
-              transcriptionError = directError;
+              console.error('Direct transcription failed:', directError);
+              throw directError;
             }
-          }
-
-          // If we should convert or direct failed, try converting to MP3
-          if (shouldConvert && !transcription) {
-            console.log('Converting audio to MP3 for better compatibility...');
+          } else {
+            // Unsupported format - need conversion (requires FFmpeg)
+            console.log('Format not directly supported, attempting MP3 conversion...');
             try {
               convertedFilePath = await convertAudioToMP3(audioFilePath);
               const convertedStream = createReadStream(convertedFilePath);
@@ -1738,7 +1738,8 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
               }
             } catch (conversionError) {
               console.error('Conversion and transcription failed:', conversionError);
-              throw transcriptionError || conversionError;
+              console.error('FFmpeg may not be installed. Supported formats: flac, mp3, mp4, mpeg, mpga, m4a, ogg, wav, webm');
+              throw conversionError;
             }
           }
         } catch (error) {
