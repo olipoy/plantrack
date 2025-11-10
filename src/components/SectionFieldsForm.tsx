@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Mic, Save, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 import { getSectionFields, saveSectionField, SectionField } from '../utils/api';
+import { getToken } from '../utils/auth';
 
 interface FieldDefinition {
   name: string;
@@ -150,12 +151,16 @@ export const SectionFieldsForm: React.FC<SectionFieldsFormProps> = ({
   const uploadAudio = async (fieldName: string, audioBlob: Blob) => {
     try {
       setSaving(fieldName);
+      const token = getToken();
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
       const formData = new FormData();
       formData.append('file', audioBlob, 'recording.webm');
       formData.append('projectId', projectId);
       formData.append('noteType', 'voice');
 
-      const token = localStorage.getItem('token');
       const API_BASE_URL = import.meta.env.DEV
         ? 'http://localhost:3001/api'
         : import.meta.env.VITE_API_URL
