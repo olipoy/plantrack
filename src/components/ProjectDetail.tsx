@@ -560,18 +560,19 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
 
                     return (
                       <React.Fragment key={section.id}>
-                        {hasFields && (
+                        {hasFields ? (
                           <SectionFieldsForm
                             sectionId={section.id}
                             sectionName={section.name}
                             projectId={project.id}
                           />
+                        ) : (
+                          <SectionView
+                            section={section}
+                            notes={project.notes || []}
+                            onNoteClick={handleNoteClick}
+                          />
                         )}
-                        <SectionView
-                          section={section}
-                          notes={project.notes || []}
-                          onNoteClick={handleNoteClick}
-                        />
                       </React.Fragment>
                     );
                   })}
