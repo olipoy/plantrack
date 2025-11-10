@@ -6,6 +6,7 @@ import { CameraView } from './CameraView';
 import { NoteModal } from './NoteModal';
 import { TextNoteModal } from './TextNoteModal';
 import { SectionView } from './SectionView';
+import { SectionFieldsForm } from './SectionFieldsForm';
 import { loadEmailHistory, saveEmailToHistory, filterEmailHistory } from '../utils/emailHistory';
 import { getProjectSections, organizeSectionsHierarchy } from '../utils/sections';
 import { safeFormatDate, safeFormatFileSize, safeUrl, isValidUrl } from '../utils/formatters';
@@ -549,14 +550,31 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                 </div>
               ) : sections.length > 0 ? (
                 <div className="space-y-2">
-                  {sections.map((section) => (
-                    <SectionView
-                      key={section.id}
-                      section={section}
-                      notes={project.notes || []}
-                      onNoteClick={handleNoteClick}
-                    />
-                  ))}
+                  {sections.map((section) => {
+                    const hasFields = [
+                      'Fastighetsuppgifter',
+                      'Byggnadsbeskrivning',
+                      'Besiktningsuppgifter',
+                      'Besiktningsutlåtande'
+                    ].includes(section.name);
+
+                    return (
+                      <React.Fragment key={section.id}>
+                        {hasFields && (
+                          <SectionFieldsForm
+                            sectionId={section.id}
+                            sectionName={section.name}
+                            projectId={project.id}
+                          />
+                        )}
+                        <SectionView
+                          section={section}
+                          notes={project.notes || []}
+                          onNoteClick={handleNoteClick}
+                        />
+                      </React.Fragment>
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="text-sm text-gray-500 text-center py-4">

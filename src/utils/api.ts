@@ -822,3 +822,61 @@ export const sendReportEmail = async (
 
   return response.json();
 };
+
+export interface SectionField {
+  id: number;
+  section_id: number;
+  name: string;
+  value: string;
+  type: 'text' | 'voice';
+  created_at: string;
+  updated_at: string;
+}
+
+export const getSectionFields = async (sectionId: string): Promise<SectionField[]> => {
+  const token = getToken();
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/sections/${sectionId}/fields`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || `Failed to get section fields: ${response.statusText}`);
+  }
+
+  return response.json();
+};
+
+export const saveSectionField = async (
+  sectionId: string,
+  name: string,
+  value: string,
+  type: 'text' | 'voice'
+): Promise<SectionField> => {
+  const token = getToken();
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/sections/${sectionId}/fields`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ name, value, type }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || `Failed to save section field: ${response.statusText}`);
+  }
+
+  return response.json();
+};
