@@ -159,7 +159,7 @@ export const SectionFieldsForm: React.FC<SectionFieldsFormProps> = ({
       const formData = new FormData();
       formData.append('file', audioBlob, 'recording.webm');
       formData.append('projectId', projectId);
-      formData.append('noteType', 'voice');
+      formData.append('noteType', 'text');
 
       const API_BASE_URL = import.meta.env.DEV
         ? 'http://localhost:3001/api'
