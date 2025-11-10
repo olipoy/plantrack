@@ -224,60 +224,66 @@ export const SectionFieldsForm: React.FC<SectionFieldsFormProps> = ({
               <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
             </div>
           ) : (
-            fieldDefinitions.map((field) => (
-              <div key={field.name} className="space-y-1">
-                <label className="block text-sm font-medium text-gray-700">
-                  {field.label}
-                </label>
-                <div className="flex items-center gap-2">
-                  {field.type === 'textarea' ? (
-                    <textarea
-                      value={fields[field.name] || ''}
-                      onChange={(e) => handleFieldChange(field.name, e.target.value)}
-                      onBlur={() => handleBlur(field.name)}
-                      placeholder={field.placeholder}
-                      rows={6}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm resize-none"
-                    />
-                  ) : field.type === 'date' ? (
-                    <input
-                      type="date"
-                      value={fields[field.name] || ''}
-                      onChange={(e) => handleFieldChange(field.name, e.target.value)}
-                      onBlur={() => handleBlur(field.name)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                    />
-                  ) : (
-                    <input
-                      type="text"
-                      value={fields[field.name] || ''}
-                      onChange={(e) => handleFieldChange(field.name, e.target.value)}
-                      onBlur={() => handleBlur(field.name)}
-                      placeholder={field.placeholder}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                    />
-                  )}
-                  <button
-                    onClick={() =>
-                      recording === field.name ? stopRecording() : startRecording(field.name)
-                    }
-                    disabled={saving === field.name || (recording !== null && recording !== field.name)}
-                    className={`flex items-center justify-center w-10 h-10 rounded-lg transition-all flex-shrink-0 ${
-                      recording === field.name
-                        ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse'
-                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                    } disabled:opacity-50 disabled:cursor-not-allowed`}
-                    title={recording === field.name ? 'Stoppa inspelning' : 'Spela in röstinmatning'}
-                  >
-                    {saving === field.name ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
+            fieldDefinitions.map((field) => {
+              const showVoiceButton = sectionName === 'Besiktningsutlåtande';
+
+              return (
+                <div key={field.name} className="space-y-1">
+                  <label className="block text-sm font-medium text-gray-700">
+                    {field.label}
+                  </label>
+                  <div className="flex items-center gap-2">
+                    {field.type === 'textarea' ? (
+                      <textarea
+                        value={fields[field.name] || ''}
+                        onChange={(e) => handleFieldChange(field.name, e.target.value)}
+                        onBlur={() => handleBlur(field.name)}
+                        placeholder={field.placeholder}
+                        rows={6}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm resize-none"
+                      />
+                    ) : field.type === 'date' ? (
+                      <input
+                        type="date"
+                        value={fields[field.name] || ''}
+                        onChange={(e) => handleFieldChange(field.name, e.target.value)}
+                        onBlur={() => handleBlur(field.name)}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      />
                     ) : (
-                      <Mic className="w-4 h-4" />
+                      <input
+                        type="text"
+                        value={fields[field.name] || ''}
+                        onChange={(e) => handleFieldChange(field.name, e.target.value)}
+                        onBlur={() => handleBlur(field.name)}
+                        placeholder={field.placeholder}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      />
                     )}
-                  </button>
+                    {showVoiceButton && (
+                      <button
+                        onClick={() =>
+                          recording === field.name ? stopRecording() : startRecording(field.name)
+                        }
+                        disabled={saving === field.name || (recording !== null && recording !== field.name)}
+                        className={`flex items-center justify-center w-10 h-10 rounded-lg transition-all flex-shrink-0 ${
+                          recording === field.name
+                            ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse'
+                            : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                        } disabled:opacity-50 disabled:cursor-not-allowed`}
+                        title={recording === field.name ? 'Stoppa inspelning' : 'Spela in röstinmatning'}
+                      >
+                        {saving === field.name ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Mic className="w-4 h-4" />
+                        )}
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       )}
