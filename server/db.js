@@ -798,6 +798,79 @@ const reportDb = {
   }
 };
 
+// Section field-related database functions
+const sectionFieldDb = {
+  // Get all fields for a section
+  async getFieldsBySectionId(sectionId) {
+    const result = await query(
+      `SELECT id, section_id, name, value, type, created_at, updated_at
+       FROM section_fields
+       WHERE section_id = $1
+       ORDER BY created_at ASC`,
+      [sectionId]
+    );
+    return result.rows;
+  },
+
+  // Get a specific field by id
+  async getFieldById(fieldId) {
+    const result = await query(
+      `SELECT id, section_id, name, value, type, created_at, updated_at
+       FROM section_fields
+       WHERE id = $1`,
+      [fieldId]
+    );
+    return result.rows[0];
+  },
+
+  // Create a new field
+  async createField(sectionId, name, value, type) {
+    const result = await query(
+      `INSERT INTO section_fields (section_id, name, value, type, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, NOW(), NOW())
+       RETURNING *`,
+      [sectionId, name, value, type]
+    );
+    return result.rows[0];
+  },
+
+  // Update an existing field
+  async updateField(fieldId, value) {
+    const result = await query(
+      `UPDATE section_fields
+       SET value = $1, updated_at = NOW()
+       WHERE id = $2
+       RETURNING *`,
+      [value, fieldId]
+    );
+    return result.rows[0];
+  },
+
+  // Update or create a field by section_id and name
+  async upsertField(sectionId, name, value, type) {
+    const result = await query(
+      `INSERT INTO section_fields (section_id, name, value, type, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, NOW(), NOW())
+       ON CONFLICT (section_id, name)
+       DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+       RETURNING *`,
+      [sectionId, name, value, type]
+    );
+    return result.rows[0];
+  },
+
+  // Delete a field
+  async deleteField(fieldId) {
+    const result = await query(
+      `DELETE FROM section_fields
+       WHERE id = $1
+       RETURNING *`,
+      [fieldId]
+    );
+    return result.rows[0];
+  }
+};
+
 // Named exports
 export {
   query,
@@ -808,6 +881,7 @@ export {
   noteDb,
   summaryDb,
   reportDb,
+  sectionFieldDb,
   createNoteShare,
   findActiveShareForNote,
   getShareByToken,

@@ -22,7 +22,7 @@ globalThis.File = File;
 
 // Import authentication and database modules (ESM)
 import { authenticateToken, registerUser, loginUser } from './auth.js';
-import { query, organizationDb, userDb, projectDb, noteDb, summaryDb, reportDb, createNoteShare, findActiveShareForNote, getShareByToken, generateSignedUrl } from './db.js';
+import { query, organizationDb, userDb, projectDb, noteDb, summaryDb, reportDb, sectionFieldDb, createNoteShare, findActiveShareForNote, getShareByToken, generateSignedUrl } from './db.js';
 
 // Load environment variables
 dotenv.config();
@@ -913,6 +913,98 @@ app.delete('/api/sections/:id', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Delete section error:', error);
     res.status(500).json({ error: 'Failed to delete section' });
+  }
+});
+
+// ========== Section Fields Endpoints ==========
+
+// Get all fields for a section
+app.get('/api/sections/:id/fields', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Verify section access through project ownership
+    const sectionCheck = await query(
+      `SELECT s.*, p.user_id, p.template_id
+       FROM sections s
+       JOIN projects p ON s.project_id = p.id
+       WHERE s.id = $1`,
+      [id]
+    );
+
+    if (sectionCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Section not found' });
+    }
+
+    const section = sectionCheck.rows[0];
+
+    // Verify user has access to this section's project
+    if (section.user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    // Only allow fields for besiktningsprotokoll template
+    if (section.template_id !== 'besiktningsprotokoll') {
+      return res.status(400).json({ error: 'Fields are only supported for besiktningsprotokoll template' });
+    }
+
+    // Get all fields for this section
+    const fields = await sectionFieldDb.getFieldsBySectionId(id);
+
+    res.json(fields);
+  } catch (error) {
+    console.error('Get section fields error:', error);
+    res.status(500).json({ error: 'Failed to get section fields' });
+  }
+});
+
+// Create or update a field for a section
+app.post('/api/sections/:id/fields', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, value, type } = req.body;
+
+    // Validate required fields
+    if (!name || value === undefined || value === null) {
+      return res.status(400).json({ error: 'Field name and value are required' });
+    }
+
+    if (!type || !['text', 'voice'].includes(type)) {
+      return res.status(400).json({ error: 'Field type must be either "text" or "voice"' });
+    }
+
+    // Verify section access through project ownership
+    const sectionCheck = await query(
+      `SELECT s.*, p.user_id, p.template_id
+       FROM sections s
+       JOIN projects p ON s.project_id = p.id
+       WHERE s.id = $1`,
+      [id]
+    );
+
+    if (sectionCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Section not found' });
+    }
+
+    const section = sectionCheck.rows[0];
+
+    // Verify user has access to this section's project
+    if (section.user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    // Only allow fields for besiktningsprotokoll template
+    if (section.template_id !== 'besiktningsprotokoll') {
+      return res.status(400).json({ error: 'Fields are only supported for besiktningsprotokoll template' });
+    }
+
+    // Upsert the field (create or update based on section_id + name)
+    const field = await sectionFieldDb.upsertField(id, name, value, type);
+
+    res.status(201).json(field);
+  } catch (error) {
+    console.error('Create/update section field error:', error);
+    res.status(500).json({ error: 'Failed to create/update section field' });
   }
 });
 
