@@ -34,6 +34,8 @@ export const SubsectionItem: React.FC<SubsectionItemProps> = ({
   const [photoComment, setPhotoComment] = useState('');
   const [isRecordingPhotoVoice, setIsRecordingPhotoVoice] = useState(false);
   const [photoVoiceRecordingTime, setPhotoVoiceRecordingTime] = useState(0);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [voiceAudioFile, setVoiceAudioFile] = useState<File | null>(null);
 
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
@@ -178,6 +180,16 @@ export const SubsectionItem: React.FC<SubsectionItemProps> = ({
     setPhotoPreviewUrl(null);
     setPhotoComment('');
     setShowCameraPreview(false);
+    setIsRecordingPhotoVoice(false);
+    setIsTranscribing(false);
+    setVoiceAudioFile(null);
+    voiceChunksRef.current = [];
+    if (voiceIntervalRef.current) {
+      clearInterval(voiceIntervalRef.current);
+    }
+    if (voiceRecorderRef.current?.stream) {
+      voiceRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+    }
   };
 
   const handleStartPhotoVoiceRecording = async () => {
@@ -209,14 +221,58 @@ export const SubsectionItem: React.FC<SubsectionItemProps> = ({
     }
   };
 
-  const handleStopPhotoVoiceRecording = () => {
+  const handleStopPhotoVoiceRecording = async () => {
     if (voiceRecorderRef.current && voiceRecorderRef.current.state === 'recording') {
+      voiceRecorderRef.current.onstop = async () => {
+        const voiceBlob = new Blob(voiceChunksRef.current, { type: 'audio/webm' });
+        const voiceFile = new File([voiceBlob], `voice_${Date.now()}.webm`, { type: 'audio/webm' });
+
+        // Store the audio file for later upload
+        setVoiceAudioFile(voiceFile);
+
+        // Show transcribing message
+        setIsTranscribing(true);
+        setPhotoComment('Transkriberar...');
+
+        try {
+          // Transcribe the voice
+          const { transcribeAudio } = await import('../utils/api');
+          const transcriptionResult = await transcribeAudio(voiceFile);
+
+          // Extract transcription text if it's an object
+          const transcriptionText = typeof transcriptionResult === 'string'
+            ? transcriptionResult
+            : (transcriptionResult?.text || transcriptionResult?.transcription || '');
+
+          // Insert transcription into comment field
+          setPhotoComment(transcriptionText || '');
+        } catch (err) {
+          console.error('Transcription failed:', err);
+          setPhotoComment('');
+          alert('Kunde inte transkribera röst');
+        } finally {
+          setIsTranscribing(false);
+        }
+
+        // Clean up stream
+        if (voiceRecorderRef.current?.stream) {
+          voiceRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+        }
+      };
+
       voiceRecorderRef.current.stop();
-      voiceRecorderRef.current.stream.getTracks().forEach(track => track.stop());
       setIsRecordingPhotoVoice(false);
       if (voiceIntervalRef.current) {
         clearInterval(voiceIntervalRef.current);
       }
+    }
+  };
+
+  const handleTogglePhotoVoiceRecording = () => {
+    if (isRecordingPhotoVoice) {
+      handleStopPhotoVoiceRecording();
+    } else {
+      handleStartPhotoVoiceRecording();
     }
   };
 
@@ -231,25 +287,15 @@ export const SubsectionItem: React.FC<SubsectionItemProps> = ({
       // Upload photo
       const response = await uploadFile(photoFile, projectId, 'photo', undefined, subsection.id);
 
-      // If there's a voice recording, transcribe and upload it
-      if (voiceChunksRef.current.length > 0) {
-        const voiceBlob = new Blob(voiceChunksRef.current, { type: 'audio/webm' });
-        const voiceFile = new File([voiceBlob], `voice_${Date.now()}.webm`, { type: 'audio/webm' });
+      // If there's a voice audio file, upload it along with the comment
+      if (voiceAudioFile) {
+        // Upload the audio file separately
+        const audioResponse = await uploadFile(voiceAudioFile, projectId, 'text', undefined, subsection.id);
 
-        // Transcribe the voice
-        const { transcribeAudio } = await import('../utils/api');
-        const transcriptionResult = await transcribeAudio(voiceFile);
-
-        // Extract transcription text if it's an object
-        const transcriptionText = typeof transcriptionResult === 'string'
-          ? transcriptionResult
-          : (transcriptionResult?.text || transcriptionResult?.transcription || '');
-
-        // Update the note with both comment and transcription
+        // Update the photo note with the comment (which is the transcription or edited text)
         const { updateNoteDetails } = await import('../utils/api');
         await updateNoteDetails(response.noteId, {
           kommentar: photoComment || '',
-          transcription: transcriptionText,
           imageLabel: response.imageLabel
         });
       } else if (photoComment) {
@@ -262,6 +308,8 @@ export const SubsectionItem: React.FC<SubsectionItemProps> = ({
       }
 
       // Reset and reload
+      setVoiceAudioFile(null);
+      voiceChunksRef.current = [];
       handleCancelPhotoPreview();
       await loadNotes();
     } catch (err) {
@@ -502,14 +550,23 @@ export const SubsectionItem: React.FC<SubsectionItemProps> = ({
             <textarea
               value={photoComment}
               onChange={(e) => setPhotoComment(e.target.value)}
-              placeholder="Lägg till kommentar..."
+              placeholder={isTranscribing ? "Transkriberar..." : "Lägg till kommentar..."}
               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
               rows={3}
+              disabled={isTranscribing}
             />
             <div className="flex items-center gap-2">
-              {!isRecordingPhotoVoice ? (
+              {isTranscribing ? (
                 <button
-                  onClick={handleStartPhotoVoiceRecording}
+                  disabled
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg opacity-75 cursor-not-allowed"
+                >
+                  <Mic className="w-4 h-4 animate-pulse" />
+                  <span className="text-sm">Transkriberar...</span>
+                </button>
+              ) : !isRecordingPhotoVoice ? (
+                <button
+                  onClick={handleTogglePhotoVoiceRecording}
                   disabled={isUploading}
                   className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -518,18 +575,18 @@ export const SubsectionItem: React.FC<SubsectionItemProps> = ({
                 </button>
               ) : (
                 <button
-                  onClick={handleStopPhotoVoiceRecording}
+                  onClick={handleTogglePhotoVoiceRecording}
                   className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 animate-pulse"
                 >
                   <Mic className="w-4 h-4" />
-                  <span className="text-sm">Spelar in... {photoVoiceRecordingTime}s</span>
+                  <span className="text-sm">Stoppa ({photoVoiceRecordingTime}s)</span>
                 </button>
               )}
             </div>
             <div className="flex gap-2">
               <button
                 onClick={handleSavePhoto}
-                disabled={isUploading || isRecordingPhotoVoice}
+                disabled={isUploading || isRecordingPhotoVoice || isTranscribing}
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Check className="w-5 h-5" />
