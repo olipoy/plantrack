@@ -608,6 +608,39 @@ export const getProjectById = async (projectId: string): Promise<any> => {
   return project;
 };
 
+export const updateProject = async (projectId: string, updates: {
+  name?: string;
+  location?: string;
+  project_date?: string;
+  inspector?: string;
+}): Promise<any> => {
+  const token = getToken();
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
+  console.log('Updating project:', projectId, updates);
+
+  const response = await fetch(`${API_BASE_URL}/projects/${projectId}`, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(updates),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    console.error('Failed to update project:', response.status, errorData);
+    throw new Error(errorData.error || `Failed to update project: ${response.statusText}`);
+  }
+
+  const project = await response.json();
+  console.log('Project updated:', project);
+  return project;
+};
+
 export const deleteProject = async (projectId: string): Promise<void> => {
   const token = getToken();
   if (!token) {

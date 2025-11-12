@@ -319,23 +319,25 @@ export const NewProject: React.FC<NewProjectProps> = ({ onBack, onProjectCreated
             )}
           </div>
 
-          {/* Byggnad (optional) */}
-          <div>
-            <label htmlFor="byggnad" className="block text-sm font-medium text-gray-700 mb-2">
-              <div className="flex items-center">
-                <Building className="w-4 h-4 mr-2 text-gray-500" />
-                Byggnad
-              </div>
-            </label>
-            <input
-              type="text"
-              id="byggnad"
-              value={byggnad}
-              onChange={(e) => setByggnad(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
-              placeholder="T.ex. Byggnad A, Hus 3"
-            />
-          </div>
+          {/* Byggnad (optional) - Hidden for Besiktningsprotokoll template */}
+          {selectedTemplate !== 'besiktningsprotokoll' && (
+            <div>
+              <label htmlFor="byggnad" className="block text-sm font-medium text-gray-700 mb-2">
+                <div className="flex items-center">
+                  <Building className="w-4 h-4 mr-2 text-gray-500" />
+                  Byggnad
+                </div>
+              </label>
+              <input
+                type="text"
+                id="byggnad"
+                value={byggnad}
+                onChange={(e) => setByggnad(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
+                placeholder="T.ex. Byggnad A, Hus 3"
+              />
+            </div>
+          )}
 
           {/* Date Picker */}
           <div>

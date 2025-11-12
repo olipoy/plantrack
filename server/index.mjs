@@ -586,6 +586,79 @@ app.get('/api/projects/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// Update project endpoint
+app.put('/api/projects/:id', authenticateToken, async (req, res) => {
+  try {
+    const projectId = req.params.id;
+    const { name, location, project_date, inspector } = req.body;
+
+    console.log('Updating project:', { projectId, name, location, project_date, inspector, userId: req.user.id });
+
+    // Verify project exists and user has access
+    const existingProject = await projectDb.getProjectById(projectId, req.user.id);
+    if (!existingProject) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Update project
+    const updateFields = [];
+    const updateValues = [];
+    let paramCounter = 1;
+
+    if (name !== undefined) {
+      updateFields.push(`name = $${paramCounter}`);
+      updateValues.push(name);
+      paramCounter++;
+    }
+
+    if (location !== undefined) {
+      updateFields.push(`location = $${paramCounter}`);
+      updateValues.push(location);
+      paramCounter++;
+    }
+
+    if (project_date !== undefined) {
+      updateFields.push(`project_date = $${paramCounter}`);
+      updateValues.push(project_date);
+      paramCounter++;
+    }
+
+    if (inspector !== undefined) {
+      updateFields.push(`inspector = $${paramCounter}`);
+      updateValues.push(inspector);
+      paramCounter++;
+    }
+
+    if (updateFields.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    updateValues.push(projectId);
+    updateValues.push(req.user.id);
+
+    const updateQuery = `
+      UPDATE projects
+      SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $${paramCounter} AND user_id = $${paramCounter + 1}
+      RETURNING *
+    `;
+
+    const result = await query(updateQuery, updateValues);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Project not found or access denied' });
+    }
+
+    const updatedProject = result.rows[0];
+    console.log('Project updated successfully:', updatedProject);
+
+    res.json(updatedProject);
+  } catch (error) {
+    console.error('Update project error:', error);
+    res.status(500).json({ error: 'Failed to update project' });
+  }
+});
+
 // Create text note endpoint
 app.post('/api/notes', authenticateToken, async (req, res) => {
   try {

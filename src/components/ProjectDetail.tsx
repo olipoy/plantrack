@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, X, Send, Loader2, CheckCircle, AlertCircle, Check, FileText, Trash2, Mail, ExternalLink } from 'lucide-react';
+import { ArrowLeft, X, Send, Loader2, CheckCircle, AlertCircle, Check, FileText, Trash2, Mail, ExternalLink, Edit2 } from 'lucide-react';
 import { Note, Section } from '../types';
 import { sendEmailWithPDF, sendEmailWithAttachment, generateProjectReport, getProjectReports, deleteReport, sendReportEmail } from '../utils/api';
 import { CameraView } from './CameraView';
@@ -7,6 +7,7 @@ import { NoteModal } from './NoteModal';
 import { TextNoteModal } from './TextNoteModal';
 import { SectionView } from './SectionView';
 import { SectionFieldsForm } from './SectionFieldsForm';
+import { EditProjectModal } from './EditProjectModal';
 import { loadEmailHistory, saveEmailToHistory, filterEmailHistory } from '../utils/emailHistory';
 import { getProjectSections, organizeSectionsHierarchy } from '../utils/sections';
 import { safeFormatDate, safeFormatFileSize, safeUrl, isValidUrl } from '../utils/formatters';
@@ -53,6 +54,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const [reportEmailSuccess, setReportEmailSuccess] = useState(false);
   const [sections, setSections] = useState<Section[]>([]);
   const [isLoadingSections, setIsLoadingSections] = useState(false);
+  const [showEditProjectModal, setShowEditProjectModal] = useState(false);
 
   // Load email history when modal is shown
   React.useEffect(() => {
@@ -264,6 +266,20 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const handleCloseNoteModal = () => {
     setShowNoteModal(false);
     setSelectedNote(null);
+  };
+
+  const handleUpdateProject = async (updates: any) => {
+    const { updateProject } = await import('../utils/api');
+    const updatedProject = await updateProject(project.id, updates);
+
+    // Update local project state
+    const mergedProject = {
+      ...project,
+      ...updatedProject,
+      date: updatedProject.project_date ? new Date(updatedProject.project_date) : project.date
+    };
+
+    onProjectUpdate(mergedProject);
   };
 
   const handleGenerateReport = async () => {
@@ -503,7 +519,16 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
         <div className="space-y-4">
           {/* Project Info */}
           <div className="bg-white rounded-lg p-4 shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900 mb-3">Projektinformation</h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold text-gray-900">Projektinformation</h2>
+              <button
+                onClick={() => setShowEditProjectModal(true)}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              >
+                <Edit2 className="w-4 h-4" />
+                <span>Ändra</span>
+              </button>
+            </div>
             <div className="space-y-2">
               <p className="text-sm text-gray-600">
                 <span className="font-medium">Plats:</span> {project.location}
@@ -1013,6 +1038,14 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
           </div>
         </div>
       )}
+
+      {/* Edit Project Modal */}
+      <EditProjectModal
+        project={project}
+        isOpen={showEditProjectModal}
+        onClose={() => setShowEditProjectModal(false)}
+        onSave={handleUpdateProject}
+      />
     </div>
   );
 };
