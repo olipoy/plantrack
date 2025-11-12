@@ -287,19 +287,8 @@ export const SubsectionItem: React.FC<SubsectionItemProps> = ({
       // Upload photo
       const response = await uploadFile(photoFile, projectId, 'photo', undefined, subsection.id);
 
-      // If there's a voice audio file, upload it along with the comment
-      if (voiceAudioFile) {
-        // Upload the audio file separately
-        const audioResponse = await uploadFile(voiceAudioFile, projectId, 'text', undefined, subsection.id);
-
-        // Update the photo note with the comment (which is the transcription or edited text)
-        const { updateNoteDetails } = await import('../utils/api');
-        await updateNoteDetails(response.noteId, {
-          kommentar: photoComment || '',
-          imageLabel: response.imageLabel
-        });
-      } else if (photoComment) {
-        // Just update with the text comment
+      // Update the photo note with the comment (text or transcription)
+      if (photoComment) {
         const { updateNoteDetails } = await import('../utils/api');
         await updateNoteDetails(response.noteId, {
           kommentar: photoComment,
