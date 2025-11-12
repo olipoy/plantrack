@@ -24,7 +24,7 @@ export const SectionView: React.FC<SectionViewProps> = ({
   onDeleteSection,
   level = 0
 }) => {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const sectionNotes = notes.filter(note => note.section_id === section.id);
   const hasSubsections = section.subsections && section.subsections.length > 0;
