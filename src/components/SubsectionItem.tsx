@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, ChevronRight, Trash2, Plus, Camera, Mic, FileText } from 'lucide-react';
+import { ChevronDown, ChevronRight, Trash2, Camera, Mic, FileText } from 'lucide-react';
 import { getSubsectionNotes, createTextNoteForSubsection, deleteSubsection, uploadFile } from '../utils/api';
 import { Note } from '../types';
-import { TextNoteModal } from './TextNoteModal';
 
 interface SubsectionItemProps {
   subsection: {
@@ -24,9 +23,11 @@ export const SubsectionItem: React.FC<SubsectionItemProps> = ({
   const [isExpanded, setIsExpanded] = useState(false);
   const [notes, setNotes] = useState<Note[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [showTextModal, setShowTextModal] = useState(false);
+  const [showTextInput, setShowTextInput] = useState(false);
+  const [textContent, setTextContent] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isSavingText, setIsSavingText] = useState(false);
 
   useEffect(() => {
     if (isExpanded) {
@@ -59,14 +60,35 @@ export const SubsectionItem: React.FC<SubsectionItemProps> = ({
     }
   };
 
-  const handleTextNoteSave = async (content: string) => {
+  const handleTextNoteSave = async () => {
+    const trimmedContent = textContent.trim();
+    if (!trimmedContent) return;
+
+    setIsSavingText(true);
     try {
-      await createTextNoteForSubsection(projectId, subsection.id, content);
-      setShowTextModal(false);
+      await createTextNoteForSubsection(projectId, subsection.id, trimmedContent);
+      setTextContent('');
+      setShowTextInput(false);
       await loadNotes();
     } catch (err) {
       console.error('Failed to create text note:', err);
       alert('Kunde inte skapa anteckning');
+    } finally {
+      setIsSavingText(false);
+    }
+  };
+
+  const handleTextInputCancel = () => {
+    setTextContent('');
+    setShowTextInput(false);
+  };
+
+  const handleTextInputKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleTextNoteSave();
+    } else if (e.key === 'Escape') {
+      handleTextInputCancel();
     }
   };
 
@@ -174,8 +196,8 @@ export const SubsectionItem: React.FC<SubsectionItemProps> = ({
             {/* Action Buttons */}
             <div className="grid grid-cols-3 gap-2">
               <button
-                onClick={() => setShowTextModal(true)}
-                disabled={isUploading || isRecording}
+                onClick={() => setShowTextInput(true)}
+                disabled={isUploading || isRecording || showTextInput}
                 className="flex flex-col items-center gap-1 p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <FileText className="w-5 h-5 text-gray-600" />
@@ -204,6 +226,38 @@ export const SubsectionItem: React.FC<SubsectionItemProps> = ({
                 />
               </label>
             </div>
+
+            {/* Inline Text Input */}
+            {showTextInput && (
+              <div className="bg-white rounded-lg border border-gray-300 p-3 space-y-2 shadow-sm">
+                <textarea
+                  value={textContent}
+                  onChange={(e) => setTextContent(e.target.value)}
+                  onKeyDown={handleTextInputKeyDown}
+                  placeholder="Skriv anteckning här…"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  rows={3}
+                  autoFocus
+                  disabled={isSavingText}
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleTextNoteSave}
+                    disabled={!textContent.trim() || isSavingText}
+                    className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {isSavingText ? 'Sparar...' : 'Spara'}
+                  </button>
+                  <button
+                    onClick={handleTextInputCancel}
+                    disabled={isSavingText}
+                    className="px-4 py-2 bg-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Avbryt
+                  </button>
+                </div>
+              </div>
+            )}
 
             {isUploading && (
               <div className="text-sm text-blue-600 text-center py-2">
@@ -246,13 +300,6 @@ export const SubsectionItem: React.FC<SubsectionItemProps> = ({
           </div>
         )}
       </div>
-
-      {showTextModal && (
-        <TextNoteModal
-          onSave={handleTextNoteSave}
-          onClose={() => setShowTextModal(false)}
-        />
-      )}
     </>
   );
 };
