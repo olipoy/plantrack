@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, ChevronRight, Trash2, Camera, Mic, FileText } from 'lucide-react';
+import { ChevronDown, ChevronRight, Trash2, Camera, Mic, FileText, X, Check } from 'lucide-react';
 import { getSubsectionNotes, createTextNoteForSubsection, deleteSubsection, uploadFile } from '../utils/api';
 import { Note } from '../types';
 
@@ -28,6 +28,19 @@ export const SubsectionItem: React.FC<SubsectionItemProps> = ({
   const [isRecording, setIsRecording] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isSavingText, setIsSavingText] = useState(false);
+  const [showCameraPreview, setShowCameraPreview] = useState(false);
+  const [capturedPhoto, setCapturedPhoto] = useState<Blob | null>(null);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
+  const [photoComment, setPhotoComment] = useState('');
+  const [isRecordingPhotoVoice, setIsRecordingPhotoVoice] = useState(false);
+  const [photoVoiceRecordingTime, setPhotoVoiceRecordingTime] = useState(0);
+
+  const videoRef = React.useRef<HTMLVideoElement>(null);
+  const canvasRef = React.useRef<HTMLCanvasElement>(null);
+  const streamRef = React.useRef<MediaStream | null>(null);
+  const voiceRecorderRef = React.useRef<MediaRecorder | null>(null);
+  const voiceChunksRef = React.useRef<Blob[]>([]);
+  const voiceIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (isExpanded) {
@@ -92,17 +105,169 @@ export const SubsectionItem: React.FC<SubsectionItemProps> = ({
     }
   };
 
-  const handleImageCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const initializeCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'environment',
+          width: { ideal: 640, max: 854 },
+          height: { ideal: 480, max: 480 }
+        }
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (error) {
+      console.error('Camera initialization failed:', error);
+      alert('Kunde inte komma åt kameran. Kontrollera att du har gett tillåtelse.');
+    }
+  };
+
+  const cleanupCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if (photoPreviewUrl) {
+      URL.revokeObjectURL(photoPreviewUrl);
+      setPhotoPreviewUrl(null);
+    }
+  };
+
+  const handleOpenCamera = async () => {
+    setShowCameraPreview(true);
+    // Small delay to ensure the video element is rendered
+    setTimeout(() => {
+      initializeCamera();
+    }, 100);
+  };
+
+  const handleTakePhoto = () => {
+    if (!videoRef.current || !canvasRef.current) return;
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const context = canvas.getContext('2d');
+    if (context) {
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob((blob) => {
+        if (blob) {
+          setCapturedPhoto(blob);
+          const url = URL.createObjectURL(blob);
+          setPhotoPreviewUrl(url);
+          cleanupCamera();
+        }
+      }, 'image/jpeg', 0.8);
+    }
+  };
+
+  const handleCancelCamera = () => {
+    cleanupCamera();
+    setShowCameraPreview(false);
+    setCapturedPhoto(null);
+  };
+
+  const handleCancelPhotoPreview = () => {
+    if (photoPreviewUrl) {
+      URL.revokeObjectURL(photoPreviewUrl);
+    }
+    setCapturedPhoto(null);
+    setPhotoPreviewUrl(null);
+    setPhotoComment('');
+    setShowCameraPreview(false);
+  };
+
+  const handleStartPhotoVoiceRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      voiceChunksRef.current = [];
+      voiceRecorderRef.current = new MediaRecorder(stream);
+
+      voiceRecorderRef.current.ondataavailable = (e) => {
+        voiceChunksRef.current.push(e.data);
+      };
+
+      voiceRecorderRef.current.start();
+      setIsRecordingPhotoVoice(true);
+      setPhotoVoiceRecordingTime(0);
+
+      voiceIntervalRef.current = setInterval(() => {
+        setPhotoVoiceRecordingTime((prev) => prev + 1);
+      }, 1000);
+
+      setTimeout(() => {
+        if (voiceRecorderRef.current?.state === 'recording') {
+          handleStopPhotoVoiceRecording();
+        }
+      }, 30000);
+    } catch (err) {
+      console.error('Failed to start voice recording:', err);
+      alert('Kunde inte spela in ljud');
+    }
+  };
+
+  const handleStopPhotoVoiceRecording = () => {
+    if (voiceRecorderRef.current && voiceRecorderRef.current.state === 'recording') {
+      voiceRecorderRef.current.stop();
+      voiceRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      setIsRecordingPhotoVoice(false);
+      if (voiceIntervalRef.current) {
+        clearInterval(voiceIntervalRef.current);
+      }
+    }
+  };
+
+  const handleSavePhoto = async () => {
+    if (!capturedPhoto) return;
 
     setIsUploading(true);
     try {
-      await uploadFile(file, projectId, 'photo', undefined, subsection.id);
+      const fileName = `photo_${Date.now()}.jpg`;
+      const photoFile = new File([capturedPhoto], fileName, { type: 'image/jpeg' });
+
+      // Upload photo
+      const response = await uploadFile(photoFile, projectId, 'photo', undefined, subsection.id);
+
+      // If there's a voice recording, transcribe and upload it
+      if (voiceChunksRef.current.length > 0) {
+        const voiceBlob = new Blob(voiceChunksRef.current, { type: 'audio/webm' });
+        const voiceFile = new File([voiceBlob], `voice_${Date.now()}.webm`, { type: 'audio/webm' });
+
+        // Transcribe the voice
+        const { transcribeAudio } = await import('../utils/api');
+        const transcription = await transcribeAudio(voiceFile);
+
+        // Combine photo comment with voice transcription
+        const finalComment = photoComment ?
+          (transcription ? `${photoComment}\n\n${transcription}` : photoComment) :
+          transcription;
+
+        // Update the note with the comment
+        if (finalComment || response.imageLabel) {
+          const { updateNoteDetails } = await import('../utils/api');
+          await updateNoteDetails(response.noteId, {
+            kommentar: finalComment || response.imageLabel || '',
+            imageLabel: response.imageLabel
+          });
+        }
+      } else if (photoComment) {
+        // Just update with the text comment
+        const { updateNoteDetails } = await import('../utils/api');
+        await updateNoteDetails(response.noteId, {
+          kommentar: photoComment,
+          imageLabel: response.imageLabel
+        });
+      }
+
+      // Reset and reload
+      handleCancelPhotoPreview();
       await loadNotes();
     } catch (err) {
-      console.error('Failed to upload image:', err);
-      alert('Kunde inte ladda upp bild');
+      console.error('Failed to save photo:', err);
+      alert('Kunde inte spara foto');
     } finally {
       setIsUploading(false);
     }
@@ -213,18 +378,14 @@ export const SubsectionItem: React.FC<SubsectionItemProps> = ({
                 <span className="text-xs text-gray-600">{isRecording ? 'Spelar in...' : 'Röst'}</span>
               </button>
 
-              <label className="flex flex-col items-center gap-1 p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer">
+              <button
+                onClick={handleOpenCamera}
+                disabled={isUploading || isRecording}
+                className="flex flex-col items-center gap-1 p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              >
                 <Camera className="w-5 h-5 text-gray-600" />
                 <span className="text-xs text-gray-600">Foto</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handleImageCapture}
-                  disabled={isUploading || isRecording}
-                  className="hidden"
-                />
-              </label>
+              </button>
             </div>
 
             {/* Inline Text Input */}
@@ -302,6 +463,90 @@ export const SubsectionItem: React.FC<SubsectionItemProps> = ({
           </div>
         )}
       </div>
+
+      {/* Camera Preview Modal */}
+      {showCameraPreview && !capturedPhoto && (
+        <div className="fixed inset-0 bg-black z-50 flex flex-col">
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            className="w-full h-full object-cover"
+          />
+          <canvas ref={canvasRef} className="hidden" />
+          <div className="absolute bottom-8 left-0 right-0 flex justify-center items-center gap-8">
+            <button
+              onClick={handleCancelCamera}
+              className="w-16 h-16 bg-gray-800 bg-opacity-75 rounded-full flex items-center justify-center text-white hover:bg-opacity-90 transition-opacity"
+            >
+              <X className="w-8 h-8" />
+            </button>
+            <button
+              onClick={handleTakePhoto}
+              className="w-20 h-20 bg-white rounded-full border-4 border-gray-300 hover:border-gray-400 transition-colors"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Photo Preview and Comment Modal */}
+      {showCameraPreview && capturedPhoto && photoPreviewUrl && (
+        <div className="fixed inset-0 bg-white z-50 flex flex-col">
+          <div className="flex-1 overflow-auto">
+            <img
+              src={photoPreviewUrl}
+              alt="Preview"
+              className="w-full h-auto"
+            />
+          </div>
+          <div className="p-4 border-t border-gray-200 space-y-4">
+            <textarea
+              value={photoComment}
+              onChange={(e) => setPhotoComment(e.target.value)}
+              placeholder="L\u00e4gg till kommentar..."
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              rows={3}
+            />
+            <div className="flex items-center gap-2">
+              {!isRecordingPhotoVoice ? (
+                <button
+                  onClick={handleStartPhotoVoiceRecording}
+                  disabled={isUploading}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Mic className="w-4 h-4" />
+                  <span className="text-sm">Spela in r\u00f6st</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handleStopPhotoVoiceRecording}
+                  className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 animate-pulse"
+                >
+                  <Mic className="w-4 h-4" />
+                  <span className="text-sm">Spelar in... {photoVoiceRecordingTime}s</span>
+                </button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleSavePhoto}
+                disabled={isUploading || isRecordingPhotoVoice}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Check className="w-5 h-5" />
+                <span>{isUploading ? 'Sparar...' : 'Spara'}</span>
+              </button>
+              <button
+                onClick={handleCancelPhotoPreview}
+                disabled={isUploading}
+                className="px-4 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };
