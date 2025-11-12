@@ -30,6 +30,23 @@ export const SectionView: React.FC<SectionViewProps> = ({
   const hasSubsections = section.subsections && section.subsections.length > 0;
   const indentClass = level > 0 ? 'ml-4' : '';
 
+  // Count total notes including all subsections recursively
+  const getTotalNotesCount = (currentSection: Section): number => {
+    // Count notes directly in this section
+    let count = notes.filter(note => note.section_id === currentSection.id).length;
+
+    // Recursively count notes in all subsections
+    if (currentSection.subsections && currentSection.subsections.length > 0) {
+      currentSection.subsections.forEach(subsection => {
+        count += getTotalNotesCount(subsection);
+      });
+    }
+
+    return count;
+  };
+
+  const totalNotesCount = getTotalNotesCount(section);
+
   const sectionsWithSubsections = ['Utvändigt', 'Entréplan', 'Övre plan', 'Källarplan'];
   const shouldShowSubsectionsList = sectionsWithSubsections.includes(section.name);
 
@@ -60,7 +77,7 @@ export const SectionView: React.FC<SectionViewProps> = ({
               {section.name}
             </h3>
             <span className="ml-2 text-xs text-gray-500">
-              ({sectionNotes.length} {sectionNotes.length === 1 ? 'anteckning' : 'anteckningar'})
+              ({totalNotesCount} {totalNotesCount === 1 ? 'anteckning' : 'anteckningar'})
             </span>
           </div>
 

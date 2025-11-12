@@ -713,6 +713,16 @@ app.post('/api/notes', authenticateToken, async (req, res) => {
 
     console.log('Project verified, creating note...');
 
+    // If subsectionId is provided but sectionId is not, fetch the parent section_id
+    let finalSectionId = sectionId;
+    if (subsectionId && !sectionId) {
+      const subsection = await subsectionDb.getSubsectionById(subsectionId);
+      if (subsection) {
+        finalSectionId = subsection.section_id;
+        console.log('Fetched parent section_id from subsection:', finalSectionId);
+      }
+    }
+
     // Create note in database
     const note = await noteDb.createNote(
       projectId,
@@ -723,7 +733,7 @@ app.post('/api/notes', authenticateToken, async (req, res) => {
       null, // fileKey
       null, // orgId (will be fetched from project)
       null, // delomrade
-      sectionId,
+      finalSectionId,
       subsectionId
     );
 
@@ -2150,6 +2160,16 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
       initialKommentar = transcription || '';
     }
 
+    // If subsectionId is provided but sectionId is not, fetch the parent section_id
+    let finalSectionId = sectionId;
+    if (subsectionId && !sectionId) {
+      const subsection = await subsectionDb.getSubsectionById(subsectionId);
+      if (subsection) {
+        finalSectionId = subsection.section_id;
+        console.log('Fetched parent section_id from subsection for upload:', finalSectionId);
+      }
+    }
+
     const note = await noteDb.createNote(
       projectId,
       noteType,
@@ -2159,7 +2179,7 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
       s3Key, // Pass the S3 key to be stored in file_key column
       null, // orgId (will be fetched from project)
       null, // delomrade
-      sectionId,
+      finalSectionId,
       subsectionId
     );
 
