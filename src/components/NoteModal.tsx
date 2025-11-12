@@ -172,7 +172,29 @@ export const NoteModal: React.FC<NoteModalProps> = ({
   };
 
   const getDisplayKommentar = () => {
-    return note.kommentar || '';
+    const kommentar = note.kommentar;
+    if (!kommentar) return '';
+    if (typeof kommentar === 'string') return kommentar;
+    if (typeof kommentar === 'object') {
+      // Handle case where kommentar is an object
+      if ('text' in kommentar) return kommentar.text;
+      if ('content' in kommentar) return kommentar.content;
+      return JSON.stringify(kommentar);
+    }
+    return String(kommentar);
+  };
+
+  const getDisplayTranscription = () => {
+    const transcription = note.transcription;
+    if (!transcription) return '';
+    if (typeof transcription === 'string') return transcription;
+    if (typeof transcription === 'object') {
+      // Handle case where transcription is an object
+      if ('text' in transcription) return transcription.text;
+      if ('content' in transcription) return transcription.content;
+      return JSON.stringify(transcription);
+    }
+    return String(transcription);
   };
 
   const handleSaveEdit = async () => {
@@ -364,6 +386,16 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                     ) : (
                       <p className="text-gray-800 whitespace-pre-wrap">{getDisplayKommentar()}</p>
                     )}
+                  </div>
+                )}
+
+                {/* Transcription - Voice to text */}
+                {!isEditing && getDisplayTranscription() && (
+                  <div className="rounded-lg p-4 mb-4 bg-purple-50">
+                    <h3 className="text-sm font-medium text-purple-900 mb-2">
+                      Rösttranskribering
+                    </h3>
+                    <p className="text-purple-800 whitespace-pre-wrap">{getDisplayTranscription()}</p>
                   </div>
                 )}
 

@@ -238,21 +238,20 @@ export const SubsectionItem: React.FC<SubsectionItemProps> = ({
 
         // Transcribe the voice
         const { transcribeAudio } = await import('../utils/api');
-        const transcription = await transcribeAudio(voiceFile);
+        const transcriptionResult = await transcribeAudio(voiceFile);
 
-        // Combine photo comment with voice transcription
-        const finalComment = photoComment ?
-          (transcription ? `${photoComment}\n\n${transcription}` : photoComment) :
-          transcription;
+        // Extract transcription text if it's an object
+        const transcriptionText = typeof transcriptionResult === 'string'
+          ? transcriptionResult
+          : (transcriptionResult?.text || transcriptionResult?.transcription || '');
 
-        // Update the note with the comment
-        if (finalComment || response.imageLabel) {
-          const { updateNoteDetails } = await import('../utils/api');
-          await updateNoteDetails(response.noteId, {
-            kommentar: finalComment || response.imageLabel || '',
-            imageLabel: response.imageLabel
-          });
-        }
+        // Update the note with both comment and transcription
+        const { updateNoteDetails } = await import('../utils/api');
+        await updateNoteDetails(response.noteId, {
+          kommentar: photoComment || '',
+          transcription: transcriptionText,
+          imageLabel: response.imageLabel
+        });
       } else if (photoComment) {
         // Just update with the text comment
         const { updateNoteDetails } = await import('../utils/api');
@@ -503,7 +502,7 @@ export const SubsectionItem: React.FC<SubsectionItemProps> = ({
             <textarea
               value={photoComment}
               onChange={(e) => setPhotoComment(e.target.value)}
-              placeholder="L\u00e4gg till kommentar..."
+              placeholder="Lägg till kommentar..."
               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
               rows={3}
             />
@@ -515,7 +514,7 @@ export const SubsectionItem: React.FC<SubsectionItemProps> = ({
                   className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Mic className="w-4 h-4" />
-                  <span className="text-sm">Spela in r\u00f6st</span>
+                  <span className="text-sm">Spela in röst</span>
                 </button>
               ) : (
                 <button
