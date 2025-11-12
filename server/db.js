@@ -871,6 +871,65 @@ const sectionFieldDb = {
   }
 };
 
+// Subsection-related database functions
+const subsectionDb = {
+  // Get all subsections for a section
+  async getSubsectionsBySectionId(sectionId) {
+    const result = await query(
+      `SELECT id, section_id, name, created_at
+       FROM subsections
+       WHERE section_id = $1
+       ORDER BY created_at ASC`,
+      [sectionId]
+    );
+    return result.rows;
+  },
+
+  // Get a specific subsection by id
+  async getSubsectionById(subsectionId) {
+    const result = await query(
+      `SELECT id, section_id, name, created_at
+       FROM subsections
+       WHERE id = $1`,
+      [subsectionId]
+    );
+    return result.rows[0];
+  },
+
+  // Create a new subsection
+  async createSubsection(sectionId, name) {
+    const result = await query(
+      `INSERT INTO subsections (section_id, name, created_at)
+       VALUES ($1, $2, NOW())
+       RETURNING *`,
+      [sectionId, name]
+    );
+    return result.rows[0];
+  },
+
+  // Check if subsection with same name exists in section
+  async checkDuplicateSubsection(sectionId, name) {
+    const result = await query(
+      `SELECT id
+       FROM subsections
+       WHERE section_id = $1 AND name = $2`,
+      [sectionId, name]
+    );
+    return result.rows.length > 0;
+  },
+
+  // Delete a subsection
+  async deleteSubsection(subsectionId) {
+    const result = await query(
+      `DELETE FROM subsections
+       WHERE id = $1
+       RETURNING *`,
+      [subsectionId]
+    );
+    return result.rows[0];
+  }
+};
+
 // Named exports
 export {
   query,
@@ -882,6 +941,7 @@ export {
   summaryDb,
   reportDb,
   sectionFieldDb,
+  subsectionDb,
   createNoteShare,
   findActiveShareForNote,
   getShareByToken,

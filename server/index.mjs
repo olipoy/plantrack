@@ -22,7 +22,7 @@ globalThis.File = File;
 
 // Import authentication and database modules (ESM)
 import { authenticateToken, registerUser, loginUser } from './auth.js';
-import { query, organizationDb, userDb, projectDb, noteDb, summaryDb, reportDb, sectionFieldDb, createNoteShare, findActiveShareForNote, getShareByToken, generateSignedUrl } from './db.js';
+import { query, organizationDb, userDb, projectDb, noteDb, summaryDb, reportDb, sectionFieldDb, subsectionDb, createNoteShare, findActiveShareForNote, getShareByToken, generateSignedUrl } from './db.js';
 
 // Load environment variables
 dotenv.config();
@@ -1005,6 +1005,143 @@ app.post('/api/sections/:id/fields', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Create/update section field error:', error);
     res.status(500).json({ error: 'Failed to create/update section field' });
+  }
+});
+
+// Get all subsections for a section
+app.get('/api/sections/:id/subsections', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Verify section access through project ownership
+    const sectionCheck = await query(
+      `SELECT s.*, p.user_id, p.template_id
+       FROM sections s
+       JOIN projects p ON s.project_id = p.id
+       WHERE s.id = $1`,
+      [id]
+    );
+
+    if (sectionCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Section not found' });
+    }
+
+    const section = sectionCheck.rows[0];
+
+    // Verify user has access to this section's project
+    if (section.user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    // Only allow subsections for besiktningsprotokoll template
+    if (section.template_id !== 'besiktningsprotokoll') {
+      return res.status(400).json({ error: 'Subsections are only supported for besiktningsprotokoll template' });
+    }
+
+    // Get all subsections for this section
+    const subsections = await subsectionDb.getSubsectionsBySectionId(id);
+
+    res.json(subsections);
+  } catch (error) {
+    console.error('Get section subsections error:', error);
+    res.status(500).json({ error: 'Failed to get section subsections' });
+  }
+});
+
+// Create a subsection for a section
+app.post('/api/sections/:id/subsections', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name } = req.body;
+
+    // Validate required fields
+    if (!name || name.trim() === '') {
+      return res.status(400).json({ error: 'Subsection name is required' });
+    }
+
+    // Verify section access through project ownership
+    const sectionCheck = await query(
+      `SELECT s.*, p.user_id, p.template_id
+       FROM sections s
+       JOIN projects p ON s.project_id = p.id
+       WHERE s.id = $1`,
+      [id]
+    );
+
+    if (sectionCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Section not found' });
+    }
+
+    const section = sectionCheck.rows[0];
+
+    // Verify user has access to this section's project
+    if (section.user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    // Only allow subsections for besiktningsprotokoll template
+    if (section.template_id !== 'besiktningsprotokoll') {
+      return res.status(400).json({ error: 'Subsections are only supported for besiktningsprotokoll template' });
+    }
+
+    // Check for duplicate subsection name
+    const isDuplicate = await subsectionDb.checkDuplicateSubsection(id, name.trim());
+    if (isDuplicate) {
+      return res.status(409).json({ error: 'A subsection with this name already exists in this section' });
+    }
+
+    // Create the subsection
+    const subsection = await subsectionDb.createSubsection(id, name.trim());
+
+    res.status(201).json(subsection);
+  } catch (error) {
+    console.error('Create section subsection error:', error);
+    res.status(500).json({ error: 'Failed to create section subsection' });
+  }
+});
+
+// Delete a subsection
+app.delete('/api/subsections/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Verify subsection access through section and project ownership
+    const subsectionCheck = await query(
+      `SELECT sub.*, s.project_id, p.user_id, p.template_id
+       FROM subsections sub
+       JOIN sections s ON sub.section_id = s.id
+       JOIN projects p ON s.project_id = p.id
+       WHERE sub.id = $1`,
+      [id]
+    );
+
+    if (subsectionCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Subsection not found' });
+    }
+
+    const subsection = subsectionCheck.rows[0];
+
+    // Verify user has access to this subsection's project
+    if (subsection.user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    // Only allow for besiktningsprotokoll template
+    if (subsection.template_id !== 'besiktningsprotokoll') {
+      return res.status(400).json({ error: 'Subsections are only supported for besiktningsprotokoll template' });
+    }
+
+    // Delete the subsection
+    const deletedSubsection = await subsectionDb.deleteSubsection(id);
+
+    if (!deletedSubsection) {
+      return res.status(404).json({ error: 'Subsection not found' });
+    }
+
+    res.json({ success: true, subsection: deletedSubsection });
+  } catch (error) {
+    console.error('Delete subsection error:', error);
+    res.status(500).json({ error: 'Failed to delete subsection' });
   }
 });
 
