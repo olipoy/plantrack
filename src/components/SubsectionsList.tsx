@@ -96,7 +96,7 @@ export const SubsectionsList: React.FC<SubsectionsListProps> = ({ sectionId, sec
         <div className="text-sm text-gray-500 py-2">Laddar delområden...</div>
       ) : (
         <>
-          {subsections.length > 0 && (
+          {subsections.length > 0 ? (
             <div className="space-y-2">
               {subsections.map((subsection) => (
                 <div
@@ -113,6 +113,10 @@ export const SubsectionsList: React.FC<SubsectionsListProps> = ({ sectionId, sec
                   </button>
                 </div>
               ))}
+            </div>
+          ) : (
+            <div className="text-sm text-gray-500 py-2">
+              Inga delområden tillagda ännu.
             </div>
           )}
 
