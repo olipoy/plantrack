@@ -659,6 +659,40 @@ app.put('/api/projects/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// Address search proxy endpoint
+app.get('/api/address-search', authenticateToken, async (req, res) => {
+  try {
+    const { q } = req.query;
+
+    if (!q) {
+      return res.status(400).json({ error: 'Query parameter q is required' });
+    }
+
+    console.log('Fetching addresses for query:', q);
+
+    const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&countrycodes=se&q=${encodeURIComponent(q)}`;
+
+    const response = await fetch(nominatimUrl, {
+      headers: {
+        'User-Agent': 'PlanTrackApp/1.0'
+      }
+    });
+
+    if (!response.ok) {
+      console.error('Nominatim API error:', response.status, response.statusText);
+      return res.status(500).json({ error: 'Failed to fetch address' });
+    }
+
+    const data = await response.json();
+    console.log('Address search results:', data.length, 'addresses found');
+
+    res.json(data);
+  } catch (error) {
+    console.error('Address search error:', error);
+    res.status(500).json({ error: 'Failed to fetch address' });
+  }
+});
+
 // Create text note endpoint
 app.post('/api/notes', authenticateToken, async (req, res) => {
   try {

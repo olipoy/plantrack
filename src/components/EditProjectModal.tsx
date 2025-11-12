@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { X, Check } from 'lucide-react';
+import { getToken } from '../utils/auth';
 
 interface EditProjectModalProps {
   project: any;
@@ -26,6 +27,89 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
   const [inspector, setInspector] = useState(project.inspector || '');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
+  const [addressSuggestions, setAddressSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+
+    if (showSuggestions) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showSuggestions]);
+
+  const searchAddress = async (query: string) => {
+    if (!query || query.length < 3) {
+      setAddressSuggestions([]);
+      return;
+    }
+
+    setIsLoadingSuggestions(true);
+    try {
+      const token = getToken();
+      if (!token) {
+        console.error('No authentication token available');
+        setAddressSuggestions([]);
+        return;
+      }
+
+      const apiBaseUrl = import.meta.env.DEV
+        ? 'http://localhost:3001/api'
+        : import.meta.env.VITE_API_URL
+          ? `${import.meta.env.VITE_API_URL.replace(/\/$/, '')}/api`
+          : '/api';
+
+      const response = await fetch(
+        `${apiBaseUrl}/address-search?q=${encodeURIComponent(query)}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setAddressSuggestions(data);
+        setShowSuggestions(true);
+      } else {
+        console.error('Address search failed:', response.status);
+        setAddressSuggestions([]);
+      }
+    } catch (error) {
+      console.error('Address search failed:', error);
+      setAddressSuggestions([]);
+    } finally {
+      setIsLoadingSuggestions(false);
+    }
+  };
+
+  const handleLocationChange = (value: string) => {
+    setLocation(value);
+
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    searchTimeoutRef.current = setTimeout(() => {
+      searchAddress(value);
+    }, 500);
+  };
+
+  const handleSelectSuggestion = (suggestion: any) => {
+    setLocation(suggestion.display_name);
+    setShowSuggestions(false);
+    setAddressSuggestions([]);
+  };
 
   if (!isOpen) return null;
 
@@ -108,7 +192,7 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
             />
           </div>
 
-          <div>
+          <div className="relative">
             <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2">
               Adress
             </label>
@@ -116,11 +200,36 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
               type="text"
               id="location"
               value={location}
-              onChange={(e) => setLocation(e.target.value)}
+              onChange={(e) => handleLocationChange(e.target.value)}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="T.ex. Strandvägen 12, Stockholm"
               disabled={isSaving}
+              autoComplete="off"
             />
+            {isLoadingSuggestions && (
+              <div className="absolute right-3 top-11 text-sm text-gray-500">
+                Söker...
+              </div>
+            )}
+            {showSuggestions && addressSuggestions.length > 0 && (
+              <div
+                ref={suggestionsRef}
+                className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+              >
+                {addressSuggestions.map((suggestion, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => handleSelectSuggestion(suggestion)}
+                    className="w-full text-left px-4 py-3 hover:bg-blue-50 focus:bg-blue-50 focus:outline-none border-b border-gray-100 last:border-b-0"
+                  >
+                    <div className="text-sm font-medium text-gray-900">
+                      {suggestion.display_name}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div>

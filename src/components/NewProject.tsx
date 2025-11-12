@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Plus, MapPin, Calendar, User, Building, FileText, ChevronRight } from 'lucide-react';
 import { shortenAddress } from '../utils/storage';
 import { createProject as createProjectAPI } from '../utils/api';
+import { getToken } from '../utils/auth';
 import { Project } from '../types';
 
 interface NewProjectProps {
@@ -71,15 +72,36 @@ export const NewProject: React.FC<NewProjectProps> = ({ onBack, onProjectCreated
 
     setIsLoadingSuggestions(true);
     try {
-      // Using Nominatim (OpenStreetMap) API for address search - free and no API key required
+      const token = getToken();
+      if (!token) {
+        console.error('No authentication token available');
+        setAddressSuggestions([]);
+        return;
+      }
+
+      // Get API base URL
+      const apiBaseUrl = import.meta.env.DEV
+        ? 'http://localhost:3001/api'
+        : import.meta.env.VITE_API_URL
+          ? `${import.meta.env.VITE_API_URL.replace(/\/$/, '')}/api`
+          : '/api';
+
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&countrycodes=se&q=${encodeURIComponent(query)}`
+        `${apiBaseUrl}/address-search?q=${encodeURIComponent(query)}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
       );
-      
+
       if (response.ok) {
         const data = await response.json();
         setAddressSuggestions(data);
         setShowSuggestions(true);
+      } else {
+        console.error('Address search failed:', response.status);
+        setAddressSuggestions([]);
       }
     } catch (error) {
       console.error('Address search failed:', error);
