@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronDown, ChevronRight, Plus, Edit2, Trash2 } from 'lucide-react';
 import { Section, Note } from '../types';
 import { SubsectionsList } from './SubsectionsList';
+import { getSectionSubsections } from '../utils/api';
 
 interface SectionViewProps {
   section: Section;
@@ -25,30 +26,68 @@ export const SectionView: React.FC<SectionViewProps> = ({
   level = 0
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [subsectionIds, setSubsectionIds] = useState<string[]>([]);
+  const [isLoadingSubsections, setIsLoadingSubsections] = useState(false);
 
   const sectionNotes = notes.filter(note => note.section_id === section.id);
   const hasSubsections = section.subsections && section.subsections.length > 0;
   const indentClass = level > 0 ? 'ml-4' : '';
 
+  const sectionsWithSubsections = ['Utvändigt', 'Entréplan', 'Övre plan', 'Källarplan'];
+  const shouldShowSubsectionsList = sectionsWithSubsections.includes(section.name);
+
+  // Load subsections for sections that use SubsectionsList
+  useEffect(() => {
+    if (shouldShowSubsectionsList) {
+      loadSubsections();
+    }
+  }, [section.id, shouldShowSubsectionsList]);
+
+  const loadSubsections = async () => {
+    setIsLoadingSubsections(true);
+    try {
+      const subs = await getSectionSubsections(section.id);
+      setSubsectionIds(subs.map((s: any) => s.id));
+    } catch (error) {
+      console.error('Failed to load subsections for counting:', error);
+      setSubsectionIds([]);
+    } finally {
+      setIsLoadingSubsections(false);
+    }
+  };
+
   // Count total notes including all subsections recursively
   const getTotalNotesCount = (currentSection: Section): number => {
-    // Count notes directly in this section
-    let count = notes.filter(note => note.section_id === currentSection.id).length;
+    let count = 0;
 
-    // Recursively count notes in all subsections
-    if (currentSection.subsections && currentSection.subsections.length > 0) {
-      currentSection.subsections.forEach(subsection => {
-        count += getTotalNotesCount(subsection);
-      });
+    // For sections using SubsectionsList, count notes by section_id OR subsection_id
+    if (shouldShowSubsectionsList) {
+      // Count notes with section_id matching this section (includes notes with parent section_id set)
+      count += notes.filter(note => note.section_id === currentSection.id).length;
+
+      // Also count notes with subsection_id matching loaded subsections (for backward compatibility with old notes)
+      if (subsectionIds.length > 0) {
+        const subsectionNotesCount = notes.filter(note =>
+          note.subsection_id && subsectionIds.includes(note.subsection_id) && note.section_id !== currentSection.id
+        ).length;
+        count += subsectionNotesCount;
+      }
+    } else {
+      // For traditional hierarchy, count notes directly in this section
+      count = notes.filter(note => note.section_id === currentSection.id).length;
+
+      // Recursively count notes in all subsections
+      if (currentSection.subsections && currentSection.subsections.length > 0) {
+        currentSection.subsections.forEach(subsection => {
+          count += getTotalNotesCount(subsection);
+        });
+      }
     }
 
     return count;
   };
 
   const totalNotesCount = getTotalNotesCount(section);
-
-  const sectionsWithSubsections = ['Utvändigt', 'Entréplan', 'Övre plan', 'Källarplan'];
-  const shouldShowSubsectionsList = sectionsWithSubsections.includes(section.name);
 
   const truncateText = (text: string, maxLength: number) => {
     if (!text) return '';
