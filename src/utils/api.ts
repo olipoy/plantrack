@@ -41,7 +41,8 @@ export const uploadFile = async (
   file: File,
   projectId: string,
   noteType: string,
-  onProgress?: (progress: number) => void
+  onProgress?: (progress: number) => void,
+  subsectionId?: string
 ): Promise<UploadResponse> => {
   return new Promise((resolve, reject) => {
     const token = getToken();
@@ -56,13 +57,17 @@ export const uploadFile = async (
       fileType: file.type,
       fileSize: file.size,
       projectId,
-      noteType
+      noteType,
+      subsectionId
     });
 
     const formData = new FormData();
     formData.append('file', file);
     formData.append('projectId', projectId);
     formData.append('noteType', noteType);
+    if (subsectionId) {
+      formData.append('subsectionId', subsectionId);
+    }
 
     const xhr = new XMLHttpRequest();
 
@@ -954,4 +959,56 @@ export const deleteSubsection = async (subsectionId: string): Promise<void> => {
     const error = await response.json();
     throw new Error(error.error || `Failed to delete subsection: ${response.statusText}`);
   }
+};
+
+export const getSubsectionNotes = async (subsectionId: string) => {
+  const token = getToken();
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/subsections/${subsectionId}/notes`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || `Failed to get subsection notes: ${response.statusText}`);
+  }
+
+  return response.json();
+};
+
+export const createTextNoteForSubsection = async (
+  projectId: string,
+  subsectionId: string,
+  content: string
+): Promise<any> => {
+  const token = getToken();
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/notes`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      projectId,
+      type: 'text',
+      content,
+      subsectionId,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to create text note');
+  }
+
+  return response.json();
 };

@@ -570,6 +570,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                           <SectionView
                             section={section}
                             notes={project.notes || []}
+                            projectId={project.id}
                             onNoteClick={handleNoteClick}
                           />
                         )}

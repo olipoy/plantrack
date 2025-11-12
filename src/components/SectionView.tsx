@@ -6,6 +6,7 @@ import { SubsectionsList } from './SubsectionsList';
 interface SectionViewProps {
   section: Section;
   notes: Note[];
+  projectId: string;
   onNoteClick: (note: Note) => void;
   onAddSubsection?: (parentSectionId: string) => void;
   onEditSection?: (section: Section) => void;
@@ -16,6 +17,7 @@ interface SectionViewProps {
 export const SectionView: React.FC<SectionViewProps> = ({
   section,
   notes,
+  projectId,
   onNoteClick,
   onAddSubsection,
   onEditSection,
@@ -133,6 +135,8 @@ export const SectionView: React.FC<SectionViewProps> = ({
           <SubsectionsList
             sectionId={section.id}
             sectionName={section.name}
+            projectId={projectId}
+            onNoteClick={onNoteClick}
           />
         )}
       </div>
@@ -144,6 +148,7 @@ export const SectionView: React.FC<SectionViewProps> = ({
               key={subsection.id}
               section={subsection}
               notes={notes}
+              projectId={projectId}
               onNoteClick={onNoteClick}
               onAddSubsection={onAddSubsection}
               onEditSection={onEditSection}

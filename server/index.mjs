@@ -589,10 +589,10 @@ app.get('/api/projects/:id', authenticateToken, async (req, res) => {
 // Create text note endpoint
 app.post('/api/notes', authenticateToken, async (req, res) => {
   try {
-    const { projectId, type, content } = req.body;
-    
-    console.log('Creating text note:', { projectId, type, content, userId: req.user.id });
-    
+    const { projectId, type, content, sectionId, subsectionId } = req.body;
+
+    console.log('Creating text note:', { projectId, type, content, sectionId, subsectionId, userId: req.user.id });
+
     if (!projectId || !type || !content) {
       return res.status(400).json({ error: 'Project ID, type, and content are required' });
     }
@@ -605,13 +605,19 @@ app.post('/api/notes', authenticateToken, async (req, res) => {
     }
 
     console.log('Project verified, creating note...');
-    
+
     // Create note in database
     const note = await noteDb.createNote(
       projectId,
       type,
       content,
-      null // no transcription for text notes
+      null, // no transcription for text notes
+      null, // imageLabel
+      null, // fileKey
+      null, // orgId (will be fetched from project)
+      null, // delomrade
+      sectionId,
+      subsectionId
     );
 
     console.log('Text note created successfully:', note);
@@ -619,9 +625,9 @@ app.post('/api/notes', authenticateToken, async (req, res) => {
 
   } catch (error) {
     console.error('Create note error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to create note',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -728,6 +734,42 @@ app.delete('/api/notes/:id', authenticateToken, async (req, res) => {
       error: 'Failed to delete note',
       details: error.message
     });
+  }
+});
+
+// Get notes by subsection
+app.get('/api/subsections/:id/notes', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Verify subsection access through section and project ownership
+    const subsectionCheck = await query(
+      `SELECT sub.*, s.project_id, p.user_id
+       FROM subsections sub
+       JOIN sections s ON sub.section_id = s.id
+       JOIN projects p ON s.project_id = p.id
+       WHERE sub.id = $1`,
+      [id]
+    );
+
+    if (subsectionCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Subsection not found' });
+    }
+
+    const subsection = subsectionCheck.rows[0];
+
+    // Verify user has access to this subsection's project
+    if (subsection.user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    // Get all notes for this subsection
+    const notes = await noteDb.getNotesBySubsection(id);
+
+    res.json(notes);
+  } catch (error) {
+    console.error('Get subsection notes error:', error);
+    res.status(500).json({ error: 'Failed to get subsection notes' });
   }
 });
 
@@ -1792,7 +1834,7 @@ app.post('/api/transcribe-audio', authenticateToken, upload.single('file'), asyn
 app.post('/api/upload', authenticateToken, upload.single('file'), async (req, res) => {
   try {
     console.log('=== UPLOAD START ===');
-    const { projectId, noteType } = req.body;
+    const { projectId, noteType, sectionId, subsectionId } = req.body;
     const file = req.file;
     const userId = req.user.id;
 
@@ -1800,6 +1842,8 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
     console.log('Upload file:', file ? { name: file.originalname, type: file.mimetype, size: file.size } : 'NO FILE');
     console.log('ProjectId:', projectId);
     console.log('NoteType:', noteType);
+    console.log('SectionId:', sectionId);
+    console.log('SubsectionId:', subsectionId);
 
     if (!file || !projectId || !noteType) {
       console.error('Missing fields - file:', !!file, 'projectId:', !!projectId, 'noteType:', !!noteType);
@@ -2005,7 +2049,11 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
       initialKommentar,
       transcription,
       imageLabel,
-      s3Key // Pass the S3 key to be stored in file_key column
+      s3Key, // Pass the S3 key to be stored in file_key column
+      null, // orgId (will be fetched from project)
+      null, // delomrade
+      sectionId,
+      subsectionId
     );
 
     console.log('Upload completed successfully');

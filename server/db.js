@@ -355,7 +355,7 @@ const projectDb = {
 // Note-related database functions
 const noteDb = {
   // Create a new note
-  async createNote(projectId, type, kommentar, transcription, imageLabel = null, fileKey = null, orgId = null, delomrade = null) {
+  async createNote(projectId, type, kommentar, transcription, imageLabel = null, fileKey = null, orgId = null, delomrade = null, sectionId = null, subsectionId = null) {
     if (!orgId) {
       // Get organization from project
       const projectResult = await query('SELECT org_id FROM projects WHERE id = $1', [projectId]);
@@ -366,8 +366,8 @@ const noteDb = {
     }
 
     const result = await query(
-      'INSERT INTO notes (project_id, type, kommentar, transcription, image_label, file_key, org_id, delomrade) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
-      [projectId, type, kommentar, transcription, imageLabel, fileKey, orgId, delomrade]
+      'INSERT INTO notes (project_id, type, kommentar, transcription, image_label, file_key, org_id, delomrade, section_id, subsection_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
+      [projectId, type, kommentar, transcription, imageLabel, fileKey, orgId, delomrade, sectionId, subsectionId]
     );
     return result.rows[0];
   },
@@ -394,6 +394,8 @@ const noteDb = {
           transcription: note.transcription,
           image_label: note.image_label,
           delomrade: note.delomrade,
+          section_id: note.section_id,
+          subsection_id: note.subsection_id,
           created_at: note.created_at,
           submitted: note.submitted || false,
           submitted_at: note.submitted_at,
@@ -611,6 +613,63 @@ const noteDb = {
 
         if (note.file_key) {
           formattedNote.file_url = await generateSignedUrl(note.file_key);
+        }
+
+        return formattedNote;
+      })
+    );
+
+    return notesWithUrls;
+  },
+
+  // Get notes by subsection_id
+  async getNotesBySubsection(subsectionId) {
+    console.log('Getting notes for subsection:', subsectionId);
+    const result = await query(
+      `SELECT n.*
+       FROM notes n
+       WHERE n.subsection_id = $1
+       ORDER BY n.created_at DESC`,
+      [subsectionId]
+    );
+    console.log('Database notes query result:', result.rows.length, 'notes found');
+
+    // Generate signed URLs and format response for notes with file_key
+    const notesWithUrls = await Promise.all(
+      result.rows.map(async (note) => {
+        const formattedNote = {
+          id: note.id,
+          type: note.type,
+          kommentar: note.kommentar,
+          transcription: note.transcription,
+          image_label: note.image_label,
+          delomrade: note.delomrade,
+          section_id: note.section_id,
+          subsection_id: note.subsection_id,
+          created_at: note.created_at,
+          submitted: note.submitted || false,
+          submitted_at: note.submitted_at,
+          individual_report: note.individual_report,
+          mediaUrl: null,
+          fileName: null,
+          mimeType: null,
+          fileSize: null
+        };
+
+        if (note.file_key) {
+          formattedNote.mediaUrl = await generateSignedUrl(note.file_key);
+          const keyParts = note.file_key.split('/');
+          formattedNote.fileName = keyParts[keyParts.length - 1];
+          const extension = formattedNote.fileName.split('.').pop()?.toLowerCase();
+          if (extension === 'jpg' || extension === 'jpeg') {
+            formattedNote.mimeType = 'image/jpeg';
+          } else if (extension === 'png') {
+            formattedNote.mimeType = 'image/png';
+          } else if (extension === 'webm') {
+            formattedNote.mimeType = 'video/webm';
+          } else if (extension === 'mp4') {
+            formattedNote.mimeType = 'video/mp4';
+          }
         }
 
         return formattedNote;

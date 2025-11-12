@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, X, Check } from 'lucide-react';
-import { getSectionSubsections, createSubsection, deleteSubsection, Subsection } from '../utils/api';
+import { Plus, X, Check } from 'lucide-react';
+import { getSectionSubsections, createSubsection, Subsection } from '../utils/api';
+import { SubsectionItem } from './SubsectionItem';
+import { Note } from '../types';
 
 interface SubsectionsListProps {
   sectionId: string;
   sectionName: string;
+  projectId: string;
+  onNoteClick: (note: Note) => void;
 }
 
-export const SubsectionsList: React.FC<SubsectionsListProps> = ({ sectionId, sectionName }) => {
+export const SubsectionsList: React.FC<SubsectionsListProps> = ({ sectionId, sectionName, projectId, onNoteClick }) => {
   const [subsections, setSubsections] = useState<Subsection[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
@@ -61,21 +65,6 @@ export const SubsectionsList: React.FC<SubsectionsListProps> = ({ sectionId, sec
     }
   };
 
-  const handleDeleteSubsection = async (subsectionId: string, name: string) => {
-    if (!confirm(`Är du säker på att du vill ta bort "${name}"?`)) {
-      return;
-    }
-
-    try {
-      await deleteSubsection(subsectionId);
-      await loadSubsections();
-      setToast('Delområde borttaget');
-    } catch (err) {
-      console.error('Failed to delete subsection:', err);
-      setError('Kunde inte ta bort delområde');
-    }
-  };
-
   const handleCancel = () => {
     setIsAdding(false);
     setNewSubsectionName('');
@@ -99,19 +88,13 @@ export const SubsectionsList: React.FC<SubsectionsListProps> = ({ sectionId, sec
           {subsections.length > 0 ? (
             <div className="space-y-2">
               {subsections.map((subsection) => (
-                <div
+                <SubsectionItem
                   key={subsection.id}
-                  className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 border border-gray-200"
-                >
-                  <span className="text-sm text-gray-700">{subsection.name}</span>
-                  <button
-                    onClick={() => handleDeleteSubsection(subsection.id, subsection.name)}
-                    className="text-gray-400 hover:text-red-600 transition-colors p-1"
-                    aria-label="Ta bort delområde"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
+                  subsection={subsection}
+                  projectId={projectId}
+                  onDelete={loadSubsections}
+                  onNoteClick={onNoteClick}
+                />
               ))}
             </div>
           ) : (
