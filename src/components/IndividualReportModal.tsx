@@ -112,9 +112,11 @@ export const IndividualReportModal: React.FC<IndividualReportModalProps> = ({
             <FileText className="w-6 h-6 text-blue-600 mr-3" />
             <div>
               <h2 className="text-xl font-bold text-gray-900">Skicka enskild rapport</h2>
-              <p className="text-sm text-gray-500">
-                {formatNoteType(note.type)} • {note.timestamp.toLocaleDateString('sv-SE')}
-              </p>
+              {(note.timestamp || note.created_at) && (
+                <p className="text-sm text-gray-500">
+                  {formatNoteType(note.type)} • {new Date(note.timestamp || note.created_at!).toLocaleDateString('sv-SE')}
+                </p>
+              )}
             </div>
           </div>
           <button

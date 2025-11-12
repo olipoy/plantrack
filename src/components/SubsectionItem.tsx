@@ -286,9 +286,11 @@ export const SubsectionItem: React.FC<SubsectionItemProps> = ({
                         {truncateText(note.kommentar, 80)}
                       </p>
                     )}
-                    <p className="text-xs text-gray-500">
-                      {new Date(note.created_at || note.timestamp).toLocaleString()}
-                    </p>
+                    {(note.created_at || note.timestamp) && (
+                      <p className="text-xs text-gray-500">
+                        {new Date(note.created_at || note.timestamp).toLocaleString()}
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>

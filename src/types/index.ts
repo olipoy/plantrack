@@ -42,7 +42,8 @@ export interface Note {
   imageLabel?: string;
   delomrade?: string;
   isLabelLoading?: boolean;
-  timestamp: Date;
+  timestamp?: Date | string;
+  created_at?: Date | string;
   mediaUrl?: string | null;
   fileName?: string | null;
   mimeType?: string | null;
@@ -51,6 +52,7 @@ export interface Note {
   submittedAt?: Date;
   individualReport?: string;
   section_id?: string | null;
+  subsection_id?: string | null;
 }
 
 export interface ChatMessage {

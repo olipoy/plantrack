@@ -25,6 +25,13 @@ export const NoteModal: React.FC<NoteModalProps> = ({
 }) => {
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [email, setEmail] = useState('');
+
+  const getTimestamp = () => {
+    const dateValue = note.timestamp || note.created_at;
+    if (!dateValue) return null;
+    return new Date(dateValue);
+  };
+
   const getNoteTypeLabel = () => {
     switch (note.type) {
       case 'photo': return 'Foto';
@@ -239,9 +246,11 @@ export const NoteModal: React.FC<NoteModalProps> = ({
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div>
             <h2 className="text-xl font-bold text-gray-900">{formatNoteType(note.type)}</h2>
-            <p className="text-sm text-gray-500">
-              {note.timestamp.toLocaleDateString('sv-SE')} • {note.timestamp.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}
-            </p>
+            {getTimestamp() && (
+              <p className="text-sm text-gray-500">
+                {getTimestamp()!.toLocaleDateString('sv-SE')} • {getTimestamp()!.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            )}
           </div>
           <div className="flex items-center space-x-2">
             {!isEditing && !showDeleteConfirm && (
@@ -635,7 +644,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
                     Denna anteckning har redan skickats via e-post
                     {note.submittedAt && (
                       <span className="block text-sm text-gray-500 mt-1">
-                        {note.submittedAt.toLocaleDateString('sv-SE')} • {note.submittedAt.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(note.submittedAt).toLocaleDateString('sv-SE')} • {new Date(note.submittedAt).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     )}
                   </p>
