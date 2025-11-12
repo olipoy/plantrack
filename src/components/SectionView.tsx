@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ChevronDown, ChevronRight, Plus, Edit2, Trash2 } from 'lucide-react';
 import { Section, Note } from '../types';
+import { SubsectionsList } from './SubsectionsList';
 
 interface SectionViewProps {
   section: Section;
@@ -26,6 +27,9 @@ export const SectionView: React.FC<SectionViewProps> = ({
   const sectionNotes = notes.filter(note => note.section_id === section.id);
   const hasSubsections = section.subsections && section.subsections.length > 0;
   const indentClass = level > 0 ? 'ml-4' : '';
+
+  const sectionsWithSubsections = ['Utvändigt', 'Entréplan', 'Övre plan', 'Källarplan'];
+  const shouldShowSubsectionsList = sectionsWithSubsections.includes(section.name);
 
   const truncateText = (text: string, maxLength: number) => {
     if (!text) return '';
@@ -123,6 +127,13 @@ export const SectionView: React.FC<SectionViewProps> = ({
                 </div>
               ))}
           </div>
+        )}
+
+        {isExpanded && shouldShowSubsectionsList && (
+          <SubsectionsList
+            sectionId={section.id}
+            sectionName={section.name}
+          />
         )}
       </div>
 

@@ -880,3 +880,78 @@ export const saveSectionField = async (
 
   return response.json();
 };
+
+export interface Subsection {
+  id: string;
+  section_id: string;
+  name: string;
+  created_at: string;
+}
+
+export const getSectionSubsections = async (sectionId: string): Promise<Subsection[]> => {
+  const token = getToken();
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/sections/${sectionId}/subsections`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || `Failed to get section subsections: ${response.statusText}`);
+  }
+
+  return response.json();
+};
+
+export const createSubsection = async (
+  sectionId: string,
+  name: string
+): Promise<Subsection> => {
+  const token = getToken();
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/sections/${sectionId}/subsections`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ name }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    if (response.status === 409) {
+      throw new Error('DUPLICATE');
+    }
+    throw new Error(error.error || `Failed to create subsection: ${response.statusText}`);
+  }
+
+  return response.json();
+};
+
+export const deleteSubsection = async (subsectionId: string): Promise<void> => {
+  const token = getToken();
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/subsections/${subsectionId}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || `Failed to delete subsection: ${response.statusText}`);
+  }
+};
