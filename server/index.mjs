@@ -1357,204 +1357,23 @@ app.post('/api/projects/:id/generate-report', authenticateToken, async (req, res
   try {
     const projectId = req.params.id;
     const userId = req.user.id;
+    const { pdfBuffer, fileName } = req.body;
 
-    console.log('Generating report for project:', projectId);
+    console.log('Saving report for project:', projectId);
 
-    // Get project with notes
+    // Verify project belongs to user
     const project = await projectDb.getProjectById(projectId, userId);
     if (!project) {
       return res.status(404).json({ error: 'Project not found' });
     }
 
-    // Get all notes for the project
-    const notes = await noteDb.getNotesByProject(projectId, userId);
-    console.log(`Found ${notes.length} notes for report`);
-
-    // Import PDFKit dynamically
-    const PDFDocument = (await import('pdfkit')).default;
-    const doc = new PDFDocument({ size: 'A4', margin: 50 });
-
-    const fileName = `${project.name.replace(/[^a-z0-9]/gi, '_')}_${Date.now()}.pdf`;
-    let pdfBuffer = [];
-
-    doc.on('data', chunk => pdfBuffer.push(chunk));
-
-    const pdfPromise = new Promise((resolve, reject) => {
-      doc.on('end', () => resolve(Buffer.concat(pdfBuffer)));
-      doc.on('error', reject);
-    });
-
-    // Header
-    doc.fontSize(22)
-       .font('Helvetica-Bold')
-       .text('Inspektionsrapport', { align: 'center' });
-    doc.moveDown(2);
-
-    // Project info section
-    doc.font('Helvetica')
-       .fontSize(11);
-
-    doc.font('Helvetica-Bold').text('Projektets namn: ', { continued: true })
-       .font('Helvetica').text(project.name);
-
-    doc.font('Helvetica-Bold').text('Adress: ', { continued: true })
-       .font('Helvetica').text(project.location || 'Ej angiven');
-
-    if (project.byggnad) {
-      doc.font('Helvetica-Bold').text('Byggnad: ', { continued: true })
-         .font('Helvetica').text(project.byggnad);
+    // Validate input
+    if (!pdfBuffer || !fileName) {
+      return res.status(400).json({ error: 'Missing pdfBuffer or fileName' });
     }
 
-    doc.font('Helvetica-Bold').text('Datum för inspektion: ', { continued: true })
-       .font('Helvetica').text(new Date(project.project_date).toLocaleDateString('sv-SE'));
-
-    doc.font('Helvetica-Bold').text('Namn på inspektör: ', { continued: true })
-       .font('Helvetica').text(project.inspector || 'Ej angiven');
-
-    doc.moveDown(2.5);
-
-    // Notes table
-    if (notes.length > 0) {
-      doc.fontSize(14)
-         .font('Helvetica-Bold')
-         .text('Inspektionsanteckningar', { underline: true });
-      doc.font('Helvetica');
-      doc.moveDown(1.5);
-
-      // Table dimensions
-      const colDelomrade = 50;
-      const colKommentar = 140;
-      const colBild = 360;
-      const colWidthDelomrade = 90;
-      const colWidthKommentar = 220;
-      const colWidthBild = 150;
-      const headerHeight = 25;
-
-      // Draw table header background (light gray)
-      const headerY = doc.y;
-      doc.fillColor('#f0f0f0')
-         .rect(colDelomrade, headerY, colWidthDelomrade + colWidthKommentar + colWidthBild, headerHeight)
-         .fill();
-
-      // Draw header borders together to create continuous lines
-      doc.fillColor('black')
-         .lineWidth(0.5)
-         .rect(colDelomrade, headerY, colWidthDelomrade, headerHeight)
-         .rect(colKommentar, headerY, colWidthKommentar, headerHeight)
-         .rect(colBild, headerY, colWidthBild, headerHeight)
-         .stroke();
-
-      // Draw header text
-      doc.fontSize(10)
-         .fillColor('black')
-         .font('Helvetica-Bold')
-         .text('Delområde', colDelomrade + 5, headerY + 8, { width: colWidthDelomrade - 10, align: 'left' })
-         .text('Kommentar', colKommentar + 5, headerY + 8, { width: colWidthKommentar - 10, align: 'left' })
-         .text('Bild', colBild + 5, headerY + 8, { width: colWidthBild - 10, align: 'left' })
-         .font('Helvetica');
-
-      // Move cursor below header
-      doc.y = headerY + headerHeight;
-
-      // Process each note
-      for (const note of notes) {
-        const startY = doc.y;
-        let imageBuffer = null;
-        let imageHeight = 0;
-
-        // Try to fetch and prepare image
-        if (note.type === 'photo' && note.file_url) {
-          try {
-            let imageUrl = note.file_url;
-            if (note.file_key) {
-              imageUrl = await generateSignedUrl(note.file_key);
-            }
-
-            imageBuffer = await fetchImageAsBuffer(imageUrl);
-            // Reserve space for image (max 100px height)
-            imageHeight = 100;
-          } catch (err) {
-            console.error('Error fetching image:', err);
-          }
-        }
-
-        // Calculate row height based on content
-        const kommentar = note.kommentar || note.transcription || 'Ingen kommentar';
-        const delomrade = note.delomrade || 'Ej angiven';
-
-        // Estimate text height
-        const textHeight = Math.max(
-          doc.heightOfString(delomrade, { width: colWidthDelomrade - 10 }),
-          doc.heightOfString(kommentar, { width: colWidthKommentar - 10 })
-        );
-
-        const calculatedRowHeight = Math.max(textHeight + 10, imageHeight + 10, 30);
-
-        // Check if we need a new page
-        if (doc.y + calculatedRowHeight > 750) {
-          doc.addPage();
-        }
-
-        const currentY = doc.y;
-
-        // Draw all cell borders together to create a continuous table
-        doc.lineWidth(0.5);
-        doc.rect(colDelomrade, currentY, colWidthDelomrade, calculatedRowHeight);
-        doc.rect(colKommentar, currentY, colWidthKommentar, calculatedRowHeight);
-        doc.rect(colBild, currentY, colWidthBild, calculatedRowHeight);
-        doc.stroke();
-
-        // Draw Delområde text
-        doc.fontSize(9).text(delomrade, colDelomrade + 5, currentY + 5, {
-          width: colWidthDelomrade - 10,
-          align: 'left'
-        });
-
-        // Draw Kommentar text
-        doc.fontSize(9).text(kommentar, colKommentar + 5, currentY + 5, {
-          width: colWidthKommentar - 10,
-          align: 'left'
-        });
-
-        if (imageBuffer) {
-          try {
-            // Embed image in PDF
-            const imgX = colBild + 5;
-            const imgY = currentY + 5;
-            const maxImgWidth = colWidthBild - 10;
-            const maxImgHeight = calculatedRowHeight - 10;
-
-            doc.image(imageBuffer, imgX, imgY, {
-              fit: [maxImgWidth, maxImgHeight],
-              align: 'center',
-              valign: 'center'
-            });
-          } catch (err) {
-            console.error('Error embedding image in PDF:', err);
-            doc.fontSize(8).text('Bild kunde ej laddas', colBild + 5, currentY + 5, {
-              width: colWidthBild - 10
-            });
-          }
-        } else if (note.type === 'video') {
-          doc.fontSize(8).text('Video bifogad', colBild + 5, currentY + 5, {
-            width: colWidthBild - 10
-          });
-        } else {
-          doc.fontSize(8).text('-', colBild + 5, currentY + 5, {
-            width: colWidthBild - 10
-          });
-        }
-
-        // Move to next row
-        doc.y = currentY + calculatedRowHeight;
-      }
-    } else {
-      doc.fontSize(10).text('Inga inspektionsanteckningar registrerade.');
-    }
-
-    doc.end();
-
-    const pdfData = await pdfPromise;
+    // Convert base64 buffer to binary
+    const pdfData = Buffer.from(pdfBuffer, 'base64');
 
     // Store PDF in S3 or filesystem
     let reportUrl;

@@ -285,12 +285,66 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const handleGenerateReport = async () => {
     setIsGeneratingReport(true);
     try {
-      const result = await generateProjectReport(project.id);
+      console.log('=== GENERATING REPORT ===');
+      console.log('Project template:', project.template);
+
+      // Determine which PDF generator to use based on template
+      const templateId = project.template || 'inspektionsrapport';
+      let pdfBuffer: string;
+      let fileName: string;
+
+      if (templateId === 'besiktningsprotokoll') {
+        // Use Besiktningsprotokoll template
+        const { generateBesiktningsprotokollPDF } = await import('../utils/export');
+
+        // Fetch sections and section fields for the project
+        const projectSections = await getProjectSections(project.id);
+
+        // Fetch section fields
+        const { getSectionFields } = await import('../utils/api');
+        const sectionFields: Record<string, Record<string, string>> = {};
+
+        for (const section of projectSections) {
+          const fields = await getSectionFields(section.id);
+          const fieldMap: Record<string, string> = {};
+          fields.forEach((field: any) => {
+            fieldMap[field.name] = field.value;
+          });
+          sectionFields[section.id] = fieldMap;
+        }
+
+        // Prepare project with sections
+        const projectWithSections = {
+          ...project,
+          sections: organizeSectionsHierarchy(projectSections),
+          sectionFields
+        };
+
+        console.log('Generating Besiktningsprotokoll PDF...');
+        const result = await generateBesiktningsprotokollPDF(projectWithSections);
+        pdfBuffer = result.pdfBuffer;
+        fileName = result.fileName;
+      } else {
+        // Use default Inspektionsrapport template
+        const { generateProjectPDF } = await import('../utils/export');
+
+        console.log('Generating Inspektionsrapport PDF...');
+        const result = await generateProjectPDF(project);
+        pdfBuffer = result.pdfBuffer;
+        fileName = result.fileName;
+      }
+
+      console.log('PDF generated, sending to backend for storage...');
+
+      // Send PDF to backend for storage
+      const result = await generateProjectReport(project.id, pdfBuffer, fileName);
       const updatedReports = await getProjectReports(project.id);
 
       // Validate reports before setting state
       const validReports = Array.isArray(updatedReports) ? updatedReports : [];
       setReports(validReports);
+
+      console.log('=== REPORT GENERATION COMPLETE ===');
     } catch (error) {
       console.error('Failed to generate report:', error);
       alert(`Kunde inte skapa rapport: ${error instanceof Error ? error.message : 'Okänt fel'}`);

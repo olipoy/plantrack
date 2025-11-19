@@ -774,7 +774,7 @@ export const deleteNote = async (noteId: string): Promise<void> => {
 };
 
 // Project Reports API functions
-export const generateProjectReport = async (projectId: string): Promise<any> => {
+export const generateProjectReport = async (projectId: string, pdfBuffer: string, fileName: string): Promise<any> => {
   const token = getToken();
   if (!token) {
     throw new Error('Authentication required');
@@ -784,7 +784,12 @@ export const generateProjectReport = async (projectId: string): Promise<any> => 
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
     },
+    body: JSON.stringify({
+      pdfBuffer,
+      fileName
+    }),
   });
 
   if (!response.ok) {
