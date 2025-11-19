@@ -54,73 +54,192 @@ const finalizePDF = (ctx: PDFContext, fileName: string): { pdfBuffer: string; fi
 // INSPEKTIONSRAPPORT TEMPLATE
 // ===========================
 
+const formatSwedishDate = (date: Date): string => {
+  const months = ['jan', 'feb', 'mar', 'apr', 'maj', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+  const day = date.getDate();
+  const month = months[date.getMonth()];
+  const year = date.getFullYear();
+  return `${day} ${month} ${year}`;
+};
+
+const addBoldLabel = (ctx: PDFContext, label: string, value: string, x: number, y: number): void => {
+  ctx.pdf.setFont('helvetica', 'bold');
+  ctx.pdf.text(`${label}:`, x, y);
+
+  const labelWidth = ctx.pdf.getTextWidth(`${label}: `);
+  ctx.pdf.setFont('helvetica', 'normal');
+  ctx.pdf.text(value, x + labelWidth, y);
+};
+
+const groupNotesByDelomrade = (notes: Note[]): Map<string, Note[]> => {
+  const grouped = new Map<string, Note[]>();
+
+  notes.forEach(note => {
+    const delomrade = note.delomrade || 'Ej angiven';
+    if (!grouped.has(delomrade)) {
+      grouped.set(delomrade, []);
+    }
+    grouped.get(delomrade)!.push(note);
+  });
+
+  return grouped;
+};
+
+const fetchImageAsDataURL = async (url: string): Promise<string | null> => {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.error('Failed to fetch image:', error);
+    return null;
+  }
+};
+
 export const generateProjectPDF = async (project: Project): Promise<{ pdfBuffer: string; fileName: string }> => {
   console.log('=== INSPEKTIONSRAPPORT PDF GENERATION START ===');
   console.log('Project data:', {
     name: project.name,
     notesCount: project.notes?.length || 0,
-    hasAiSummary: !!project.aiSummary
   });
 
   const ctx = createPDFContext();
 
-  // Title
-  console.log('Adding PDF title...');
-  ctx.pdf.setFontSize(20);
+  // 1. Title - Centered, bold, large font
+  ctx.pdf.setFontSize(22);
   ctx.pdf.setFont('helvetica', 'bold');
-  ctx.pdf.text('Inspektionsrapport', ctx.margin, ctx.yPosition);
-  ctx.yPosition += ctx.lineHeight * 2;
+  const title = 'Inspektionsrapport';
+  const titleWidth = ctx.pdf.getTextWidth(title);
+  const titleX = (ctx.pageWidth - titleWidth) / 2;
+  ctx.pdf.text(title, titleX, ctx.yPosition);
+  ctx.yPosition += ctx.lineHeight * 2.5;
 
-  // Project Info
-  console.log('Adding project info...');
-  ctx.pdf.setFontSize(12);
-  ctx.pdf.setFont('helvetica', 'normal');
-  ctx.pdf.text(`Projekt: ${project.name}`, ctx.margin, ctx.yPosition);
-  ctx.yPosition += ctx.lineHeight;
-  ctx.pdf.text(`Plats: ${project.location || 'Ej specificerad'}`, ctx.margin, ctx.yPosition);
-  ctx.yPosition += ctx.lineHeight;
-  ctx.pdf.text(`Datum: ${project.createdAt.toLocaleDateString('sv-SE')}`, ctx.margin, ctx.yPosition);
-  ctx.yPosition += ctx.lineHeight * 2;
+  // 2. Project Information Block
+  ctx.pdf.setFontSize(11);
+  const inspectionDate = project.date ? new Date(project.date) : new Date();
 
-  // AI Summary
-  if (project.aiSummary) {
-    console.log('Adding AI summary...');
-    ctx.pdf.setFont('helvetica', 'bold');
-    ctx.pdf.text('AI-Sammanfattning:', ctx.margin, ctx.yPosition);
-    ctx.yPosition += ctx.lineHeight;
-    ctx.pdf.setFont('helvetica', 'normal');
+  addBoldLabel(ctx, 'Namn på projekt', project.name, ctx.margin, ctx.yPosition);
+  ctx.yPosition += ctx.lineHeight * 1.3;
 
-    addWrappedText(ctx, project.aiSummary);
-    ctx.yPosition += ctx.lineHeight;
-  }
+  addBoldLabel(ctx, 'Adress', project.location || 'Ej angiven', ctx.margin, ctx.yPosition);
+  ctx.yPosition += ctx.lineHeight * 1.3;
 
-  // Notes
+  addBoldLabel(ctx, 'Datum för inspektion', formatSwedishDate(inspectionDate), ctx.margin, ctx.yPosition);
+  ctx.yPosition += ctx.lineHeight * 1.3;
+
+  addBoldLabel(ctx, 'Inspektör', project.inspector || 'Ej angiven', ctx.margin, ctx.yPosition);
+  ctx.yPosition += ctx.lineHeight * 3;
+
+  // 3. Section Header: "Inspektionsanteckningar"
   if (project.notes && project.notes.length > 0) {
-    console.log('Adding notes section...');
+    checkPageBreak(ctx, 60);
+
+    ctx.pdf.setFontSize(16);
     ctx.pdf.setFont('helvetica', 'bold');
-    ctx.pdf.text('Anteckningar:', ctx.margin, ctx.yPosition);
-    ctx.yPosition += ctx.lineHeight;
+    ctx.pdf.text('Inspektionsanteckningar', ctx.margin, ctx.yPosition);
+
+    const lineY = ctx.yPosition + 2;
+    ctx.pdf.setLineWidth(0.5);
+    ctx.pdf.line(ctx.margin, lineY, ctx.margin + ctx.pdf.getTextWidth('Inspektionsanteckningar'), lineY);
+
+    ctx.yPosition += ctx.lineHeight * 2;
+
+    // 4. Notes Table
+    const colDelomradeX = ctx.margin;
+    const colKommentarX = ctx.margin + 60;
+    const colBildX = ctx.margin + 155;
+
+    const colDelomradeWidth = 55;
+    const colKommentarWidth = 95;
+    const colBildWidth = 40;
+
+    const tableWidth = colDelomradeWidth + colKommentarWidth + colBildWidth;
+
+    // Table Header
+    const headerY = ctx.yPosition;
+    ctx.pdf.setFontSize(10);
+    ctx.pdf.setFont('helvetica', 'bold');
+
+    ctx.pdf.rect(colDelomradeX, headerY, colDelomradeWidth, 8);
+    ctx.pdf.rect(colKommentarX, headerY, colKommentarWidth, 8);
+    ctx.pdf.rect(colBildX, headerY, colBildWidth, 8);
+    ctx.pdf.stroke();
+
+    ctx.pdf.text('Delområde', colDelomradeX + 2, headerY + 6);
+    ctx.pdf.text('Kommentar', colKommentarX + 2, headerY + 6);
+    ctx.pdf.text('Bild', colBildX + 2, headerY + 6);
+
+    ctx.yPosition = headerY + 8;
+
+    // Group notes by delområde
+    const groupedNotes = groupNotesByDelomrade(project.notes);
+
     ctx.pdf.setFont('helvetica', 'normal');
+    ctx.pdf.setFontSize(9);
 
-    project.notes.forEach((note, index) => {
-      console.log(`Processing note ${index + 1}/${project.notes.length}:`, note.type);
+    for (const [delomrade, notes] of groupedNotes) {
+      for (const note of notes) {
+        checkPageBreak(ctx, 30);
 
-      checkPageBreak(ctx, ctx.margin * 2);
+        const rowY = ctx.yPosition;
 
-      let noteContent = note.kommentar || '';
-      if (note.type === 'video' && note.transcription) {
-        noteContent = note.transcription;
-      } else if (note.type === 'photo' && note.imageLabel) {
-        noteContent = note.imageLabel;
+        let kommentar = note.kommentar || '';
+        if (!kommentar && note.transcription) {
+          kommentar = note.transcription;
+        } else if (!kommentar && note.imageLabel) {
+          kommentar = note.imageLabel;
+        }
+
+        const kommentarLines = ctx.pdf.splitTextToSize(kommentar || 'Ingen kommentar', colKommentarWidth - 4);
+        const textHeight = kommentarLines.length * 4;
+        const rowHeight = Math.max(textHeight + 4, 20);
+
+        ctx.pdf.rect(colDelomradeX, rowY, colDelomradeWidth, rowHeight);
+        ctx.pdf.rect(colKommentarX, rowY, colKommentarWidth, rowHeight);
+        ctx.pdf.rect(colBildX, rowY, colBildWidth, rowHeight);
+        ctx.pdf.stroke();
+
+        ctx.pdf.text(delomrade, colDelomradeX + 2, rowY + 5, {
+          maxWidth: colDelomradeWidth - 4
+        });
+
+        let currentY = rowY + 5;
+        kommentarLines.forEach((line: string) => {
+          ctx.pdf.text(line, colKommentarX + 2, currentY);
+          currentY += 4;
+        });
+
+        if (note.type === 'photo' && note.mediaUrl) {
+          try {
+            const imageData = await fetchImageAsDataURL(note.mediaUrl);
+            if (imageData) {
+              const imgWidth = 35;
+              const imgHeight = 15;
+              const imgX = colBildX + 2;
+              const imgY = rowY + 2;
+
+              ctx.pdf.addImage(imageData, 'JPEG', imgX, imgY, imgWidth, imgHeight);
+            }
+          } catch (error) {
+            console.error('Failed to add image to PDF:', error);
+          }
+        }
+
+        ctx.yPosition = rowY + rowHeight;
       }
-
-      const noteText = `${index + 1}. [${note.type.toUpperCase()}] ${noteContent}`;
-      addWrappedText(ctx, noteText);
-      ctx.yPosition += ctx.lineHeight / 2;
-    });
+    }
+  } else {
+    ctx.pdf.setFontSize(10);
+    ctx.pdf.setFont('helvetica', 'italic');
+    ctx.pdf.text('Inga inspektionsanteckningar registrerade.', ctx.margin, ctx.yPosition);
   }
 
-  const fileName = `${project.name.replace(/[^a-zA-Z0-9]/g, '_')}_inspection_report.pdf`;
+  const fileName = `${project.name.replace(/[^a-zA-Z0-9]/g, '_')}_inspektionsrapport.pdf`;
 
   console.log('=== INSPEKTIONSRAPPORT PDF GENERATION COMPLETE ===');
   console.log('Generated file:', fileName);
