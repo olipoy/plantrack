@@ -1,123 +1,128 @@
 <!DOCTYPE html>
 <html lang="sv">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Inspektionsrapport</title>
-  <style>
-    body {
-      font-family: 'Helvetica', Arial, sans-serif;
-      margin: 0;
-      padding: 20px;
-      font-size: 11pt;
-    }
-    .title {
-      text-align: center;
-      font-size: 22pt;
-      font-weight: bold;
-      margin-bottom: 30px;
-    }
-    .info-block {
-      margin-bottom: 30px;
-    }
-    .info-line {
-      margin-bottom: 8px;
-    }
-    .label {
-      font-weight: bold;
-    }
-    .section-header {
-      font-size: 16pt;
-      font-weight: bold;
-      border-bottom: 1px solid #000;
-      margin-top: 20px;
-      margin-bottom: 15px;
-      padding-bottom: 3px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
-    }
-    th, td {
-      border: 1px solid #000;
-      padding: 5px;
-      text-align: left;
-      vertical-align: top;
-    }
-    th {
-      font-weight: bold;
-      background-color: #f0f0f0;
-      font-size: 10pt;
-    }
-    td {
-      font-size: 9pt;
-    }
-    .col-delomrade {
-      width: 29%;
-    }
-    .col-kommentar {
-      width: 50%;
-    }
-    .col-bild {
-      width: 21%;
-    }
-    .note-image {
-      max-width: 100%;
-      height: auto;
-      max-height: 60px;
-    }
-    .empty-notes {
-      font-style: italic;
-      color: #666;
-    }
-  </style>
-</head>
-<body>
-  <div class="title">Inspektionsrapport</div>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Inspektionsrapport</title>
+    <style>
+      body {
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 12pt;
+        margin: 20mm;
+      }
 
-  <div class="info-block">
-    <div class="info-line">
-      <span class="label">Namn på projekt:</span> {{project.name}}
-    </div>
-    <div class="info-line">
-      <span class="label">Adress:</span> {{project.address}}
-    </div>
-    <div class="info-line">
-      <span class="label">Datum för inspektion:</span> {{project.date}}
-    </div>
-    <div class="info-line">
-      <span class="label">Inspektör:</span> {{project.inspector}}
-    </div>
-  </div>
+      h1 {
+        text-align: center;
+        font-size: 20pt;
+        font-weight: bold;
+        margin: 0 0 14pt 0;
+      }
 
-  {{#if hasNotes}}
-  <div class="section-header">Inspektionsanteckningar</div>
+      .project-info {
+        margin-bottom: 18pt;
+      }
 
-  <table>
-    <thead>
-      <tr>
-        <th class="col-delomrade">Delområde</th>
-        <th class="col-kommentar">Kommentar</th>
-        <th class="col-bild">Bild</th>
-      </tr>
-    </thead>
-    <tbody>
-      {{#each notes}}
-      <tr>
-        <td class="col-delomrade">{{delomrade}}</td>
-        <td class="col-kommentar">{{kommentar}}</td>
-        <td class="col-bild">
-          {{#if image}}
-          <img src="{{image}}" class="note-image" alt="Note image">
-          {{/if}}
-        </td>
-      </tr>
-      {{/each}}
-    </tbody>
-  </table>
-  {{else}}
-  <div class="empty-notes">Inga inspektionsanteckningar registrerade.</div>
-  {{/if}}
-</body>
+      .project-info p {
+        margin: 3pt 0;
+      }
+
+      .label {
+        font-weight: bold;
+      }
+
+      h2 {
+        font-size: 14pt;
+        font-weight: bold;
+        text-decoration: underline;
+        margin: 10pt 0 8pt 0;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+      }
+
+      th,
+      td {
+        border: 0.5pt solid #000;
+        padding: 4pt 6pt;
+        vertical-align: top;
+        font-size: 11pt;
+        word-wrap: break-word;
+      }
+
+      th {
+        font-weight: bold;
+        text-align: left;
+      }
+
+      th.col-delomrade {
+        width: 30%;
+      }
+
+      th.col-kommentar {
+        width: 50%;
+      }
+
+      th.col-bild {
+        width: 20%;
+      }
+
+      td.bild-cell {
+        text-align: center;
+      }
+
+      td.bild-cell img {
+        max-width: 45mm;
+        max-height: 45mm;
+        object-fit: contain;
+        display: block;
+        margin: 0 auto;
+      }
+
+      .no-notes {
+        margin-top: 6pt;
+        font-style: italic;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Inspektionsrapport</h1>
+
+    <div class="project-info">
+      <p><span class="label">Projektets namn:</span> {{project.name}}</p>
+      <p><span class="label">Adress:</span> {{project.address}}</p>
+      <p><span class="label">Datum för inspektion:</span> {{project.date}}</p>
+      <p><span class="label">Namn på inspektör:</span> {{project.inspector}}</p>
+    </div>
+
+    <h2>Inspektionsanteckningar</h2>
+
+    {{#if hasNotes}}
+    <table>
+      <thead>
+        <tr>
+          <th class="col-delomrade">Delområde</th>
+          <th class="col-kommentar">Kommentar</th>
+          <th class="col-bild">Bild</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#each notes}}
+        <tr>
+          <td>{{delomrade}}</td>
+          <td>{{comment}}</td>
+          <td class="bild-cell">
+            {{#if imageUrl}}
+            <img src="{{imageUrl}}" alt="Bild" />
+            {{/if}}
+          </td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+    {{else}}
+    <p class="no-notes">Inga inspektionsanteckningar.</p>
+    {{/if}}
+  </body>
 </html>

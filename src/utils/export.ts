@@ -56,8 +56,8 @@ export const generateProjectPDF = async (project: Project): Promise<{ pdfBuffer:
 
       notesArray.push({
         delomrade,
-        kommentar: kommentar || 'Ingen kommentar',
-        image: note.type === 'photo' && note.mediaUrl ? note.mediaUrl : null
+        comment: kommentar || 'Ingen kommentar',
+        imageUrl: note.type === 'photo' && note.mediaUrl ? note.mediaUrl : null
       });
     }
   }
