@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Besiktningsprotokoll</title>
+  <style>
+    body {
+      font-family: 'Helvetica', Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      font-size: 11pt;
+    }
+    .title {
+      text-align: center;
+      font-size: 22pt;
+      font-weight: bold;
+      margin-bottom: 30px;
+    }
+    .section-title {
+      font-size: 14pt;
+      font-weight: bold;
+      margin-top: 25px;
+      margin-bottom: 15px;
+    }
+    .info-block {
+      margin-bottom: 20px;
+    }
+    .info-line {
+      margin-bottom: 6px;
+    }
+    .label {
+      font-weight: bold;
+    }
+    .field-section {
+      margin-bottom: 25px;
+    }
+    .field-section-title {
+      font-size: 12pt;
+      font-weight: bold;
+      margin-bottom: 10px;
+      border-bottom: 1px solid #ccc;
+      padding-bottom: 3px;
+    }
+    .field-item {
+      margin-left: 10px;
+      margin-bottom: 8px;
+    }
+    .field-label {
+      font-weight: bold;
+      font-size: 10pt;
+    }
+    .field-value {
+      font-size: 10pt;
+      margin-top: 2px;
+    }
+    .main-section {
+      margin-top: 20px;
+      margin-bottom: 20px;
+    }
+    .main-section-title {
+      font-size: 12pt;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+    .subsection {
+      margin-left: 15px;
+      margin-bottom: 15px;
+    }
+    .subsection-title {
+      font-size: 11pt;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+    .note-item {
+      margin-left: 20px;
+      margin-bottom: 6px;
+      font-size: 10pt;
+    }
+    .note-icon {
+      display: inline-block;
+      margin-right: 5px;
+    }
+    .empty-notes {
+      margin-left: 20px;
+      font-style: italic;
+      color: #666;
+      font-size: 10pt;
+    }
+  </style>
+</head>
+<body>
+  <div class="title">Besiktningsprotokoll</div>
+
+  <div class="section-title">Projektinformation</div>
+  <div class="info-block">
+    <div class="info-line">
+      <span class="label">Projekt:</span> {{project.name}}
+    </div>
+    <div class="info-line">
+      <span class="label">Adress:</span> {{project.address}}
+    </div>
+    <div class="info-line">
+      <span class="label">Datum:</span> {{project.date}}
+    </div>
+    <div class="info-line">
+      <span class="label">Besiktningsman:</span> {{project.inspector}}
+    </div>
+  </div>
+
+  {{#each fieldSections}}
+  <div class="field-section">
+    <div class="field-section-title">{{title}}</div>
+    {{#if hasFields}}
+    {{#each fields}}
+    <div class="field-item">
+      <div class="field-label">{{label}}:</div>
+      <div class="field-value">{{value}}</div>
+    </div>
+    {{/each}}
+    {{else}}
+    <div class="field-item" style="font-style: italic; color: #666;">
+      Inga uppgifter angivna
+    </div>
+    {{/if}}
+  </div>
+  {{/each}}
+
+  <div class="section-title">Besiktningsresultat</div>
+
+  {{#each mainSections}}
+  <div class="main-section">
+    <div class="main-section-title">{{name}}</div>
+
+    {{#if hasSubsections}}
+    {{#each subsections}}
+    <div class="subsection">
+      <div class="subsection-title">{{name}}</div>
+      {{#if hasNotes}}
+      {{#each notes}}
+      <div class="note-item">
+        <span class="note-icon">{{icon}}</span>
+        {{content}}
+      </div>
+      {{/each}}
+      {{else}}
+      <div class="empty-notes">Inga anmärkningar</div>
+      {{/if}}
+    </div>
+    {{/each}}
+    {{else}}
+    <div class="empty-notes">Inga delområden</div>
+    {{/if}}
+  </div>
+  {{/each}}
+</body>
+</html>
