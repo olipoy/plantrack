@@ -54,13 +54,31 @@ export const generateProjectPDF = async (project: Project): Promise<{ pdfBuffer:
         kommentar = note.imageLabel;
       }
 
+      const imageUrl = note.type === 'photo' && note.mediaUrl ? note.mediaUrl : null;
+
+      console.log('Processing note for PDF:', {
+        noteId: note.id,
+        type: note.type,
+        hasMediaUrl: !!note.mediaUrl,
+        mediaUrl: note.mediaUrl,
+        imageUrl: imageUrl,
+        delomrade: delomrade
+      });
+
       notesArray.push({
         delomrade,
         comment: kommentar || 'Ingen kommentar',
-        imageUrl: note.type === 'photo' && note.mediaUrl ? note.mediaUrl : null
+        imageUrl: imageUrl
       });
     }
   }
+
+  console.log('Final notes array for template:', JSON.stringify(notesArray.map(n => ({
+    delomrade: n.delomrade,
+    hasComment: !!n.comment,
+    hasImageUrl: !!n.imageUrl,
+    imageUrlPreview: n.imageUrl ? n.imageUrl.substring(0, 100) + '...' : null
+  })), null, 2));
 
   const templateData = {
     project: {

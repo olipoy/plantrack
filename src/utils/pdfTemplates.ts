@@ -121,15 +121,26 @@ export const generatePdfFromHtml = async (htmlString: string, fileName: string):
   element.style.width = '210mm';
   element.style.minHeight = '297mm';
 
+  const images = element.querySelectorAll('img');
+  console.log(`Found ${images.length} images in rendered HTML`);
+  images.forEach((img, index) => {
+    console.log(`Image ${index + 1}:`, {
+      src: img.src ? img.src.substring(0, 100) + '...' : 'none',
+      crossOrigin: img.crossOrigin,
+      alt: img.alt
+    });
+  });
+
   const opt = {
     margin: 10,
     filename: fileName,
     image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true, logging: false },
+    html2canvas: { scale: 2, useCORS: true, logging: true, allowTaint: false },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
   };
 
   try {
+    console.log('Starting html2pdf conversion...');
     const pdf = await html2pdf().set(opt).from(element).outputPdf('datauristring');
 
     const pdfBuffer = pdf.split(',')[1];
