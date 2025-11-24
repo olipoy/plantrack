@@ -119,7 +119,8 @@ export function organizeSectionsHierarchy(sections: Section[]): Section[] {
   const rootSections: Section[] = [];
 
   sections.forEach(section => {
-    sectionMap.set(section.id, { ...section, subsections: [] });
+    // Preserve existing subsections array (from subsections table), but initialize to empty array if not present
+    sectionMap.set(section.id, { ...section, subsections: section.subsections || [] });
   });
 
   sections.forEach(section => {
