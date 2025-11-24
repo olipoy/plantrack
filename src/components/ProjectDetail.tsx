@@ -299,6 +299,8 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
 
         // Fetch sections and section fields for the project
         const projectSections = await getProjectSections(project.id);
+        console.log('Raw project sections from API:', projectSections.length, 'sections');
+        console.log('Sections data:', JSON.stringify(projectSections, null, 2));
 
         // Fetch section fields
         const { getSectionFields } = await import('../utils/api');
@@ -333,10 +335,18 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
         console.log(`Total notes collected: ${allNotes.length} (${project.notes?.length || 0} project notes + ${allNotes.length - (project.notes?.length || 0)} subsection notes)`);
 
         // Prepare project with sections
+        const organizedSections = organizeSectionsHierarchy(projectSections);
+        console.log('Organized sections hierarchy:', organizedSections.length, 'root sections');
+        console.log('Hierarchy structure:', JSON.stringify(organizedSections.map(s => ({
+          name: s.name,
+          id: s.id,
+          subsections: s.subsections?.map(sub => ({ name: sub.name, id: sub.id }))
+        })), null, 2));
+
         const projectWithSections = {
           ...project,
           notes: allNotes,
-          sections: organizeSectionsHierarchy(projectSections),
+          sections: organizedSections,
           sectionFields
         };
 
