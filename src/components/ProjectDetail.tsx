@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, X, Send, Loader2, CheckCircle, AlertCircle, Check, FileText, Trash2, Mail, ExternalLink, Edit2 } from 'lucide-react';
 import { Note, Section } from '../types';
-import { sendEmailWithPDF, sendEmailWithAttachment, generateProjectReport, getProjectReports, deleteReport, sendReportEmail, getSubsectionNotes } from '../utils/api';
+import { sendEmailWithPDF, sendEmailWithAttachment, generateProjectReport, getProjectReports, deleteReport, sendReportEmail, getSubsectionNotes, getSectionSubsections } from '../utils/api';
 import { CameraView } from './CameraView';
 import { NoteModal } from './NoteModal';
 import { TextNoteModal } from './TextNoteModal';
@@ -302,6 +302,22 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
         console.log('Raw project sections from API:', projectSections.length, 'sections');
         console.log('Sections data:', JSON.stringify(projectSections, null, 2));
 
+        // Fetch subsections for each section that allows them
+        for (const section of projectSections) {
+          if (section.allow_subsections) {
+            try {
+              const subsections = await getSectionSubsections(section.id);
+              section.subsections = subsections;
+              console.log(`Fetched ${subsections.length} subsections for section ${section.name}`);
+            } catch (error) {
+              console.warn(`Failed to fetch subsections for section ${section.id}:`, error);
+              section.subsections = [];
+            }
+          } else {
+            section.subsections = [];
+          }
+        }
+
         // Fetch section fields
         const { getSectionFields } = await import('../utils/api');
         const sectionFields: Record<string, Record<string, string>> = {};
@@ -325,6 +341,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
               try {
                 const subsectionNotes = await getSubsectionNotes(subsection.id);
                 allNotes.push(...subsectionNotes);
+                console.log(`Fetched ${subsectionNotes.length} notes for subsection ${subsection.name}`);
               } catch (error) {
                 console.warn(`Failed to fetch notes for subsection ${subsection.id}:`, error);
               }
