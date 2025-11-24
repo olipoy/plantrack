@@ -13,6 +13,23 @@ const formatSwedishDate = (date: Date): string => {
   return `${day} ${month} ${year}`;
 };
 
+// Convert image URL to base64 data URL to avoid CORS issues
+const imageUrlToBase64 = async (url: string): Promise<string> => {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.error('Failed to convert image to base64:', error);
+    return url; // Fallback to original URL
+  }
+};
+
 const groupNotesByDelomrade = (notes: Note[]): Map<string, Note[]> => {
   const grouped = new Map<string, Note[]>();
 
@@ -54,14 +71,18 @@ export const generateProjectPDF = async (project: Project): Promise<{ pdfBuffer:
         kommentar = note.imageLabel;
       }
 
-      const imageUrl = note.type === 'photo' && note.mediaUrl ? note.mediaUrl : null;
+      let imageUrl = note.type === 'photo' && note.mediaUrl ? note.mediaUrl : null;
+
+      // Convert image to base64 to avoid CORS issues
+      if (imageUrl) {
+        imageUrl = await imageUrlToBase64(imageUrl);
+      }
 
       console.log('Processing note for PDF:', {
         noteId: note.id,
         type: note.type,
         hasMediaUrl: !!note.mediaUrl,
-        mediaUrl: note.mediaUrl,
-        imageUrl: imageUrl,
+        isBase64: imageUrl?.startsWith('data:'),
         delomrade: delomrade
       });
 
@@ -225,7 +246,7 @@ export const generateBesiktningsprotokollPDF = async (project: ProjectWithSectio
           console.log(`    Found ${subsectionNotes.length} notes with subsection_id=${subsection.id}`);
 
           if (subsectionNotes.length > 0) {
-            const notesData = subsectionNotes.map(note => {
+            const notesData = await Promise.all(subsectionNotes.map(async (note) => {
               let content = note.kommentar || '';
               if (!content && note.transcription) {
                 content = note.transcription;
@@ -233,13 +254,18 @@ export const generateBesiktningsprotokollPDF = async (project: ProjectWithSectio
                 content = note.imageLabel;
               }
 
-              const imageUrl = note.type === 'photo' && note.mediaUrl ? note.mediaUrl : null;
+              let imageUrl = note.type === 'photo' && note.mediaUrl ? note.mediaUrl : null;
+
+              // Convert image to base64 to avoid CORS issues
+              if (imageUrl) {
+                imageUrl = await imageUrlToBase64(imageUrl);
+              }
 
               return {
                 content: content || 'Ingen kommentar',
                 imageUrl: imageUrl
               };
-            });
+            }));
 
             subsectionsData.push({
               name: subsection.name,
