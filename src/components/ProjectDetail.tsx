@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, X, Send, Loader2, CheckCircle, AlertCircle, Check, FileText, Trash2, Mail, ExternalLink, Edit2 } from 'lucide-react';
 import { Note, Section } from '../types';
-import { sendEmailWithPDF, sendEmailWithAttachment, generateProjectReport, getProjectReports, deleteReport, sendReportEmail } from '../utils/api';
+import { sendEmailWithPDF, sendEmailWithAttachment, generateProjectReport, getProjectReports, deleteReport, sendReportEmail, getSubsectionNotes } from '../utils/api';
 import { CameraView } from './CameraView';
 import { NoteModal } from './NoteModal';
 import { TextNoteModal } from './TextNoteModal';
@@ -313,9 +313,29 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
           sectionFields[section.id] = fieldMap;
         }
 
+        // Fetch ALL notes including subsection notes
+        const allNotes = [...(project.notes || [])];
+
+        // For each section that has subsections, fetch their notes
+        for (const section of projectSections) {
+          if (section.subsections && section.subsections.length > 0) {
+            for (const subsection of section.subsections) {
+              try {
+                const subsectionNotes = await getSubsectionNotes(subsection.id);
+                allNotes.push(...subsectionNotes);
+              } catch (error) {
+                console.warn(`Failed to fetch notes for subsection ${subsection.id}:`, error);
+              }
+            }
+          }
+        }
+
+        console.log(`Total notes collected: ${allNotes.length} (${project.notes?.length || 0} project notes + ${allNotes.length - (project.notes?.length || 0)} subsection notes)`);
+
         // Prepare project with sections
         const projectWithSections = {
           ...project,
+          notes: allNotes,
           sections: organizeSectionsHierarchy(projectSections),
           sectionFields
         };
