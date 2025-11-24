@@ -127,22 +127,6 @@ export const generateBesiktningsprotokollPDF = async (project: ProjectWithSectio
 
   const inspectionDate = project.date ? new Date(project.date) : new Date();
 
-  // Extract Projektinformation fields
-  const projektinformationSection = project.sections?.find(s => s.name === 'Projektinformation');
-  const projektinformationFields = projektinformationSection ? project.sectionFields?.[projektinformationSection.id] || {} : {};
-  const projectInfo: any[] = [];
-  for (const [fieldName, fieldValue] of Object.entries(projektinformationFields)) {
-    if (fieldValue && fieldValue.trim()) {
-      const formattedFieldName = fieldName
-        .replace(/_/g, ' ')
-        .replace(/\b\w/g, char => char.toUpperCase());
-      projectInfo.push({
-        label: formattedFieldName,
-        value: fieldValue
-      });
-    }
-  }
-
   // Extract Fastighetsuppgifter fields
   const fastighetsuppgifterSection = project.sections?.find(s => s.name === 'Fastighetsuppgifter');
   const fastighetsuppgifterFields = fastighetsuppgifterSection ? project.sectionFields?.[fastighetsuppgifterSection.id] || {} : {};
@@ -191,7 +175,7 @@ export const generateBesiktningsprotokollPDF = async (project: ProjectWithSectio
     }
   }
 
-  // Extract Besiktningsutlåtande as free text
+  // Extract Besiktningsutlåtande as free text string
   const besiktningsutlatandeSection = project.sections?.find(s => s.name === 'Besiktningsutlåtande');
   const besiktningsutlatandeFields = besiktningsutlatandeSection ? project.sectionFields?.[besiktningsutlatandeSection.id] || {} : {};
   let besiktningsutlatande = '';
@@ -203,46 +187,53 @@ export const generateBesiktningsprotokollPDF = async (project: ProjectWithSectio
   }
   besiktningsutlatande = besiktningsutlatande.trim();
 
-  // Extract main sections with subsections
+  // Extract main sections with subsections and notes
   const mainSectionNames = ['Utvändigt', 'Entréplan', 'Övre plan', 'Källarplan'];
   const mainSectionsData: any[] = [];
 
   if (project.sections && project.notes) {
     for (const sectionName of mainSectionNames) {
       const mainSection = project.sections.find(s => s.name === sectionName);
-      if (mainSection) {
+      if (mainSection && mainSection.subsections && mainSection.subsections.length > 0) {
         const subsectionsData: any[] = [];
 
-        if (mainSection.subsections && mainSection.subsections.length > 0) {
-          for (const subsection of mainSection.subsections) {
-            const subsectionNotes = project.notes.filter(note =>
-              note.subsection_id === subsection.id
-            );
+        for (const subsection of mainSection.subsections) {
+          const subsectionNotes = project.notes.filter(note =>
+            note.subsection_id === subsection.id
+          );
 
-            // Process each note to extract comment and imageUrl
-            for (const note of subsectionNotes) {
-              let comment = note.kommentar || '';
-              if (!comment && note.transcription) {
-                comment = note.transcription;
-              } else if (!comment && note.imageLabel) {
-                comment = note.imageLabel;
+          if (subsectionNotes.length > 0) {
+            const notesData = subsectionNotes.map(note => {
+              let content = note.kommentar || '';
+              if (!content && note.transcription) {
+                content = note.transcription;
+              } else if (!content && note.imageLabel) {
+                content = note.imageLabel;
               }
 
               const imageUrl = note.type === 'photo' && note.mediaUrl ? note.mediaUrl : null;
 
-              subsectionsData.push({
-                title: subsection.name,
-                comment: comment || 'Ingen kommentar',
+              return {
+                content: content || 'Ingen kommentar',
                 imageUrl: imageUrl
-              });
-            }
+              };
+            });
+
+            subsectionsData.push({
+              name: subsection.name,
+              notes: notesData
+            });
           }
         }
 
-        mainSectionsData.push({
-          name: sectionName,
-          subsections: subsectionsData
-        });
+        // Only add section if it has subsections with notes
+        if (subsectionsData.length > 0) {
+          mainSectionsData.push({
+            name: sectionName,
+            hasSubsections: true,
+            subsections: subsectionsData
+          });
+        }
       }
     }
   }
@@ -254,7 +245,6 @@ export const generateBesiktningsprotokollPDF = async (project: ProjectWithSectio
       date: formatSwedishDate(inspectionDate),
       inspector: project.inspector || 'Ej angiven'
     },
-    projectInfo: projectInfo,
     fastighetsuppgifter: fastighetsuppgifter,
     besiktningsuppgifter: besiktningsuppgifter,
     byggnadsbeskrivning: byggnadsbeskrivning,
@@ -262,16 +252,24 @@ export const generateBesiktningsprotokollPDF = async (project: ProjectWithSectio
     mainSections: mainSectionsData
   };
 
-  console.log('Template data structure:', JSON.stringify({
-    project: templateData.project,
-    projectInfoCount: projectInfo.length,
-    fastighetsuppgifterCount: fastighetsuppgifter.length,
-    besiktningsuppgifterCount: besiktningsuppgifter.length,
-    byggnadsbeskrivningCount: byggnadsbeskrivning.length,
-    besiktningsutlatandeLength: besiktningsutlatande.length,
-    mainSectionsCount: mainSectionsData.length,
-    totalSubsections: mainSectionsData.reduce((sum, s) => sum + s.subsections.length, 0)
-  }, null, 2));
+  console.log('=== TEMPLATE DATA STRUCTURE ===');
+  console.log('Project:', templateData.project);
+  console.log('Fastighetsuppgifter count:', fastighetsuppgifter.length);
+  console.log('Besiktningsuppgifter count:', besiktningsuppgifter.length);
+  console.log('Byggnadsbeskrivning count:', byggnadsbeskrivning.length);
+  console.log('Besiktningsutlåtande length:', besiktningsutlatande.length);
+  console.log('Main sections count:', mainSectionsData.length);
+
+  mainSectionsData.forEach((section, idx) => {
+    console.log(`Section ${idx + 1} - ${section.name}:`);
+    console.log(`  Subsections: ${section.subsections.length}`);
+    section.subsections.forEach((subsection: any, subIdx: number) => {
+      console.log(`    ${subIdx + 1}. ${subsection.name} - ${subsection.notes.length} notes`);
+      subsection.notes.forEach((note: any, noteIdx: number) => {
+        console.log(`       Note ${noteIdx + 1}: content=${note.content.substring(0, 50)}..., hasImage=${!!note.imageUrl}`);
+      });
+    });
+  });
 
   const html = await renderHtmlTemplate('besiktningsprotokoll', templateData);
 
