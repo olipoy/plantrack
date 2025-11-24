@@ -191,16 +191,34 @@ export const generateBesiktningsprotokollPDF = async (project: ProjectWithSectio
   const mainSectionNames = ['Utvändigt', 'Entréplan', 'Övre plan', 'Källarplan'];
   const mainSectionsData: any[] = [];
 
+  console.log('=== DEBUG: Starting notes extraction ===');
+  console.log('Total notes available:', project.notes?.length || 0);
+  console.log('Notes data:', JSON.stringify(project.notes?.map(n => ({
+    id: n.id,
+    section_id: n.section_id,
+    subsection_id: n.subsection_id,
+    type: n.type,
+    kommentar: n.kommentar?.substring(0, 30)
+  })), null, 2));
+
   if (project.sections && project.notes) {
     for (const sectionName of mainSectionNames) {
       const mainSection = project.sections.find(s => s.name === sectionName);
+      console.log(`\n=== Processing section: ${sectionName} ===`);
+      console.log('Found section:', !!mainSection);
+
       if (mainSection && mainSection.subsections && mainSection.subsections.length > 0) {
+        console.log(`Section has ${mainSection.subsections.length} subsections`);
         const subsectionsData: any[] = [];
 
         for (const subsection of mainSection.subsections) {
+          console.log(`  Checking subsection: ${subsection.name} (ID: ${subsection.id})`);
+
           const subsectionNotes = project.notes.filter(note =>
             note.subsection_id === subsection.id
           );
+
+          console.log(`    Found ${subsectionNotes.length} notes with subsection_id=${subsection.id}`);
 
           if (subsectionNotes.length > 0) {
             const notesData = subsectionNotes.map(note => {
