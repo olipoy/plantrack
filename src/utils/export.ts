@@ -201,6 +201,10 @@ export const generateBesiktningsprotokollPDF = async (project: ProjectWithSectio
     kommentar: n.kommentar?.substring(0, 30)
   })), null, 2));
 
+  // Count notes by subsection_id
+  const notesWithSubsectionId = project.notes?.filter(n => n.subsection_id) || [];
+  console.log(`Notes with subsection_id: ${notesWithSubsectionId.length}/${project.notes?.length || 0}`);
+
   if (project.sections && project.notes) {
     for (const sectionName of mainSectionNames) {
       const mainSection = project.sections.find(s => s.name === sectionName);
