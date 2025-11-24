@@ -5,8 +5,11 @@
   <title>Besiktningsprotokoll</title>
 
   <style>
-    /* PAGE SETTINGS */
-    body {
+    html, body {
+      margin: 0;
+      padding: 0;
+    }
+    .page {
       font-family: Arial, Helvetica, sans-serif;
       font-size: 12pt;
       margin: 20mm;
@@ -16,218 +19,220 @@
     h1 {
       text-align: center;
       font-size: 22pt;
-      margin-bottom: 18mm;
+      font-weight: bold;
+      margin: 0 0 18pt 0;
+    }
+
+    /* ---------- TABLES ON PAGE 1 ---------- */
+
+    .two-col-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10mm;
+      gap: 10mm;   /* spacing between tables */
+    }
+
+    .table-block {
+      width: 55%;             /* user requested 55% width for left table */
+    }
+
+    .table-title {
+      font-weight: bold;
+      font-size: 14pt;
+      margin-bottom: 4pt;
+    }
+
+    table.info-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12pt;
+      margin-bottom: 6pt;
+    }
+
+    table.info-table td {
+      border: 0.5pt solid #000;
+      padding: 4pt 6pt;
+    }
+
+    .label {
       font-weight: bold;
     }
 
-    /* ------ TABLE GRID (55/30 LAYOUT) ------ */
-    .grid-row {
-      display: flex;
-      gap: 20px;
-      margin-bottom: 20px;
-      page-break-inside: avoid;
-    }
-
-    .section-group {
-      width: 55%;
-    }
-    .section-group.narrow {
-      width: 30%;
-    }
+    /* ---------- FREE TEXT BLOCK ---------- */
 
     .section-title {
-      font-size: 13pt;
-      font-weight: bold;
-      margin-bottom: 6px;
-    }
-
-    .info-table {
-      width: 100%;
-      border: 1pt solid #000;
-      border-collapse: collapse;
-      background: #fff;
-    }
-
-    .info-table td {
-      border: 1pt solid #000;
-      padding: 6px 8px;
-      line-height: 1.3;
-    }
-
-    /* ------ PAGE 2 SPACING ------ */
-    .observations-start {
-      margin-top: 20mm;
-    }
-
-    /* ------ SECTION HEADERS ------ */
-    .section-header {
       font-size: 16pt;
       font-weight: bold;
-      margin-top: 0mm;
+      margin: 20pt 0 6pt 0;
     }
 
-    .section-divider {
-      border-top: 2px solid #000;
-      margin: 2mm 0 5mm 0;
+    .free-text {
+      border: 0.5pt solid #000;
+      padding: 8pt;
+      min-height: 40mm;
+      white-space: pre-wrap;
     }
 
-    /* ------ SUBSECTION BLOCK ------ */
+    /* ---------- PAGE BREAK ---------- */
+    .page-break {
+      page-break-before: always;
+    }
+
+    /* ---------- OBSERVATIONER ---------- */
+    .obs-section {
+      font-size: 18pt;
+      font-weight: bold;
+      margin-top: 16pt;
+      margin-bottom: 4pt;
+    }
+
+    .obs-divider {
+      border-bottom: 1.5pt solid #000;
+      margin-bottom: 8pt;
+    }
+
     .subsection-title {
       font-weight: bold;
-      font-size: 12pt;
-      margin-bottom: 2mm;
+      font-size: 13pt;
+      margin-top: 10pt;
+      margin-bottom: 2pt;
     }
 
     .subsection-divider {
-      border-bottom: 1px solid #aaa;
-      margin: 4mm 0 8mm 0;
+      border-bottom: 0.5pt solid #000;
+      margin-top: 4pt;
+      margin-bottom: 12pt;
     }
 
-    /* OBSERVATION LAYOUT: TEXT LEFT / IMAGE RIGHT */
-    .observation-block {
+    .subsection-row {
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
       gap: 10mm;
-      margin-bottom: 4mm;
-      page-break-inside: avoid;
+      margin-bottom: 10pt;
     }
 
-    .observation-text {
+    .comment-block {
       width: 60%;
-      line-height: 1.4;
+      white-space: pre-wrap;
     }
 
-    .observation-image {
-      width: 35%;
+    .image-block {
+      width: 40%;
+      text-align: right;
     }
 
-    .observation-image img {
-      width: 100%;
-      max-height: 140mm;
+    .obs-image {
+      max-width: 60mm;
+      max-height: 45mm;
       object-fit: contain;
-      border: 1px solid #ccc;
+      border: 0.5pt solid #444;
     }
   </style>
 </head>
 
 <body>
+  <div class="page">
 
-<h1>Besiktningsprotokoll</h1>
+    <h1>Besiktningsprotokoll</h1>
 
-<!-- ======================== -->
-<!-- PAGE 1 TABLE BLOCKS      -->
-<!-- (Using pdftesty3 style)  -->
-<!-- ======================== -->
+    <!-- PAGE 1 – PROJECT INFO (4 TABLES) -->
 
-<!-- ROW 1 -->
-<div class="grid-row">
-  <div class="section-group">
-    <div class="section-title">Projektinformation</div>
-    <table class="info-table">
-      <tr><td><strong>Projektnamn:</strong> Exempelprojekt – Villa Solsidan</td></tr>
-      <tr><td><strong>Adress:</strong> Testvägen 12, Bromma</td></tr>
-      <tr><td><strong>Datum:</strong> 20 nov 2025</td></tr>
-      <tr><td><strong>Inspektör:</strong> Oliver</td></tr>
-    </table>
-  </div>
+    <!-- First row of two tables -->
+    <div class="two-col-row">
+      <!-- PROJEKTINFO -->
+      <div class="table-block">
+        <div class="table-title">Projektinformation</div>
+        <table class="info-table">
+          {{#each projectInfo}}
+            <tr>
+              <td class="label">{{label}}</td>
+              <td>{{value}}</td>
+            </tr>
+          {{/each}}
+        </table>
+      </div>
 
-  <div class="section-group narrow">
-    <div class="section-title">Fastighetsuppgifter</div>
-    <table class="info-table">
-      <tr><td><strong>Typ:</strong> Enfamiljshus</td></tr>
-      <tr><td><strong>Byggår:</strong> 1989</td></tr>
-      <tr><td><strong>Area:</strong> 162 m²</td></tr>
-    </table>
-  </div>
-</div>
-
-<!-- ROW 2 -->
-<div class="grid-row">
-  <div class="section-group">
-    <div class="section-title">Besiktningsuppgifter</div>
-    <table class="info-table">
-      <tr><td><strong>Syfte:</strong> Överlåtelsebesiktning</td></tr>
-      <tr><td><strong>Väderlek:</strong> Mulet</td></tr>
-      <tr><td><strong>Temperatur:</strong> 9°C</td></tr>
-    </table>
-  </div>
-
-  <div class="section-group narrow">
-    <div class="section-title">Byggnadsbeskrivning</div>
-    <table class="info-table">
-      <tr><td><strong>Stomme:</strong> Trä</td></tr>
-      <tr><td><strong>Fasad:</strong> Träpanel</td></tr>
-      <tr><td><strong>Tak:</strong> Betongpannor</td></tr>
-    </table>
-  </div>
-</div>
-
-<!-- Besiktningsutlåtande -->
-<div style="margin-top: 12mm; page-break-inside: avoid;">
-  <div class="section-title">Besiktningsutlåtande</div>
-  <p style="line-height: 1.4; max-width: 90%;">
-    Fastigheten uppvisar flera tecken på normalt slitage men även vissa brister
-    där åtgärder rekommenderas inom en snar framtid. Inga akuta risker hittades.
-  </p>
-</div>
-
-<!-- FORCE PAGE BREAK -->
-<div style="page-break-after: always;"></div>
-
-
-<!-- ======================== -->
-<!-- PAGE 2 — OBSERVATIONS    -->
-<!-- (Using exact layout from -->
-<!--  pdftesty2)              -->
-<!-- ======================== -->
-
-<div class="observations-start">
-
-  <!-- SECTION 1 -->
-  <div class="section-header">Utvändigt</div>
-  <div class="section-divider"></div>
-
-  <!-- SUBSECTION: Fasad -->
-  <div class="subsection-title">Fasad</div>
-  <div class="observation-block">
-    <div class="observation-text">
-      Fasadpanelen är i behov av målning/underhåll. Risk för fuktinträngning vid dåligt underhållen träpanel.
+      <!-- FASTIGHETSUPPGIFTER -->
+      <div class="table-block">
+        <div class="table-title">Fastighetsuppgifter</div>
+        <table class="info-table">
+          {{#each fastighetsuppgifter}}
+            <tr>
+              <td class="label">{{label}}</td>
+              <td>{{value}}</td>
+            </tr>
+          {{/each}}
+        </table>
+      </div>
     </div>
-    <div class="observation-image">
-      <img src="IMAGE_URL_1" alt="Fasadbild" />
+
+    <!-- Second row of two tables -->
+    <div class="two-col-row">
+      <!-- BESIKTNINGSUPPGIFTER -->
+      <div class="table-block">
+        <div class="table-title">Besiktningsuppgifter</div>
+        <table class="info-table">
+          {{#each besiktningsuppgifter}}
+            <tr>
+              <td class="label">{{label}}</td>
+              <td>{{value}}</td>
+            </tr>
+          {{/each}}
+        </table>
+      </div>
+
+      <!-- BYGGNADSBESKRIVNING -->
+      <div class="table-block">
+        <div class="table-title">Byggnadsbeskrivning</div>
+        <table class="info-table">
+          {{#each byggnadsbeskrivning}}
+            <tr>
+              <td class="label">{{label}}</td>
+              <td>{{value}}</td>
+            </tr>
+          {{/each}}
+        </table>
+      </div>
     </div>
+
+    <!-- BESIKTNINGSUTLÅTANDE (FREE TEXT) -->
+    <div class="section-title">Besiktningsutlåtande</div>
+    <div class="free-text">
+      {{besiktningsutlatande}}
+    </div>
+
+    <!-- PAGE BREAK -->
+    <div class="page-break"></div>
+
+    <!-- PAGE 2+ OBSERVATIONER -->
+    <div class="obs-title">Observationer</div>
+
+    {{#each mainSections}}
+
+      <div class="obs-section">{{name}}</div>
+      <div class="obs-divider"></div>
+
+      {{#each subsections}}
+        <div class="subsection-title">{{title}}</div>
+
+        <div class="subsection-row">
+          <!-- COMMENT -->
+          <div class="comment-block">{{comment}}</div>
+
+          <!-- IMAGE -->
+          <div class="image-block">
+            {{#if imageUrl}}
+              <img src="{{imageUrl}}" class="obs-image" crossorigin="anonymous" />
+            {{/if}}
+          </div>
+        </div>
+
+        <div class="subsection-divider"></div>
+
+      {{/each}}
+
+    {{/each}}
+
   </div>
-  <div class="subsection-divider"></div>
-
-  <!-- SUBSECTION: Tak -->
-  <div class="subsection-title">Tak</div>
-  <div class="observation-block">
-    <div class="observation-text">
-      Takpannor visar tecken på slitage. Rengöring och punktvis byte rekommenderas.
-    </div>
-    <div class="observation-image">
-      <img src="IMAGE_URL_2" alt="Takbild" />
-    </div>
-  </div>
-  <div class="subsection-divider"></div>
-
-  <!-- SECTION 2 -->
-  <div class="section-header">Entréplan</div>
-  <div class="section-divider"></div>
-
-  <div class="subsection-title">Hall</div>
-  <div class="observation-block">
-    <div class="observation-text">
-      Mindre sprickor i väggar. Ingen fukt påträffad.
-    </div>
-    <div class="observation-image">
-      <img src="IMAGE_URL_3" alt="Hallbild" />
-    </div>
-  </div>
-  <div class="subsection-divider"></div>
-
-</div>
-
 </body>
 </html>
