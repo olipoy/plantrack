@@ -127,44 +127,83 @@ export const generateBesiktningsprotokollPDF = async (project: ProjectWithSectio
 
   const inspectionDate = project.date ? new Date(project.date) : new Date();
 
-  const sectionFieldGroups = [
-    'Fastighetsuppgifter',
-    'Besiktningsuppgifter',
-    'Byggnadsbeskrivning',
-    'Besiktningsutlåtande'
-  ];
-
-  const fieldSectionsData: any[] = [];
-
-  if (project.sections) {
-    for (const sectionName of sectionFieldGroups) {
-      const section = project.sections.find(s => s.name === sectionName);
-      if (section) {
-        const fields = project.sectionFields?.[section.id] || {};
-        const fieldsArray: any[] = [];
-
-        for (const [fieldName, fieldValue] of Object.entries(fields)) {
-          if (fieldValue && fieldValue.trim()) {
-            const formattedFieldName = fieldName
-              .replace(/_/g, ' ')
-              .replace(/\b\w/g, char => char.toUpperCase());
-
-            fieldsArray.push({
-              label: formattedFieldName,
-              value: fieldValue
-            });
-          }
-        }
-
-        fieldSectionsData.push({
-          title: sectionName,
-          hasFields: fieldsArray.length > 0,
-          fields: fieldsArray
-        });
-      }
+  // Extract Projektinformation fields
+  const projektinformationSection = project.sections?.find(s => s.name === 'Projektinformation');
+  const projektinformationFields = projektinformationSection ? project.sectionFields?.[projektinformationSection.id] || {} : {};
+  const projectInfo: any[] = [];
+  for (const [fieldName, fieldValue] of Object.entries(projektinformationFields)) {
+    if (fieldValue && fieldValue.trim()) {
+      const formattedFieldName = fieldName
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, char => char.toUpperCase());
+      projectInfo.push({
+        label: formattedFieldName,
+        value: fieldValue
+      });
     }
   }
 
+  // Extract Fastighetsuppgifter fields
+  const fastighetsuppgifterSection = project.sections?.find(s => s.name === 'Fastighetsuppgifter');
+  const fastighetsuppgifterFields = fastighetsuppgifterSection ? project.sectionFields?.[fastighetsuppgifterSection.id] || {} : {};
+  const fastighetsuppgifter: any[] = [];
+  for (const [fieldName, fieldValue] of Object.entries(fastighetsuppgifterFields)) {
+    if (fieldValue && fieldValue.trim()) {
+      const formattedFieldName = fieldName
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, char => char.toUpperCase());
+      fastighetsuppgifter.push({
+        label: formattedFieldName,
+        value: fieldValue
+      });
+    }
+  }
+
+  // Extract Besiktningsuppgifter fields
+  const besiktningsuppgifterSection = project.sections?.find(s => s.name === 'Besiktningsuppgifter');
+  const besiktningsuppgifterFields = besiktningsuppgifterSection ? project.sectionFields?.[besiktningsuppgifterSection.id] || {} : {};
+  const besiktningsuppgifter: any[] = [];
+  for (const [fieldName, fieldValue] of Object.entries(besiktningsuppgifterFields)) {
+    if (fieldValue && fieldValue.trim()) {
+      const formattedFieldName = fieldName
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, char => char.toUpperCase());
+      besiktningsuppgifter.push({
+        label: formattedFieldName,
+        value: fieldValue
+      });
+    }
+  }
+
+  // Extract Byggnadsbeskrivning fields
+  const byggnadsbeskrivningSection = project.sections?.find(s => s.name === 'Byggnadsbeskrivning');
+  const byggnadsbeskrivningFields = byggnadsbeskrivningSection ? project.sectionFields?.[byggnadsbeskrivningSection.id] || {} : {};
+  const byggnadsbeskrivning: any[] = [];
+  for (const [fieldName, fieldValue] of Object.entries(byggnadsbeskrivningFields)) {
+    if (fieldValue && fieldValue.trim()) {
+      const formattedFieldName = fieldName
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, char => char.toUpperCase());
+      byggnadsbeskrivning.push({
+        label: formattedFieldName,
+        value: fieldValue
+      });
+    }
+  }
+
+  // Extract Besiktningsutlåtande as free text
+  const besiktningsutlatandeSection = project.sections?.find(s => s.name === 'Besiktningsutlåtande');
+  const besiktningsutlatandeFields = besiktningsutlatandeSection ? project.sectionFields?.[besiktningsutlatandeSection.id] || {} : {};
+  let besiktningsutlatande = '';
+  // Concatenate all field values as free text
+  for (const [fieldName, fieldValue] of Object.entries(besiktningsutlatandeFields)) {
+    if (fieldValue && fieldValue.trim()) {
+      besiktningsutlatande += fieldValue + ' ';
+    }
+  }
+  besiktningsutlatande = besiktningsutlatande.trim();
+
+  // Extract main sections with subsections
   const mainSectionNames = ['Utvändigt', 'Entréplan', 'Övre plan', 'Källarplan'];
   const mainSectionsData: any[] = [];
 
@@ -180,33 +219,28 @@ export const generateBesiktningsprotokollPDF = async (project: ProjectWithSectio
               note.subsection_id === subsection.id
             );
 
-            const notesData = subsectionNotes.map(note => {
-              let content = note.kommentar || '';
-              if (!content && note.transcription) {
-                content = note.transcription;
-              } else if (!content && note.imageLabel) {
-                content = note.imageLabel;
+            // Process each note to extract comment and imageUrl
+            for (const note of subsectionNotes) {
+              let comment = note.kommentar || '';
+              if (!comment && note.transcription) {
+                comment = note.transcription;
+              } else if (!comment && note.imageLabel) {
+                comment = note.imageLabel;
               }
 
-              const icon = note.type === 'photo' ? '📷' : note.type === 'video' ? '🎥' : '📝';
+              const imageUrl = note.type === 'photo' && note.mediaUrl ? note.mediaUrl : null;
 
-              return {
-                icon,
-                content: content || 'Ingen kommentar'
-              };
-            });
-
-            subsectionsData.push({
-              name: subsection.name,
-              hasNotes: notesData.length > 0,
-              notes: notesData
-            });
+              subsectionsData.push({
+                title: subsection.name,
+                comment: comment || 'Ingen kommentar',
+                imageUrl: imageUrl
+              });
+            }
           }
         }
 
         mainSectionsData.push({
           name: sectionName,
-          hasSubsections: subsectionsData.length > 0,
           subsections: subsectionsData
         });
       }
@@ -220,9 +254,24 @@ export const generateBesiktningsprotokollPDF = async (project: ProjectWithSectio
       date: formatSwedishDate(inspectionDate),
       inspector: project.inspector || 'Ej angiven'
     },
-    fieldSections: fieldSectionsData,
+    projectInfo: projectInfo,
+    fastighetsuppgifter: fastighetsuppgifter,
+    besiktningsuppgifter: besiktningsuppgifter,
+    byggnadsbeskrivning: byggnadsbeskrivning,
+    besiktningsutlatande: besiktningsutlatande,
     mainSections: mainSectionsData
   };
+
+  console.log('Template data structure:', JSON.stringify({
+    project: templateData.project,
+    projectInfoCount: projectInfo.length,
+    fastighetsuppgifterCount: fastighetsuppgifter.length,
+    besiktningsuppgifterCount: besiktningsuppgifter.length,
+    byggnadsbeskrivningCount: byggnadsbeskrivning.length,
+    besiktningsutlatandeLength: besiktningsutlatande.length,
+    mainSectionsCount: mainSectionsData.length,
+    totalSubsections: mainSectionsData.reduce((sum, s) => sum + s.subsections.length, 0)
+  }, null, 2));
 
   const html = await renderHtmlTemplate('besiktningsprotokoll', templateData);
 
