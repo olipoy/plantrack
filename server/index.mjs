@@ -1850,12 +1850,18 @@ app.post('/api/projects/pdf-overlay', authenticateToken, uploadPdfOverlay.single
     const templateId = templateResult.rows[0].id;
     console.log('Document template created:', templateId);
 
+    // Get user's organization
+    const orgId = await organizationDb.getUserPrimaryOrganization(req.user.id);
+    if (!orgId) {
+      return res.status(400).json({ error: 'User must belong to an organization to create projects' });
+    }
+
     // Create project with type 'pdfOverlay'
     const projectResult = await query(
-      `INSERT INTO projects (user_id, name, project_date, created_at, updated_at, type, document_template_id)
-       VALUES ($1, $2, NOW(), NOW(), NOW(), $3, $4)
+      `INSERT INTO projects (user_id, name, project_date, org_id, created_at, updated_at, type, document_template_id)
+       VALUES ($1, $2, NOW(), $3, NOW(), NOW(), $4, $5)
        RETURNING *`,
-      [req.user.id, name, 'pdfOverlay', templateId]
+      [req.user.id, name, orgId, 'pdfOverlay', templateId]
     );
 
     const project = projectResult.rows[0];
