@@ -534,8 +534,14 @@ app.get('/api/projects', authenticateToken, async (req, res) => {
     console.log('API /api/projects response - sample project:', projects[0] ? {
       id: projects[0].id,
       name: projects[0].name,
-      template_id: projects[0].template_id
+      template_id: projects[0].template_id,
+      type: projects[0].type,
+      document_template_id: projects[0].document_template_id
     } : 'No projects');
+    console.log('Total projects returned:', projects.length);
+    if (projects.length > 0) {
+      console.log('All project types:', projects.map(p => ({ name: p.name, type: p.type })));
+    }
     res.json(projects);
   } catch (error) {
     console.error('Get projects error:', error);
