@@ -291,10 +291,12 @@ const projectDb = {
        ORDER BY p.updated_at DESC`,
       [orgId]
     );
-    console.log('getUserProjects: Sample project with template_id:', result.rows[0] ? {
+    console.log('getUserProjects: Sample project:', result.rows[0] ? {
       id: result.rows[0].id,
       name: result.rows[0].name,
-      template_id: result.rows[0].template_id
+      template_id: result.rows[0].template_id,
+      type: result.rows[0].type,
+      document_template_id: result.rows[0].document_template_id
     } : 'No projects found');
     return result.rows;
   },
