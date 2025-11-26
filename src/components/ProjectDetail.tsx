@@ -667,7 +667,27 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
           )}
 
           {/* Sections (for template-based projects) or Notes (for non-template projects) */}
-          {project.template === 'besiktningsprotokoll' ? (
+          {project.template === 'pdfOverlay' ? (
+            <div className="bg-white rounded-lg p-6 shadow-sm">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <FileText className="w-8 h-8 text-blue-600" />
+                </div>
+                <h2 className="text-lg font-semibold text-gray-900 mb-2">PDF-mall uppladdad</h2>
+                <p className="text-gray-600 text-sm mb-4">
+                  Din PDF-mall har laddats upp och projektet är skapat.
+                </p>
+                <div className="bg-gray-50 rounded-lg p-4 text-left">
+                  <p className="text-sm text-gray-700 mb-2">
+                    <span className="font-medium">Projektnamn:</span> {project.name}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    Funktionen för att fylla i formulär med röst kommer snart.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : project.template === 'besiktningsprotokoll' ? (
             <div className="bg-white rounded-lg p-4 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-900 mb-3">Sektioner</h2>
               {isLoadingSections ? (

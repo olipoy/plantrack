@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Project } from './types';
 import { ProjectList } from './components/ProjectList';
 import { NewProject } from './components/NewProject';
+import { NewPdfOverlayProject } from './components/NewPdfOverlayProject';
 import { ProjectDetail } from './components/ProjectDetail';
 import { GlobalAIChat } from './components/GlobalAIChat';
 import { AuthForm } from './components/AuthForm';
@@ -15,7 +16,7 @@ import { getUserProjects, getProjectById } from './utils/api';
 import { ClipboardList, Plus, FolderOpen, Bot, LogOut, User, Settings, X } from 'lucide-react';
 import { isAuthenticated, getUser, logout } from './utils/auth';
 
-type View = 'list' | 'new' | 'detail' | 'organization-settings';
+type View = 'list' | 'new' | 'new-pdf-overlay' | 'detail' | 'organization-settings';
 type Tab = 'projects' | 'ai';
 
 function App() {
@@ -364,7 +365,18 @@ function MainApp() {
             )}
 
             {currentView === 'new' && (
-              <NewProject onBack={handleBackToList} onProjectCreated={handleProjectCreated} />
+              <NewProject
+                onBack={handleBackToList}
+                onProjectCreated={handleProjectCreated}
+                onPdfOverlaySelected={() => setCurrentView('new-pdf-overlay')}
+              />
+            )}
+
+            {currentView === 'new-pdf-overlay' && (
+              <NewPdfOverlayProject
+                onBack={() => setCurrentView('new')}
+                onProjectCreated={handleProjectCreated}
+              />
             )}
 
             {currentView === 'detail' && selectedProject && (

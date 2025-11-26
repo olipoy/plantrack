@@ -8,6 +8,7 @@ import { Project } from '../types';
 interface NewProjectProps {
   onBack: () => void;
   onProjectCreated: (project: Project) => void;
+  onPdfOverlaySelected?: () => void;
 }
 
 interface AddressSuggestion {
@@ -32,10 +33,15 @@ const AVAILABLE_TEMPLATES: Template[] = [
     id: 'besiktningsprotokoll',
     name: 'Besiktningsprotokoll',
     description: 'Strukturerat besiktningsprotokoll med fördefinierade sektioner'
+  },
+  {
+    id: 'pdfOverlay',
+    name: 'Egen PDF-mall (beta)',
+    description: 'Ladda upp din egen PDF eller bild och fyll i den med röst'
   }
 ];
 
-export const NewProject: React.FC<NewProjectProps> = ({ onBack, onProjectCreated }) => {
+export const NewProject: React.FC<NewProjectProps> = ({ onBack, onProjectCreated, onPdfOverlaySelected }) => {
   const [step, setStep] = useState<'template' | 'details'>('template');
   const [selectedTemplate, setSelectedTemplate] = useState<string>('inspektionsrapport');
   const [name, setName] = useState('');
@@ -222,7 +228,11 @@ export const NewProject: React.FC<NewProjectProps> = ({ onBack, onProjectCreated
                 key={template.id}
                 onClick={() => {
                   setSelectedTemplate(template.id);
-                  setStep('details');
+                  if (template.id === 'pdfOverlay' && onPdfOverlaySelected) {
+                    onPdfOverlaySelected();
+                  } else {
+                    setStep('details');
+                  }
                 }}
                 className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
                   selectedTemplate === template.id
