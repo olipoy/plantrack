@@ -8,6 +8,7 @@ import { TextNoteModal } from './TextNoteModal';
 import { SectionView } from './SectionView';
 import { SectionFieldsForm } from './SectionFieldsForm';
 import { EditProjectModal } from './EditProjectModal';
+import { PdfOverlayProjectView } from './PdfOverlayProjectView';
 import { loadEmailHistory, saveEmailToHistory, filterEmailHistory } from '../utils/emailHistory';
 import { getProjectSections, organizeSectionsHierarchy } from '../utils/sections';
 import { safeFormatDate, safeFormatFileSize, safeUrl, isValidUrl } from '../utils/formatters';
@@ -21,14 +22,19 @@ interface ProjectDetailProps {
   onEmailDataProcessed?: () => void;
 }
 
-export const ProjectDetail: React.FC<ProjectDetailProps> = ({ 
-  project, 
-  onBack, 
-  onProjectUpdate, 
+export const ProjectDetail: React.FC<ProjectDetailProps> = ({
+  project,
+  onBack,
+  onProjectUpdate,
   onProjectDelete,
   pendingEmailData,
   onEmailDataProcessed
 }) => {
+  // If this is a PDF overlay project, use the dedicated view
+  if (project.type === 'pdfOverlay') {
+    return <PdfOverlayProjectView project={project} onBack={onBack} />;
+  }
+
   const [currentView, setCurrentView] = useState<'detail' | 'camera-photo' | 'camera-video' | 'text-note'>('detail');
   const [showModal, setShowModal] = useState(false);
   const [emailRecipient, setEmailRecipient] = useState('');
