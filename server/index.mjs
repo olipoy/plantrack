@@ -525,90 +525,6 @@ app.post('/api/projects', authenticateToken, async (req, res) => {
   }
 });
 
-// Create PDF overlay project with file upload
-app.post('/api/projects/pdf-overlay', authenticateToken, upload.single('file'), async (req, res) => {
-  try {
-    const { name } = req.body;
-    const file = req.file;
-
-    console.log('Creating PDF overlay project:', { name, hasFile: !!file, userId: req.user.id });
-
-    if (!name) {
-      return res.status(400).json({ error: 'Project name is required' });
-    }
-
-    if (!file) {
-      return res.status(400).json({ error: 'File is required' });
-    }
-
-    // Validate file type
-    const validTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
-    if (!validTypes.includes(file.mimetype)) {
-      return res.status(400).json({ error: 'Invalid file type. Only PDF, JPG, and PNG are allowed' });
-    }
-
-    // Upload file to S3
-    let fileUrl;
-    if (isS3Available()) {
-      const fileKey = `document-templates/${req.user.id}/${uuidv4()}-${file.originalname}`;
-      const uploadParams = {
-        Bucket: getBucketName(),
-        Key: fileKey,
-        Body: file.buffer,
-        ContentType: file.mimetype
-      };
-
-      const s3Client = new S3Client({
-        region: process.env.AWS_REGION,
-        credentials: {
-          accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
-        }
-      });
-
-      await s3Client.send(new PutObjectCommand(uploadParams));
-      fileUrl = `https://${getBucketName()}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileKey}`;
-      console.log('File uploaded to S3:', fileUrl);
-    } else {
-      // Fallback to local storage
-      const localPath = join(uploadsDir, `${uuidv4()}-${file.originalname}`);
-      await fs.writeFile(localPath, file.buffer);
-      fileUrl = `/uploads/${path.basename(localPath)}`;
-      console.log('File saved locally:', fileUrl);
-    }
-
-    // Create document_template record
-    const templateResult = await query(
-      `INSERT INTO document_templates (source_file_url, created_at, updated_at)
-       VALUES ($1, NOW(), NOW())
-       RETURNING id`,
-      [fileUrl]
-    );
-
-    const templateId = templateResult.rows[0].id;
-    console.log('Document template created:', templateId);
-
-    // Create project with type 'pdfOverlay'
-    const projectResult = await query(
-      `INSERT INTO projects (user_id, name, project_date, created_at, updated_at, type, document_template_id)
-       VALUES ($1, $2, NOW(), NOW(), NOW(), $3, $4)
-       RETURNING *`,
-      [req.user.id, name, 'pdfOverlay', templateId]
-    );
-
-    const project = projectResult.rows[0];
-    console.log('PDF overlay project created successfully:', project);
-
-    res.status(201).json(project);
-  } catch (error) {
-    console.error('Create PDF overlay project error:', error);
-    res.status(500).json({
-      error: 'Failed to create PDF overlay project',
-      details: error.message
-    });
-  }
-});
-
 // Get all projects for current user
 app.get('/api/projects', authenticateToken, async (req, res) => {
   try {
@@ -1845,6 +1761,90 @@ app.post('/api/transcribe-audio', authenticateToken, upload.single('file'), asyn
     console.error('Transcribe audio endpoint failed:', error);
     return res.status(500).json({
       error: 'Transcribe audio failed',
+      details: error.message
+    });
+  }
+});
+
+// Create PDF overlay project with file upload
+app.post('/api/projects/pdf-overlay', authenticateToken, upload.single('file'), async (req, res) => {
+  try {
+    const { name } = req.body;
+    const file = req.file;
+
+    console.log('Creating PDF overlay project:', { name, hasFile: !!file, userId: req.user.id });
+
+    if (!name) {
+      return res.status(400).json({ error: 'Project name is required' });
+    }
+
+    if (!file) {
+      return res.status(400).json({ error: 'File is required' });
+    }
+
+    // Validate file type
+    const validTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+    if (!validTypes.includes(file.mimetype)) {
+      return res.status(400).json({ error: 'Invalid file type. Only PDF, JPG, and PNG are allowed' });
+    }
+
+    // Upload file to S3
+    let fileUrl;
+    if (isS3Available()) {
+      const fileKey = `document-templates/${req.user.id}/${uuidv4()}-${file.originalname}`;
+      const uploadParams = {
+        Bucket: getBucketName(),
+        Key: fileKey,
+        Body: file.buffer,
+        ContentType: file.mimetype
+      };
+
+      const s3Client = new S3Client({
+        region: process.env.AWS_REGION,
+        credentials: {
+          accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+        }
+      });
+
+      await s3Client.send(new PutObjectCommand(uploadParams));
+      fileUrl = `https://${getBucketName()}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileKey}`;
+      console.log('File uploaded to S3:', fileUrl);
+    } else {
+      // Fallback to local storage
+      const localPath = join(uploadsDir, `${uuidv4()}-${file.originalname}`);
+      await fs.writeFile(localPath, file.buffer);
+      fileUrl = `/uploads/${path.basename(localPath)}`;
+      console.log('File saved locally:', fileUrl);
+    }
+
+    // Create document_template record
+    const templateResult = await query(
+      `INSERT INTO document_templates (source_file_url, created_at, updated_at)
+       VALUES ($1, NOW(), NOW())
+       RETURNING id`,
+      [fileUrl]
+    );
+
+    const templateId = templateResult.rows[0].id;
+    console.log('Document template created:', templateId);
+
+    // Create project with type 'pdfOverlay'
+    const projectResult = await query(
+      `INSERT INTO projects (user_id, name, project_date, created_at, updated_at, type, document_template_id)
+       VALUES ($1, $2, NOW(), NOW(), NOW(), $3, $4)
+       RETURNING *`,
+      [req.user.id, name, 'pdfOverlay', templateId]
+    );
+
+    const project = projectResult.rows[0];
+    console.log('PDF overlay project created successfully:', project);
+
+    res.status(201).json(project);
+  } catch (error) {
+    console.error('Create PDF overlay project error:', error);
+    res.status(500).json({
+      error: 'Failed to create PDF overlay project',
       details: error.message
     });
   }
