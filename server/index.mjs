@@ -1657,6 +1657,19 @@ const upload = multer({
   }
 });
 
+// Separate multer instance for PDF overlay uploads (accepts PDF and images)
+const uploadPdfOverlay = multer({
+  storage,
+  limits: {
+    fileSize: 100 * 1024 * 1024, // 100MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+    const isAllowed = allowedTypes.includes(file.mimetype) || file.mimetype.startsWith('image/');
+    cb(null, isAllowed);
+  }
+});
+
 // Store chat history in memory (in production, use a database)
 const chatHistory = new Map();
 
@@ -1767,7 +1780,7 @@ app.post('/api/transcribe-audio', authenticateToken, upload.single('file'), asyn
 });
 
 // Create PDF overlay project with file upload
-app.post('/api/projects/pdf-overlay', authenticateToken, upload.single('file'), async (req, res) => {
+app.post('/api/projects/pdf-overlay', authenticateToken, uploadPdfOverlay.single('file'), async (req, res) => {
   try {
     const { name } = req.body;
     const file = req.file;
