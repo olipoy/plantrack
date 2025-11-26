@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Upload, FileText, Image as ImageIcon } from 'lucide-react';
 import { Project } from '../types';
+import { getToken } from '../utils/auth';
 
 interface NewPdfOverlayProjectProps {
   onBack: () => void;
@@ -49,6 +50,11 @@ export const NewPdfOverlayProject: React.FC<NewPdfOverlayProjectProps> = ({
     setError(null);
 
     try {
+      const token = getToken();
+      if (!token) {
+        throw new Error('Ej inloggad');
+      }
+
       const formData = new FormData();
       formData.append('name', name.trim());
       formData.append('type', 'pdfOverlay');
@@ -60,11 +66,6 @@ export const NewPdfOverlayProject: React.FC<NewPdfOverlayProjectProps> = ({
         : import.meta.env.VITE_API_URL
           ? `${import.meta.env.VITE_API_URL.replace(/\/$/, '')}/api`
           : '/api';
-
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Ej inloggad');
-      }
 
       const response = await fetch(`${apiBaseUrl}/projects/pdf-overlay`, {
         method: 'POST',
