@@ -10,6 +10,8 @@ export interface Project {
   aiSummary?: string;
   noteCount?: number;
   template?: string | null;
+  type?: 'standard' | 'pdfOverlay';
+  documentTemplateId?: string | null;
 }
 
 export interface TemplateSection {

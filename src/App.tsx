@@ -75,7 +75,9 @@ function MainApp() {
           notes: [], // Notes will be loaded when project is selected
           aiSummary: p.ai_summary,
           noteCount: p.note_count || 0,
-          template: p.template_id || null
+          template: p.template_id || null,
+          type: p.type || 'standard',
+          documentTemplateId: p.document_template_id || null
         }));
         
         console.log('Formatted projects:', formattedProjects);
@@ -142,7 +144,9 @@ function MainApp() {
         updatedAt: new Date(p.updated_at || p.created_at),
         notes: [],
         aiSummary: p.ai_summary,
-        template: p.template_id || null
+        template: p.template_id || null,
+        type: p.type || 'standard',
+        documentTemplateId: p.document_template_id || null
       }));
       setProjects(formattedProjects);
     } catch (error) {
@@ -227,7 +231,9 @@ function MainApp() {
           })),
           aiSummary: fullProject.ai_summary,
           noteCount: (fullProject.notes || []).length,
-          template: fullProject.template_id || null
+          template: fullProject.template_id || null,
+          type: fullProject.type || 'standard',
+          documentTemplateId: fullProject.document_template_id || null
         };
         
         console.log('Formatted project with notes:', formattedProject);

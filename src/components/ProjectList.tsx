@@ -1,6 +1,6 @@
 import React from 'react';
 import { Project } from '../types';
-import { FileText, MapPin, Calendar, ChevronRight, User, MoreVertical, Trash2 } from 'lucide-react';
+import { FileText, MapPin, Calendar, ChevronRight, User, MoreVertical, Trash2, File } from 'lucide-react';
 import { deleteProject } from '../utils/api';
 
 interface ProjectListProps {
@@ -96,37 +96,55 @@ export const ProjectList: React.FC<ProjectListProps> = ({ projects, onSelectProj
             </div>
             
             {/* Project details */}
-            <div className="space-y-2">
-              <div className="flex items-center text-gray-500 text-sm mt-1">
-                <MapPin className="w-4 h-4 mr-1 flex-shrink-0" />
-                <span className="truncate">{project.location}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center text-gray-500 text-sm">
-                  <Calendar className="w-4 h-4 mr-1" />
-                  <span>{formatDate(project.date)}</span>
+            {project.type === 'pdfOverlay' ? (
+              <div className="space-y-2">
+                <div className="flex items-center text-gray-500 text-sm mt-1">
+                  <File className="w-4 h-4 mr-1 flex-shrink-0" />
+                  <span className="truncate">PDF-mallprojekt</span>
                 </div>
-                <div className="flex items-center text-gray-500 text-sm">
-                  <User className="w-4 h-4 mr-1" />
-                  <span className="truncate">{project.inspector}</span>
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center text-sm">
-                  <span className="text-gray-500 mr-2">
-                    {project.noteCount || project.notes.length} anteckningar
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center text-gray-500 text-sm">
+                    <Calendar className="w-4 h-4 mr-1" />
+                    <span>{formatDate(project.date)}</span>
+                  </div>
+                  <span className="text-xs text-gray-400">
+                    Uppdaterad {formatDate(project.updatedAt)}
                   </span>
-                  <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
-                    <span className="text-blue-600 text-xs font-medium">
-                      {project.noteCount || project.notes.length}
-                    </span>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-center text-gray-500 text-sm mt-1">
+                  <MapPin className="w-4 h-4 mr-1 flex-shrink-0" />
+                  <span className="truncate">{project.location}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center text-gray-500 text-sm">
+                    <Calendar className="w-4 h-4 mr-1" />
+                    <span>{formatDate(project.date)}</span>
+                  </div>
+                  <div className="flex items-center text-gray-500 text-sm">
+                    <User className="w-4 h-4 mr-1" />
+                    <span className="truncate">{project.inspector}</span>
                   </div>
                 </div>
-                <span className="text-xs text-gray-400">
-                  Uppdaterad {formatDate(project.updatedAt)}
-                </span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center text-sm">
+                    <span className="text-gray-500 mr-2">
+                      {project.noteCount || project.notes.length} anteckningar
+                    </span>
+                    <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                      <span className="text-blue-600 text-xs font-medium">
+                        {project.noteCount || project.notes.length}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-xs text-gray-400">
+                    Uppdaterad {formatDate(project.updatedAt)}
+                  </span>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       ))}
